@@ -127,7 +127,7 @@ impl Player {
         self.assets.iter().map(|a| a.silver_value).sum()
     }
 
-    pub fn play_hand(&mut self, idx: usize) {
+    pub fn play_card(&mut self, idx: usize) {
         if let Some(card) = self.hand.get(idx) {
             match card {
                 Either::Left(_) if self.assets_to_play > 0 => {
@@ -202,28 +202,6 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn play_turn(&mut self) {
-        match self.current_turn {
-            Role::Shareholder => {}
-            Role::Banker => todo!(),
-            Role::Regulator => todo!(),
-            Role::CEO => todo!(),
-            Role::CFO => todo!(),
-            Role::CSO => todo!(),
-            Role::HeadRnD => todo!(),
-            Role::Stakeholder => todo!(),
-        }
-
-        match self.current_turn.next() {
-            Some(role) => {
-                self.current_turn = role;
-            }
-            None => {
-                self.is_end_of_round = true;
-            }
-        }
-    }
-
     pub fn draw_asset_card(&mut self) -> Asset {
         // we know assets cannot run out in a normal game so this is safe
         self.asset_deck.pop().unwrap()

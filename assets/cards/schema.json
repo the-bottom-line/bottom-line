@@ -1,0 +1,131 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "required": ["metadata", "deck_list"],
+    "properties": {
+        "metadata" : {
+            "type" : "object",
+            "required" : ["version", "gamemode"],
+            "properties" : {
+                "version": {"type" : "string"},
+                "gamemode" : {"type" : "string"}
+            },
+            "additionalProperties": false
+        },
+        "deck_list" : {
+            "type" : "object",
+            "required" : ["asset_deck", "liability_deck", "market_events_deck"],
+            "properties" : {
+                "asset_deck" : {
+                    "type" : "object",
+                    "required" : ["card_image_back_url", "card_list"],
+                    "properties" : {
+                        "card_image_back_url" : {"type" : "string"},
+                        "card_list" : {
+                            "type" : "array",
+                            "items" : {
+                                "type" : "object",
+                                "required" : ["title", "color", "gold_value", "silver_value", "copies", "card_image_url"],
+                                "properties" : {
+                                    "title" : {"type" : "string"},
+                                    "color" : {"enum" : ["Blue", "Green", "Red", "Yellow", "Purple"]},
+                                    "gold_value" : {"type" : "integer", "minimum" : 1},
+                                    "silver_value" : {"type" : "integer","minimum" : 1},
+                                    "ability" : {"type" : "string"},
+                                    "card_image_url" : {"type" : "string" },
+                                    "copies" : {"type" : "integer", "minimum" : 1}
+                                },
+                                "additionalProperties" : false
+                            }
+                        },
+                        "additionalProperties" : false
+                    }
+                },
+                "liability_deck" : {
+                    "type" : "object",
+                    "required" : ["card_image_back_url", "card_list"],
+                    "properties" : {
+                        "card_image_back_url" : {"type" : "string"},
+                        "card_list" : {
+                            "type" : "array",
+                            "items" : {
+                                "type" : "object",
+                                "required" : ["liability_type", "gold_value", "copies", "card_image_url"],
+                                "properties" : {
+                                    "liability_type" : {"enum" : ["Trade Credit", "Bank Loan", "Bonds"]},
+                                    "gold_value" : {"type" : "integer", "minimum" : 1},
+                                    "card_image_url" : {"type" : "string"},
+                                    "copies" : {"type" : "integer", "minimum" : 1}
+                                }
+                            },
+                            "additionalProperties" : false
+                        }
+                    },
+                    "additionalProperties" : false
+                },
+                "market_events_deck" : {
+                    "type" : "object",
+                    "required" : ["card_image_back_url", "card_list"],
+                    "properties": {
+                        "card_image_back_url" : {"type" : "string"},
+                        "card_list" : {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "allOf" : [
+                                {
+                                    "type" : "object",
+                                    "required" : ["title", "copies", "card_image_url"],
+                                    "properties" : {
+                                        "title" : {"type" : "string"},
+                                        "card_image_url": {"type" : "string"},
+                                        "copies" : {"type" : "integer", "minimum" : 1}
+                                    }
+                                },
+                                {
+                                    "oneOf" : [
+                                    {
+                                        "required": ["market_status"],
+                                        "properties" : {
+                                            "market_status" : {
+                                                "type" : "object",
+                                                "required" : ["rfr", "mrp"],
+                                                "properties" : {
+                                                    "rfr" : {"type" : "integer"},
+                                                    "mrp" : {"type" : "integer"}
+                                                },
+                                                "patternProperties" : {
+                                                    "^(Blue|Green|Red|Yellow|Purple)$" : 
+                                                        {"enum" : ["up", "down"]}
+                                                },
+                                                "additionalProperties" : false
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "required": ["event"],
+                                        "properties" : {
+                                            "event" : {
+                                                "type" : "object",
+                                                "required" : ["description", "effect"],
+                                                "properties": {
+                                                    "description" : {"type" : "string"},
+                                                    "effect" : {"type" : "string"}
+                                                }
+                                            }
+                                        }
+                                    }
+                                    ]
+                                }
+                                ]
+                            }
+                        }
+                    },
+                    "additionalProperties" : false
+                }
+            },
+            "additionalProperties" : false
+        }
+    },
+    "additionalProperties" : false
+}

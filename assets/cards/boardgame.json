@@ -1,0 +1,851 @@
+{
+    "metadata" : {
+        "version" : "0.1",
+        "gamemode" : "board_version"
+    },
+    "deck_list" :
+    {
+        "asset_deck" : {
+            "card_image_back_url" : "asset_back.webp",
+
+            "card_list" : [
+            {
+                "title" : "Patent",
+                "color" : "Purple",
+                "gold_value" : 1,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/patent_1-1.webp"
+            },
+            {
+                "title" : "Patent",
+                "color" : "Purple",
+                "gold_value" : 1,
+                "silver_value" : 2,
+                "copies" : 1,
+                "card_image_url" : "assets/patent_1-2.webp"
+            },
+            {
+                "title" : "Patent",
+                "color" : "Purple",
+                "gold_value" : 1,
+                "silver_value" : 3,
+                "copies" : 1,
+                "card_image_url" : "assets/patent_1-3.webp"
+            },
+            {
+                "title" : "Joint Venture",
+                "color" : "Purple",
+                "gold_value" : 2,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/jointVenture_2-1.webp"
+            },
+            {
+                "title" : "Joint Venture",
+                "color" : "Purple",
+                "gold_value" : 2,
+                "silver_value" : 2,
+                "copies" : 1,
+                "card_image_url" : "assets/jointVenture_2-2.webp"
+            },
+            {
+                "title" : "Joint Venture",
+                "color" : "Purple",
+                "gold_value" : 2,
+                "silver_value" : 3,
+                "copies" : 1,
+                "card_image_url" : "assets/jointVenture_2-3.webp"
+            },
+            {
+                "title" : "R&D Lab",
+                "color" : "Purple",
+                "gold_value" : 3,
+                "silver_value" : 1,
+                "copies" : 1,
+                "ability": "At the end of the game, for one color, turn - into 0 or 0 into +",
+                "card_image_url" : "assets/rndLab_3-1.webp"
+            },
+            {
+                "title" : "R&D Lab",
+                "color" : "Purple",
+                "gold_value" : 3,
+                "silver_value" : 2,
+                "copies" : 1,
+                "ability": "At the end of the game, for one color, turn - into 0 or 0 into +",
+                "card_image_url" : "assets/rndLab_3-2.webp"
+            },
+            {
+                "title" : "R&D Lab",
+                "color" : "Purple",
+                "gold_value" : 3,
+                "silver_value" : 3,
+                "copies" : 1,
+                "ability": "At the end of the game, for one color, turn - into 0 or 0 into +",
+                "card_image_url" : "assets/rndLab_3-3.webp"
+            },
+            {
+                "title" : "Application Lab",
+                "color" : "Purple",
+                "gold_value" : 4,
+                "silver_value" : 1,
+                "copies" : 1,
+                "ability" : "At the end of the game, turn silver into gold on one asset card",
+                "card_image_url" : "assets/applicationLab_4-1.webp"
+            },
+            {
+                "title" : "Application Lab",
+                "color" : "Purple",
+                "gold_value" : 4,
+                "silver_value" : 2,
+                "copies" : 1,
+                "ability" : "At the end of the game, turn silver into gold on one asset card",
+                "card_image_url" : "assets/applicationLab_4-2.webp"
+            },
+            {
+                "title" : "Pilot Plant",
+                "color" : "Purple",
+                "gold_value" : 5,
+                "silver_value" : 1,
+                "copies" : 1,
+                "ability" : "At the end of the game, count one of your assets as any color",
+                "card_image_url" : "assets/pilotPlant_5-1.webp"
+            },
+            {
+                "title" : "Carbon Certificate",
+                "color" : "Green",
+                "gold_value" : 1,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/carbonCertificate_1-1.webp"
+            },
+            {
+                "title" : "Carbon Certificate",
+                "color" : "Green",
+                "gold_value" : 1,
+                "silver_value" : 2,
+                "copies" : 1,
+                "card_image_url" : "assets/carbonCertificate_1-2.webp"
+            },
+            {
+                "title" : "Carbon Certificate",
+                "color" : "Green",
+                "gold_value" : 1,
+                "silver_value" : 3,
+                "copies" : 1,
+                "card_image_url" : "assets/carbonCertificate_1-3.webp"
+            },
+            {
+                "title" : "Water Treatment",
+                "color" : "Green",
+                "gold_value" : 2,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/waterTreatment_2-1.webp"
+            },
+            {
+                "title" : "Water Treatment",
+                "color" : "Green",
+                "gold_value" : 2,
+                "silver_value" : 2,
+                "copies" : 1,
+                "card_image_url" : "assets/waterTreatment_2-2.webp"
+            },
+            {
+                "title" : "Water Treatment",
+                "color" : "Green",
+                "gold_value" : 2,
+                "silver_value" : 3,
+                "copies" : 1,
+                "card_image_url" : "assets/waterTreatment_2-3.webp"
+            },
+            {
+                "title" : "Waste Management",
+                "color" : "Green",
+                "gold_value" : 3,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/wasteManagement_3-1.webp"
+            },
+            {
+                "title" : "Waste Management",
+                "color" : "Green",
+                "gold_value" : 3,
+                "silver_value" : 2,
+                "copies" : 1,
+                "card_image_url" : "assets/wasteManagement_3-2.webp"
+            },
+            {
+                "title" : "Waste Management",
+                "color" : "Green",
+                "gold_value" : 3,
+                "silver_value" : 3,
+                "copies" : 1,
+                "card_image_url" : "assets/wasteManagement_3-3.webp"
+            },
+            {
+                "title" : "Circular Hub",
+                "color" : "Green",
+                "gold_value" : 4,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/circularHub_4-1.webp"
+            },
+            {
+                "title" : "Circular Hub",
+                "color" : "Green",
+                "gold_value" : 4,
+                "silver_value" : 2,
+                "copies" : 1,
+                "card_image_url" : "assets/circularHub_4-2.webp"
+            },
+            {
+                "title" : "Heat Power Plant",
+                "color" : "Green",
+                "gold_value" : 5,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/heatPowerPlant_5-1.webp"
+            },
+            {
+                "title" : "Accounts Receivable",
+                "color" : "Blue",
+                "gold_value" : 1,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/accountsReceivable_1-1.webp"
+            },
+            {
+                "title" : "Accounts Receivable",
+                "color" : "Blue",
+                "gold_value" : 1,
+                "silver_value" : 2,
+                "copies" : 1,
+                "card_image_url" : "assets/accountsReceivable_1-2.webp"
+            },
+            {
+                "title" : "Accounts Receivable",
+                "color" : "Blue",
+                "gold_value" : 1,
+                "silver_value" : 3,
+                "copies" : 1,
+                "card_image_url" : "assets/accountsReceivable_1-3.webp"
+            },
+            {
+                "title" : "Inventory",
+                "color" : "Blue",
+                "gold_value" : 2,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/inventory_2-1.webp"
+            },
+            {
+                "title" : "Inventory",
+                "color" : "Blue",
+                "gold_value" : 2,
+                "silver_value" : 2,
+                "copies" : 1,
+                "card_image_url" : "assets/inventory_2-2.webp"
+            },
+            {
+                "title" : "Inventory",
+                "color" : "Blue",
+                "gold_value" : 2,
+                "silver_value" : 3,
+                "copies" : 1,
+                "card_image_url" : "assets/inventory_2-3.webp"
+            },
+            {
+                "title" : "Factor & Lease",
+                "color" : "Blue",
+                "gold_value" : 3,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/factornlease_3-1.webp"
+            },
+            {
+                "title" : "Factor & Lease",
+                "color" : "Blue",
+                "gold_value" : 3,
+                "silver_value" : 2,
+                "copies" : 1,
+                "card_image_url" : "assets/factornlease_3-2.webp"
+            },
+            {
+                "title" : "Factor & Lease",
+                "color" : "Blue",
+                "gold_value" : 3,
+                "silver_value" : 3,
+                "copies" : 1,
+                "card_image_url" : "assets/factornlease_3-3.webp"
+            },
+            {
+                "title" : "Participation",
+                "color" : "Blue",
+                "gold_value" : 4,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/participation_4-1.webp"
+            },
+            {
+                "title" : "Participation",
+                "color" : "Blue",
+                "gold_value" : 4,
+                "silver_value" : 2,
+                "copies" : 1,
+                "card_image_url" : "assets/participation_4-2.webp"
+            },
+            {
+                "title" : "Merger",
+                "color" : "Blue",
+                "gold_value" : 5,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/merger_5-1.webp"
+            },
+            {
+                "title" : "Store",
+                "color" : "Yellow",
+                "gold_value" : 1,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/store_1-1.webp"
+            },
+            {
+                "title" : "Store",
+                "color" : "Yellow",
+                "gold_value" : 1,
+                "silver_value" : 2,
+                "copies" : 1,
+                "card_image_url" : "assets/store_1-2.webp"
+            },
+            {
+                "title" : "Store",
+                "color" : "Yellow",
+                "gold_value" : 1,
+                "silver_value" : 3,
+                "copies" : 1,
+                "card_image_url" : "assets/store_1-3.webp"
+            },
+            {
+                "title" : "Machine",
+                "color" : "Yellow",
+                "gold_value" : 2,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/machine_2-1.webp"
+            },
+            {
+                "title" : "Machine",
+                "color" : "Yellow",
+                "gold_value" : 2,
+                "silver_value" : 2,
+                "copies" : 1,
+                "card_image_url" : "assets/machine_2-2.webp"
+            },
+            {
+                "title" : "Machine",
+                "color" : "Yellow",
+                "gold_value" : 2,
+                "silver_value" : 3,
+                "copies" : 1,
+                "card_image_url" : "assets/machine_2-3.webp"
+            },
+            {
+                "title" : "Factory",
+                "color" : "Yellow",
+                "gold_value" : 3,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/factory_3-1.webp"
+            },
+            {
+                "title" : "Factory",
+                "color" : "Yellow",
+                "gold_value" : 3,
+                "silver_value" : 2,
+                "copies" : 1,
+                "card_image_url" : "assets/factory_3-2.webp"
+            },
+            {
+                "title" : "Factory",
+                "color" : "Yellow",
+                "gold_value" : 3,
+                "silver_value" : 3,
+                "copies" : 1,
+                "card_image_url" : "assets/factory_3-3.webp"
+            },
+            {
+                "title" : "Warehouse",
+                "color" : "Yellow",
+                "gold_value" : 4,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/warehouse_4-1.webp"
+            },
+            {
+                "title" : "Warehouse",
+                "color" : "Yellow",
+                "gold_value" : 4,
+                "silver_value" : 2,
+                "copies" : 1,
+                "card_image_url" : "assets/warehouse_4-2.webp"
+            },
+            {
+                "title" : "Headquarters",
+                "color" : "Yellow",
+                "gold_value" : 5,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/headquarters_5-1.webp"
+            },
+            {
+                "title" : "Worker's Counsil",
+                "color" : "Red",
+                "gold_value" : 1,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/workersCounsil_1-1.webp"
+            },
+            {
+                "title" : "Worker's Counsil",
+                "color" : "Red",
+                "gold_value" : 1,
+                "silver_value" : 2,
+                "copies" : 1,
+                "card_image_url" : "assets/workersCounsil_1-2.webp"
+            },
+            {
+                "title" : "Worker's Counsil",
+                "color" : "Red",
+                "gold_value" : 1,
+                "silver_value" : 3,
+                "copies" : 1,
+                "card_image_url" : "assets/workersCounsil_1-3.webp"
+            },
+            {
+                "title" : "Diversity & Inclusion",
+                "color" : "Red",
+                "gold_value" : 2,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/diversityninclusion_2-1.webp"
+            },
+            {
+                "title" : "Diversity & Inclusion",
+                "color" : "Red",
+                "gold_value" : 2,
+                "silver_value" : 2,
+                "copies" : 1,
+                "card_image_url" : "assets/diversityninclusion_2-2.webp"
+            },
+            {
+                "title" : "Diversity & Inclusion",
+                "color" : "Red",
+                "gold_value" : 2,
+                "silver_value" : 3,
+                "copies" : 1,
+                "card_image_url" : "assets/diversityninclusion_2-3.webp"
+            },
+            {
+                "title" : "Human Resources",
+                "color" : "Red",
+                "gold_value" : 3,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/humanResources_3-1.webp"
+            },
+            {
+                "title" : "Human Resources",
+                "color" : "Red",
+                "gold_value" : 3,
+                "silver_value" : 2,
+                "copies" : 1,
+                "card_image_url" : "assets/humanResources_3-2.webp"
+            },
+            {
+                "title" : "Human Resources",
+                "color" : "Red",
+                "gold_value" : 3,
+                "silver_value" : 3,
+                "copies" : 1,
+                "card_image_url" : "assets/humanResources_3-3.webp"
+            },
+            {
+                "title" : "Apprenticeships",
+                "color" : "Red",
+                "gold_value" : 4,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/apprenticeships_4-1.webp"
+            },
+            {
+                "title" : "Apprenticeships",
+                "color" : "Red",
+                "gold_value" : 4,
+                "silver_value" : 2,
+                "copies" : 1,
+                "card_image_url" : "assets/apprenticeships_4-2.webp"
+            },
+            {
+                "title" : "Company Campus",
+                "color" : "Red",
+                "gold_value" : 5,
+                "silver_value" : 1,
+                "copies" : 1,
+                "card_image_url" : "assets/companyCampus_5-1.webp"
+            }
+            ]
+        },
+        "liability_deck" : {
+            "card_image_back_url" : "liability_back.webp",
+
+            "card_list" : [
+            {
+                "liability_type" : "Trade Credit",
+                "gold_value" : 1,
+                "copies" : 8,
+                "card_image_url" : "liabilities/tradeCredit_1.webp"
+            },
+            {
+                "liability_type" : "Trade Credit",
+                "gold_value" : 2,
+                "copies" : 8,
+                "card_image_url" : "liabilities/tradeCredit_2.webp"
+            },
+            {
+                "liability_type" : "Trade Credit",
+                "gold_value" : 3,
+                "copies" : 4,
+                "card_image_url" : "liabilities/tradeCredit_3.webp"
+            },
+            {
+                "liability_type" : "Bank Loan",
+                "gold_value" : 1,
+                "copies" : 8,
+                "card_image_url" : "liabilities/bankLoan_1.webp"
+            },
+            {
+                "liability_type" : "Bank Loan",
+                "gold_value" : 2,
+                "copies" : 8,
+                "card_image_url" : "liabilities/bankLoan_2.webp"
+            },
+            {
+                "liability_type" : "Bank Loan",
+                "gold_value" : 3,
+                "copies" : 2,
+                "card_image_url" : "liabilities/bankLoan_3.webp"
+            },
+            {
+                "liability_type" : "Bank Loan",
+                "gold_value" : 5,
+                "copies" : 2,
+                "card_image_url" : "liabilities/bankLoan_5.webp"
+            },
+            {
+                "liability_type" : "Bonds",
+                "gold_value" : 1,
+                "copies" : 8,
+                "card_image_url" : "liabilities/bonds_1.webp"
+            },
+            {
+                "liability_type" : "Bonds",
+                "gold_value" : 2,
+                "copies" : 11,
+                "card_image_url" : "liabilities/bonds_2.webp"
+            },
+            {
+                "liability_type" : "Bonds",
+                "gold_value" : 3,
+                "copies" : 4,
+                "card_image_url" : "liabilities/bonds_3.webp"
+            },
+            {
+                "liability_type" : "Bonds",
+                "gold_value" : 5,
+                "copies" : 2,
+                "card_image_url" : "liabilities/bonds_5.webp"
+            }
+            ]
+        },
+        "market_events_deck" : {
+            "card_image_back_url" : "market_back.webp",
+
+            "card_list" : [
+            {
+                "title" : "Global Treaty on Climate Change",
+                "event" : {
+                    "description" : "Negotiations have succeeded and all UN-member states have agreed on a global treaty to fight climate change.",
+                    "effect" : "The CSO has to skip their turn to formulate the corporate alignment strategy. All Green assets gain one gold."
+                },
+                "copies" : 1,
+                "card_image_url" : "events/climateChange.webp"
+            },
+            {
+                "title" : "Russia Invades Ukraine",
+                "event" : {
+                    "description" : "Energy and raw material prices soar and cost-push inflation reduces profitability.",
+                    "effect" : "The CEO can only purchase one asset this round and the value of all Yellow assets falls by one gold."
+                },
+                "copies" : 1,
+                "card_image_url" : "events/russiaUkraine.webp"
+            },
+            {
+                "title" : "China Invades Taiwan",
+                "event" : {
+                    "description" : "Chips and electronic hardware as well as rare earth metals are no longer available in the West.",
+                    "effect" : "The head of R&D has to skip this turn and all Purple assets lose one gold."
+                },
+                "copies" : 1,
+                "card_image_url" : "events/chinaTaiwan.webp"
+            },
+            {
+                "title" : "US Invades Iran",
+                "event" : {
+                    "description" : "Demand in the US war industry rises and prices, global interest rates and risk premia soar.",
+                    "effect" : "All firms must add 2% or 200 basispoints to the cost of debt at the end of the game. The value of Yellow and Green assets rises by one gold."
+                },
+                "copies" : 1,
+                "card_image_url" : "events/USIran.webp"
+            },
+            {
+                "title" : "Global Pandemic",
+                "event" : {
+                    "description" : "A pandemic rages across the globe. The lockdowns, illness and death disrupt all business and production.",
+                    "effect" : "The Stakeholder has to skip their turn. Yellow, Green and Blue assets lose one gold. Firms that invested in the social capital of the firm (have Red assets), can limit their losses with one gold per red asset."
+                },
+                "copies" : 1,
+                "card_image_url" : "events/globalPandemic.webp"
+            },
+            {
+                "title" : "Socialist Revolution",
+                "event" : {
+                    "description" : "Socialists win in a landslide victory in the elections. Radical shifts in policy are announced.",
+                    "effect" : "The Regulator needs to skip their turn. The new policies hurt especially the Yellow and Blue assets, that lose one gold. Red and Green assets gain one gold."
+                },
+                "copies" : 1,
+                "card_image_url" : "events/socialism.webp"
+            },
+            {
+                "title" : "Right Wing Populists",
+                "event" : {
+                    "description" : "Right wing populists win a landslide victory in the elections. Radical shifts in policy are announced.",
+                    "effect" : "The Regulator needs to skip their turn. The new policies hurt especially the Red and Green assets, that lose one gold. Yellow and Blue assets gain one gold."
+                },
+                "copies" : 1,
+                "card_image_url" : "events/populism.webp"
+            },
+            {
+                "title" : "Bookkeeping Scandal",
+                "event" : {
+                    "description" : "A major bookkeeping scandal is uncovered and all firms face stringent scrutiny of their books.",
+                    "effect" : "The CFO will have to skip their turn and all Blue assets lose one gold."
+                },
+                "copies" : 1,
+                "card_image_url" : "events/scandal.webp"
+            },
+            {
+                "title" : "General Purpose Technology",
+                "event" : {
+                    "description" : "Digitization makes all innovation more productive.",
+                    "effect" : "The head of R&D can purchase two assets this round and all purple assets gain one gold."
+                },
+                "copies" : 1,
+                "card_image_url" : "events/technology.webp"
+            },
+            {
+                "title" : "Stable Market",
+                "market_status" : {
+                    "rfr" : 4,
+                    "mrp" : 4
+                },
+                "copies" : 1,
+                "card_image_url" : "events/stable_01.webp"
+            },
+            {
+                "title" : "Stable Market",
+                "market_status" : {
+                    "rfr" : 2,
+                    "mrp" : 4,
+                    "Purple" : "up"
+                },
+                "copies" : 1,
+                "card_image_url" : "events/stable_02.webp"
+            },
+            {
+                "title" : "Stable Market",
+                "market_status" : {
+                    "rfr" : 3,
+                    "mrp" : 4,
+                    "Yellow" : "up"
+                },
+                "copies" : 1,
+                "card_image_url" : "events/stable_03.webp"
+            },
+            {
+                "title" : "Stable Market",
+                "market_status" : {
+                    "rfr" : 1,
+                    "mrp" : 4,
+                    "Blue" : "up"
+                },
+                "copies" : 1,
+                "card_image_url" : "events/stable_04.webp"
+            },
+            {
+                "title" : "Bull Market",
+                "market_status" : {
+                    "rfr" : 1,
+                    "mrp" : 6,
+                    "Blue" : "up",
+                    "Green" : "up",
+                    "Purple" : "up"
+                },
+                "copies" : 1,
+                "card_image_url" : "events/bull_01.webp"
+            },
+            {
+                "title" : "Bull Market",
+                "market_status" : {
+                    "rfr" : 3,
+                    "mrp" : 8,
+                    "Yellow" : "up",
+                    "Blue" : "up",
+                    "Green" : "up",
+                    "Purple" : "up"
+                },
+                "copies" : 1,
+                "card_image_url" : "events/bull_02.webp"
+            },
+            {
+                "title" : "Bull Market",
+                "market_status" : {
+                    "rfr" : 2,
+                    "mrp" : 8,
+                    "Yellow" : "up",
+                    "Green" : "up",
+                    "Purple" : "up"
+                },
+                "copies" : 1,
+                "card_image_url" : "events/bull_03.webp"
+            },
+            {
+                "title" : "Bull Market",
+                "market_status" : {
+                    "rfr" : 4,
+                    "mrp" : 8,
+                    "Yellow" : "up",
+                    "Blue" : "up",
+                    "Purple" : "up",
+                    "Red" : "up"
+                },
+                "copies" : 1,
+                "card_image_url" : "events/bull_04.webp"
+            },
+            {
+                "title" : "Bull Market",
+                "market_status" : {
+                    "rfr" : 2,
+                    "mrp" : 6,
+                    "Yellow" : "up",
+                    "Blue" : "up",
+                    "Green" : "up",
+                    "Purple" : "up",
+                    "Red" : "up"
+                },
+                "copies" : 1,
+                "card_image_url" : "events/bull_05.webp"
+            },
+            {
+                "title" : "Bull Market",
+                "market_status" : {
+                    "rfr" : 1,
+                    "mrp" : 8,
+                    "Yellow" : "up",
+                    "Blue" : "up",
+                    "Red" : "up"
+                },
+                "copies" : 1,
+                "card_image_url" : "events/bull_06.webp"
+            },
+            {
+                "title" : "Bear Market",
+                "market_status" : {
+                    "rfr" : 1,
+                    "mrp" : 4,
+                    "Yellow" : "down",
+                    "Green" : "down",
+                    "Purple" : "down"
+                },
+                "copies" : 1,
+                "card_image_url" : "events/bear_01.webp"
+            },
+            {
+                "title" : "Bear Market",
+                "market_status" : {
+                    "rfr" : 1,
+                    "mrp" : 4,
+                    "Yellow" : "down",
+                    "Blue" : "down",
+                    "Purple" : "down",
+                    "Red" : "down"
+                },
+                "copies" : 1,
+                "card_image_url" : "events/bear_02.webp"
+            },
+            {
+                "title" : "Bear Market",
+                "market_status" : {
+                    "rfr" : 2,
+                    "mrp" : 6,
+                    "Yellow" : "down",
+                    "Blue" : "down",
+                    "Red" : "down"
+                },
+                "copies" : 1,
+                "card_image_url" : "events/bear_03.webp"
+            },
+            {
+                "title" : "Bear Market",
+                "market_status" : {
+                    "rfr" : 3,
+                    "mrp" : 6,
+                    "Yellow" : "down",
+                    "Blue" : "down",
+                    "Green" : "down",
+                    "Purple" : "down"
+                },
+                "copies" : 1,
+                "card_image_url" : "events/bear_04.webp"
+            },
+            {
+                "title" : "Bear Market",
+                "market_status" : {
+                    "rfr" : 2,
+                    "mrp" : 4,
+                    "Yellow" : "down",
+                    "Blue" : "down",
+                    "Green" : "down",
+                    "Purple" : "down",
+                    "Red" : "down"
+                },
+                "copies" : 1,
+                "card_image_url" : "events/bear_05.webp"
+            },
+            {
+                "title" : "Bear Market",
+                "market_status" : {
+                    "rfr" : 4,
+                    "mrp" : 6,
+                    "Blue" : "down",
+                    "Green" : "down",
+                    "Purple" : "down"
+                },
+                "copies" : 1,
+                "card_image_url" : "events/bear_06.webp"
+            }
+            ]
+        }
+    }
+}

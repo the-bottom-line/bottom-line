@@ -100,7 +100,7 @@ pub struct Player {
     pub assets: Vec<Asset>,
     pub liabilities: Vec<Liability>,
     pub hand: Vec<Either<Asset, Liability>>,
-    pub gold: u8, // could be unnecessary
+    pub gold: u8,   // could be unnecessary
     pub silver: u8, // could be unnecessary
     pub cards_to_grab: u8,
     pub assets_to_play: u8,
@@ -122,7 +122,7 @@ impl Player {
             liabilities_to_play: 1,
         }
     }
-    
+
     pub fn play_hand(&mut self, idx: usize) {
         if let Some(card) = self.hand.get(idx) {
             match card {
@@ -130,20 +130,18 @@ impl Player {
                     let asset = self.hand.remove(idx).left().unwrap();
                     self.assets_to_play -= 1;
                     self.assets.push(asset)
-                },
+                }
                 Either::Right(_) if self.liabilities_to_play > 0 => {
                     let liability = self.hand.remove(idx).right().unwrap();
                     self.liabilities_to_play -= 1;
                     self.liabilities.push(liability)
-                },
+                }
                 _ => {}
             }
         }
     }
-    
-    pub fn draw_card(&mut self, ) {
-        
-    }
+
+    pub fn draw_card(&mut self) {}
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -196,7 +194,7 @@ pub struct Game {
     current_market: Market,
     current_events: Vec<Event>,
     highest_amount_of_assets: u8,
-    is_end_of_round: bool
+    is_end_of_round: bool,
 }
 
 impl Game {
@@ -211,14 +209,14 @@ impl Game {
             Role::HeadRnD => todo!(),
             Role::Stakeholder => todo!(),
         }
-        
+
         match self.current_turn.next() {
             Some(role) => {
                 self.current_turn = role;
-            },
+            }
             None => {
                 self.is_end_of_round = true;
-            },
+            }
         }
     }
 

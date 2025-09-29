@@ -100,8 +100,6 @@ pub struct Player {
     pub assets: Vec<Asset>,
     pub liabilities: Vec<Liability>,
     pub hand: Vec<Either<Asset, Liability>>,
-    pub gold: u8,   // could be unnecessary
-    pub silver: u8, // could be unnecessary
     pub cards_to_grab: u8,
     pub assets_to_play: u8,
     pub liabilities_to_play: u8,
@@ -115,12 +113,18 @@ impl Player {
             assets: Vec::new(),
             liabilities: Vec::new(),
             hand: Vec::new(),
-            gold: 0,
-            silver: 0,
             cards_to_grab: 3,
             assets_to_play: 1,
             liabilities_to_play: 1,
         }
+    }
+
+    pub fn gold(&self) -> u8 {
+        self.assets.iter().map(|a| a.gold_value).sum()
+    }
+
+    pub fn silver(&self) -> u8 {
+        self.assets.iter().map(|a| a.silver_value).sum()
     }
 
     pub fn play_hand(&mut self, idx: usize) {

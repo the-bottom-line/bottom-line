@@ -15,8 +15,6 @@ fn main() {
         }],
         liabilities: vec![],
         hand: vec![],
-        gold: 2,
-        silver: 3,
         cards_to_grab: 3,
         assets_to_play: 1,
         liabilities_to_play: 1,

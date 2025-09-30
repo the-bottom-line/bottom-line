@@ -1,5 +1,7 @@
 use std::{
-    collections::{HashMap, HashSet}, path::Path, rc::Rc
+    collections::{HashMap, HashSet},
+    path::Path,
+    rc::Rc,
 };
 
 use either::Either;
@@ -30,6 +32,17 @@ pub enum Character {
 }
 
 impl Character {
+    pub const CHARACTERS: [Character; 8] = [
+        Self::Shareholder,
+        Self::Banker,
+        Self::Regulator,
+        Self::CEO,
+        Self::CFO,
+        Self::CSO,
+        Self::HeadRnD,
+        Self::Stakeholder,
+    ];
+
     pub fn color(&self) -> Option<Color> {
         use Color::*;
 
@@ -57,7 +70,7 @@ impl Character {
             Self::Stakeholder => None,
         }
     }
-    
+
     pub const fn first() -> Self {
         Self::Shareholder
     }
@@ -149,13 +162,19 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new(name: &str) -> Player {
+    pub fn new(name: &str, assets: [Asset; 2], liabilities: [Liability; 2], cash: u8) -> Player {
+        let hand = assets
+            .into_iter()
+            .map(Either::Left)
+            .chain(liabilities.into_iter().map(Either::Right))
+            .collect();
+        
         Player {
             name: name.to_string(),
-            cash: 1,
+            cash,
             assets: vec![],
             liabilities: vec![],
-            hand: vec![],
+            hand,
             cards_drawn: vec![],
             assets_to_play: 1,
             liabilities_to_play: 1,
@@ -250,7 +269,7 @@ impl<T> Deck<T> {
         }
     }
 
-    /// Panics if no more cards are in the deck, for now
+    /// Panics if no more cards are in the deck, for now. Decks don't run out in regular games.
     pub fn draw(&mut self) -> T {
         self.deck.pop().unwrap()
     }
@@ -269,30 +288,32 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new<P: AsRef<Path>>(player_count: usize, cards_json_path: P) -> anyhow::Result<Self> {
-        let mut rng = WyRand::new();
-        let mut data = GameData::new(cards_json_path)?;
-        data.shuffle_all();
-        
-        let current_market = Self::get_first_market(&mut rng, &mut data.market_deck)
+    pub fn new(player_count: usize, mut game_data: GameData) -> Self {
+        game_data.shuffle_all();
+
+        let current_market = Self::get_first_market(&mut game_data.market_deck)
             .expect("The default deck should have a market");
-        
-        let game = Game {
-            assets: data.assets,
-            liabilities: data.liabilities,
-            market_deck: data.market_deck,
-            players: Self::get_players(player_count),
+
+        Game {
+            players: Self::get_players(
+                player_count,
+                &mut game_data.assets,
+                &mut game_data.liabilities,
+            ),
+            assets: game_data.assets,
+            liabilities: game_data.liabilities,
+            market_deck: game_data.market_deck,
             current_turn: Character::first(),
             current_market,
             current_events: vec![],
             highest_amount_of_assets: 0,
-        };
-
-        Ok(game)
+        }
     }
-    
+
     /// Grab market card if available and reshuffles the rest of the deck.
-    fn get_first_market(rng: &mut WyRand, deck: &mut Deck<Either<Market, Event>>) -> Option<Market> {
+    fn get_first_market(deck: &mut Deck<Either<Market, Event>>) -> Option<Market> {
+        let mut rng = WyRand::new();
+
         if let Some(pos) = deck.deck.iter().position(|c| c.is_left()) {
             let market = deck.deck.swap_remove(pos).left();
             rng.shuffle(&mut deck.deck);
@@ -301,9 +322,27 @@ impl Game {
             None
         }
     }
-    
-    pub fn get_players(player_count: usize) -> HashMap<Character, Player> {
-        HashMap::new()
+
+    pub fn get_players(
+        player_count: usize,
+        assets: &mut Deck<Asset>,
+        liabilites: &mut Deck<Liability>,
+    ) -> HashMap<Character, Player> {
+        assert!(
+            player_count >= 4 && player_count <= 7,
+            "This game supports playing with 4 to 7 players"
+        );
+
+        (0..player_count)
+            .into_iter()
+            .zip(Character::CHARACTERS)
+            .map(|(i, character)| {
+                let assets = [assets.draw(), assets.draw()];
+                let liabilities = [liabilites.draw(), liabilites.draw()];
+                let player = Player::new(&format!("Player {i}"), assets, liabilities, 1);
+                (character, player)
+            })
+            .collect()
     }
 
     pub fn player_play_card(&mut self, character: Character, card_idx: usize) {
@@ -340,9 +379,9 @@ mod tests {
 
     #[test]
     fn draw_cards() {
-        let game = Game::new(4, "assets/cards/boardgame.json")
-            .expect("This should pass");
-        
+        let data = GameData::new("assets/cards/boardgame.json").expect("this should exist");
+        let game = Game::new(4, data);
+
         println!("{game:#?}");
     }
 }

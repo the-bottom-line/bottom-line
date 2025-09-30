@@ -1,3 +1,4 @@
+mod cards;
 mod game;
 
 use game::*;
@@ -7,15 +8,17 @@ fn main() {
         name: "your mom".into(),
         cash: 5,
         assets: vec![Asset {
-            name: "bank thing".into(),
+            title: "bank thing".to_string(),
             gold_value: 2,
             silver_value: 3,
             color: Color::Red,
-            asset_powerup: None,
+            ability: None,
+            image_front_url: "ablcd".to_string(),
+            image_back_url: "ablcd".to_string().into(),
         }],
         liabilities: vec![],
         hand: vec![],
-        cards_to_grab: 3,
+        cards_drawn: vec![],
         assets_to_play: 1,
         liabilities_to_play: 1,
     };

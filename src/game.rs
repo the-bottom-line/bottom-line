@@ -1,9 +1,14 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet}, path::Path, rc::Rc
+};
 
 use either::Either;
+use nanorand::{Rng, WyRand};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+use crate::cards::GameData;
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Color {
     Red,
     Green,
@@ -12,8 +17,8 @@ pub enum Color {
     Blue,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum Role {
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum Character {
     Shareholder,
     Banker,
     Regulator,
@@ -24,63 +29,95 @@ pub enum Role {
     Stakeholder,
 }
 
-impl Role {
+impl Character {
     pub fn color(&self) -> Option<Color> {
         use Color::*;
 
         match self {
-            Role::Shareholder => None,
-            Role::Banker => None,
-            Role::Regulator => None,
-            Role::CEO => Some(Yellow),
-            Role::CFO => Some(Blue),
-            Role::CSO => Some(Green),
-            Role::HeadRnD => Some(Purple),
-            Role::Stakeholder => Some(Red),
+            Self::Shareholder => None,
+            Self::Banker => None,
+            Self::Regulator => None,
+            Self::CEO => Some(Yellow),
+            Self::CFO => Some(Blue),
+            Self::CSO => Some(Green),
+            Self::HeadRnD => Some(Purple),
+            Self::Stakeholder => Some(Red),
         }
     }
 
-    pub fn next(&self) -> Option<Role> {
+    pub fn next(&self) -> Option<Self> {
         match self {
-            Role::Shareholder => Some(Role::Banker),
-            Role::Banker => Some(Role::Regulator),
-            Role::Regulator => Some(Role::CEO),
-            Role::CEO => Some(Role::CFO),
-            Role::CFO => Some(Role::CSO),
-            Role::CSO => Some(Role::HeadRnD),
-            Role::HeadRnD => Some(Role::Stakeholder),
-            Role::Stakeholder => None,
+            Self::Shareholder => Some(Self::Banker),
+            Self::Banker => Some(Self::Regulator),
+            Self::Regulator => Some(Self::CEO),
+            Self::CEO => Some(Self::CFO),
+            Self::CFO => Some(Self::CSO),
+            Self::CSO => Some(Self::HeadRnD),
+            Self::HeadRnD => Some(Self::Stakeholder),
+            Self::Stakeholder => None,
         }
+    }
+    
+    pub const fn first() -> Self {
+        Self::Shareholder
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum AssetPowerup {
+    #[serde(rename = "At the end of the game, for one color, turn - into 0 or 0 into +")]
     MinusIntoPlus,
+    #[serde(rename = "At the end of the game, turn silver into gold on one asset card")]
     SilverIntoGold,
+    #[serde(rename = "At the end of the game, count one of your assets as any color")]
     CountAsAnyColor,
+}
+
+impl std::fmt::Display for AssetPowerup {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MinusIntoPlus => write!(
+                f,
+                "At the end of the game, for one color, turn - into 0 or 0 into +"
+            ),
+            Self::SilverIntoGold => write!(
+                f,
+                "At the end of the game, turn silver into gold on one asset card"
+            ),
+            Self::CountAsAnyColor => write!(
+                f,
+                "At the end of the game, count one of your assets as any color"
+            ),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Asset {
-    pub name: String,
+    pub title: String,
     pub gold_value: u8,
     pub silver_value: u8,
     pub color: Color,
-    pub asset_powerup: Option<AssetPowerup>,
+    pub ability: Option<AssetPowerup>,
+    pub image_front_url: String,
+    pub image_back_url: Rc<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum LiabilityType {
+    #[serde(rename = "Trade Credit")]
     TradeCredit,
+    #[serde(rename = "Bank Loan")]
     BankLoan,
     Bonds,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Liability {
-    value: u8,
-    rfr_type: LiabilityType,
+    pub value: u8,
+    pub rfr_type: LiabilityType,
+    pub image_front_url: String,
+    pub image_back_url: Rc<String>,
 }
 
 impl Liability {
@@ -93,6 +130,12 @@ impl Liability {
     }
 }
 
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub enum CardType {
+    Asset,
+    Liability,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Player {
     pub name: String,
@@ -100,7 +143,7 @@ pub struct Player {
     pub assets: Vec<Asset>,
     pub liabilities: Vec<Liability>,
     pub hand: Vec<Either<Asset, Liability>>,
-    pub cards_to_grab: u8,
+    pub cards_drawn: Vec<usize>,
     pub assets_to_play: u8,
     pub liabilities_to_play: u8,
 }
@@ -110,10 +153,10 @@ impl Player {
         Player {
             name: name.to_string(),
             cash: 1,
-            assets: Vec::new(),
-            liabilities: Vec::new(),
-            hand: Vec::new(),
-            cards_to_grab: 3,
+            assets: vec![],
+            liabilities: vec![],
+            hand: vec![],
+            cards_drawn: vec![],
             assets_to_play: 1,
             liabilities_to_play: 1,
         }
@@ -130,8 +173,9 @@ impl Player {
     pub fn play_card(&mut self, idx: usize) {
         if let Some(card) = self.hand.get(idx) {
             match card {
-                Either::Left(_) if self.assets_to_play > 0 => {
+                Either::Left(a) if self.assets_to_play > 0 && self.cash >= a.gold_value => {
                     let asset = self.hand.remove(idx).left().unwrap();
+                    self.cash -= asset.gold_value;
                     self.assets_to_play -= 1;
                     self.assets.push(asset)
                 }
@@ -145,74 +189,160 @@ impl Player {
         }
     }
 
-    pub fn draw_card(&mut self) {}
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EventData {
-    skip_turn: Option<Role>,
-    plus_gold: HashSet<Color>,
-    minus_gold: HashSet<Color>,
+    pub fn draw_card(&mut self, card: Either<Asset, Liability>) {
+        self.cards_drawn.push(self.hand.len());
+        self.hand.push(card);
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
-    title: String,
-    text: String,
-    minus_gold: HashSet<Color>,
-    plus_gold: HashSet<Color>,
-    event: EventData,
+    pub title: String,
+    pub description: String,
+    pub plus_gold: HashSet<Color>,
+    pub minus_gold: HashSet<Color>,
+    pub skip_turn: Option<Character>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
 pub enum MarketCondition {
+    #[serde(rename = "up")]
     Plus,
-    Zero,
+    #[serde(rename = "down")]
     Minus,
+    #[default]
+    #[serde(other)]
+    Zero,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Market {
-    rfr: u8,
-    mrp: u8,
-    red: MarketCondition,
-    green: MarketCondition,
-    blue: MarketCondition,
-    yellow: MarketCondition,
-    purple: MarketCondition,
+    pub title: String,
+    pub rfr: u8,
+    pub mrp: u8,
+    #[serde(rename = "Yellow", default)]
+    pub yellow: MarketCondition,
+    #[serde(rename = "Blue", default)]
+    pub blue: MarketCondition,
+    #[serde(rename = "Green", default)]
+    pub green: MarketCondition,
+    #[serde(rename = "Purple", default)]
+    pub purple: MarketCondition,
+    #[serde(rename = "Red", default)]
+    pub red: MarketCondition,
+    pub image_front_url: String,
+    pub image_back_url: Rc<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum CardType {
-    Asset,
-    Liability,
+pub struct Deck<T> {
+    #[serde(rename = "card_image_back_url")]
+    pub image_back_url: Rc<String>,
+    #[serde(rename = "card_list")]
+    pub deck: Vec<T>,
+}
+
+impl<T> Deck<T> {
+    pub fn new() -> Self {
+        Self {
+            deck: vec![],
+            image_back_url: String::new().into(),
+        }
+    }
+
+    /// Panics if no more cards are in the deck, for now
+    pub fn draw(&mut self) -> T {
+        self.deck.pop().unwrap()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Game {
-    asset_deck: Vec<Asset>,
-    liability_deck: Vec<Liability>,
-    market_deck: Vec<Either<Market, Event>>,
-    players: HashMap<Role, Player>,
-    current_turn: Role,
+    assets: Deck<Asset>,
+    liabilities: Deck<Liability>,
+    market_deck: Deck<Either<Market, Event>>,
+    players: HashMap<Character, Player>,
+    current_turn: Character,
     current_market: Market,
     current_events: Vec<Event>,
     highest_amount_of_assets: u8,
-    is_end_of_round: bool,
 }
 
 impl Game {
-    pub fn draw_asset_card(&mut self) -> Asset {
-        // we know assets cannot run out in a normal game so this is safe
-        self.asset_deck.pop().unwrap()
+    pub fn new<P: AsRef<Path>>(player_count: usize, cards_json_path: P) -> anyhow::Result<Self> {
+        let mut rng = WyRand::new();
+        let mut data = GameData::new(cards_json_path)?;
+        data.shuffle_all();
+        
+        let current_market = Self::get_first_market(&mut rng, &mut data.market_deck)
+            .expect("The default deck should have a market");
+        
+        let game = Game {
+            assets: data.assets,
+            liabilities: data.liabilities,
+            market_deck: data.market_deck,
+            players: Self::get_players(player_count),
+            current_turn: Character::first(),
+            current_market,
+            current_events: vec![],
+            highest_amount_of_assets: 0,
+        };
+
+        Ok(game)
+    }
+    
+    /// Grab market card if available and reshuffles the rest of the deck.
+    fn get_first_market(rng: &mut WyRand, deck: &mut Deck<Either<Market, Event>>) -> Option<Market> {
+        if let Some(pos) = deck.deck.iter().position(|c| c.is_left()) {
+            let market = deck.deck.swap_remove(pos).left();
+            rng.shuffle(&mut deck.deck);
+            market
+        } else {
+            None
+        }
+    }
+    
+    pub fn get_players(player_count: usize) -> HashMap<Character, Player> {
+        HashMap::new()
     }
 
-    pub fn draw_liability_card(&mut self) -> Liability {
-        // we know liabilities cannot run out in a normal game so this is safe
-        self.liability_deck.pop().unwrap()
+    pub fn player_play_card(&mut self, character: Character, card_idx: usize) {
+        if let Some(player) = self.players.get_mut(&character) {
+            player.play_card(card_idx)
+        }
     }
 
-    pub fn draw_market_card(&mut self) -> Either<Market, Event> {
-        self.market_deck.pop().unwrap()
+    pub fn player_draw_card(&mut self, role: Character, card_type: CardType) {
+        if let Some(player) = self.players.get_mut(&role) {
+            if player.cards_drawn.len() < 3 {
+                let card = match card_type {
+                    CardType::Asset => Either::Left(self.assets.draw()),
+                    CardType::Liability => Either::Right(self.liabilities.draw()),
+                };
+                player.cards_drawn.push(player.hand.len());
+                player.hand.push(card);
+            }
+        }
+    }
+
+    pub fn end_player_turn(&mut self) {
+        if let Some(role) = self.current_turn.next() {
+            self.current_turn = role;
+        } else {
+            // end of round, reshuffle cards
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn draw_cards() {
+        let game = Game::new(4, "assets/cards/boardgame.json")
+            .expect("This should pass");
+        
+        println!("{game:#?}");
     }
 }

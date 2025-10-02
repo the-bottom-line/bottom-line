@@ -1,7 +1,8 @@
 use std::{collections::HashSet, fs::read_to_string, path::Path};
 
 use either::Either;
-use nanorand::{Rng, WyRand};
+use rand::seq::SliceRandom;
+// use nanorand::{Rng, WyRand};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -103,11 +104,11 @@ impl GameData {
     }
 
     pub fn shuffle_all(&mut self) {
-        let mut rng = WyRand::new();
+        let mut rng = rand::rng();
 
-        rng.shuffle(&mut self.assets.deck);
-        rng.shuffle(&mut self.liabilities.deck);
-        rng.shuffle(&mut self.market_deck.deck);
+        self.assets.deck.shuffle(&mut rng);
+        self.liabilities.deck.shuffle(&mut rng);
+        self.market_deck.deck.shuffle(&mut rng);
     }
 }
 

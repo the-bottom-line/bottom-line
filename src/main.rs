@@ -7,7 +7,7 @@ use crate::cards::GameData;
 
 fn main() -> anyhow::Result<()> {
     let data = GameData::new("assets/cards/boardgame.json")?;
-    let game = Game::new(5, data);
+    let game = GameState::new(5, data);
 
     println!("{game:#?}");
 

@@ -1,11 +1,11 @@
 use std::{
     collections::{HashMap, HashSet},
-    path::Path,
     rc::Rc,
 };
 
 use either::Either;
-use nanorand::{Rng, WyRand};
+use rand::seq::SliceRandom;
+// use nanorand::{Rng, WyRand};
 use serde::{Deserialize, Serialize};
 
 use crate::cards::GameData;
@@ -116,6 +116,16 @@ pub struct Asset {
     pub image_back_url: Rc<String>,
 }
 
+impl std::fmt::Display for Asset {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}\ngold: {}\nsilver: {}\ncolor: {:?}",
+            self.title, self.gold_value, self.silver_value, self.color
+        )
+    }
+}
+
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum LiabilityType {
     #[serde(rename = "Trade Credit")]
@@ -140,6 +150,13 @@ impl Liability {
             LiabilityType::BankLoan => 2,
             LiabilityType::Bonds => 3,
         }
+    }
+}
+
+impl std::fmt::Display for Liability {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let title = serde_json::to_string(&self.rfr_type).unwrap();
+        write!(f, "{title} - {}%\nvalue: {}\n", self.rfr_percentage(), self.value)
     }
 }
 
@@ -168,7 +185,7 @@ impl Player {
             .map(Either::Left)
             .chain(liabilities.into_iter().map(Either::Right))
             .collect();
-        
+
         Player {
             name: name.to_string(),
             cash,
@@ -181,30 +198,36 @@ impl Player {
         }
     }
 
-    pub fn gold(&self) -> u8 {
+    pub fn total_gold(&self) -> u8 {
         self.assets.iter().map(|a| a.gold_value).sum()
     }
 
-    pub fn silver(&self) -> u8 {
+    pub fn total_silver(&self) -> u8 {
         self.assets.iter().map(|a| a.silver_value).sum()
     }
 
-    pub fn play_card(&mut self, idx: usize) {
+    /// Plays card in players hand with index `idx`. If that index is valid, the card is played
+    /// if
+    pub fn play_card(&mut self, idx: usize) -> Option<CardType> {
         if let Some(card) = self.hand.get(idx) {
             match card {
                 Either::Left(a) if self.assets_to_play > 0 && self.cash >= a.gold_value => {
                     let asset = self.hand.remove(idx).left().unwrap();
                     self.cash -= asset.gold_value;
                     self.assets_to_play -= 1;
-                    self.assets.push(asset)
+                    self.assets.push(asset);
+                    Some(CardType::Asset)
                 }
                 Either::Right(_) if self.liabilities_to_play > 0 => {
                     let liability = self.hand.remove(idx).right().unwrap();
                     self.liabilities_to_play -= 1;
-                    self.liabilities.push(liability)
+                    self.liabilities.push(liability);
+                    Some(CardType::Liability)
                 }
-                _ => {}
+                _ => None
             }
+        } else {
+            None
         }
     }
 
@@ -275,8 +298,15 @@ impl<T> Deck<T> {
     }
 }
 
+pub trait TheBottomLine {
+    fn player_play_card(&mut self, character: Character, card_idx: usize);
+    fn player_draw_card(&mut self, character: Character, card_type: CardType);
+    fn end_player_turn(&mut self);
+    
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Game {
+pub struct GameState {
     assets: Deck<Asset>,
     liabilities: Deck<Liability>,
     market_deck: Deck<Either<Market, Event>>,
@@ -287,14 +317,14 @@ pub struct Game {
     highest_amount_of_assets: u8,
 }
 
-impl Game {
+impl GameState {
     pub fn new(player_count: usize, mut game_data: GameData) -> Self {
         game_data.shuffle_all();
 
         let current_market = Self::get_first_market(&mut game_data.market_deck)
             .expect("The default deck should have a market");
 
-        Game {
+        GameState {
             players: Self::get_players(
                 player_count,
                 &mut game_data.assets,
@@ -309,21 +339,21 @@ impl Game {
             highest_amount_of_assets: 0,
         }
     }
-
+    
     /// Grab market card if available and reshuffles the rest of the deck.
     fn get_first_market(deck: &mut Deck<Either<Market, Event>>) -> Option<Market> {
-        let mut rng = WyRand::new();
+        let mut rng = rand::rng();
 
         if let Some(pos) = deck.deck.iter().position(|c| c.is_left()) {
             let market = deck.deck.swap_remove(pos).left();
-            rng.shuffle(&mut deck.deck);
+            deck.deck.shuffle(&mut rng);
             market
         } else {
             None
         }
     }
 
-    pub fn get_players(
+    fn get_players(
         player_count: usize,
         assets: &mut Deck<Asset>,
         liabilites: &mut Deck<Liability>,
@@ -344,16 +374,42 @@ impl Game {
             })
             .collect()
     }
+    
+    fn check_new_market(&self) -> bool {
+        let max_asset_count = self
+            .players
+            .iter()
+            .map(|(_, player)| player.assets.len() as u8)
+            .max()
+            .unwrap_or_default();
 
-    pub fn player_play_card(&mut self, character: Character, card_idx: usize) {
+        max_asset_count > self.highest_amount_of_assets
+    }
+
+    // fn new_market(&mut self) -> Vec<Either<Market, Event>> {
+    //     // while let Either::Right(event) = self.market_deck.draw() {
+    //     //     self.current_events.push(event);
+    //     // }
+
+    //     // if let Either::Left()
+    // }
+}
+
+impl TheBottomLine for GameState {
+    fn player_play_card(&mut self, character: Character, card_idx: usize) {
         if character == self.current_turn {
             if let Some(player) = self.players.get_mut(&character) {
-                player.play_card(card_idx)
+                match player.play_card(card_idx) {
+                    Some(CardType::Asset) if self.check_new_market() => {
+                        // self.new_market();
+                    },
+                    _ => todo!(),
+                }
             }
         }
     }
 
-    pub fn player_draw_card(&mut self, character: Character, card_type: CardType) {
+    fn player_draw_card(&mut self, character: Character, card_type: CardType) {
         if character == self.current_turn {
             if let Some(player) = self.players.get_mut(&character) {
                 if player.cards_drawn.len() < 3 {
@@ -368,7 +424,7 @@ impl Game {
         }
     }
 
-    pub fn end_player_turn(&mut self) {
+    fn end_player_turn(&mut self) {
         if let Some(role) = self.current_turn.next() {
             self.current_turn = role;
         } else {
@@ -384,7 +440,7 @@ mod tests {
     #[test]
     fn draw_cards() {
         let data = GameData::new("assets/cards/boardgame.json").expect("this should exist");
-        let game = Game::new(4, data);
+        let game = GameState::new(4, data);
 
         println!("{game:#?}");
     }

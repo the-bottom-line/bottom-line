@@ -9,16 +9,36 @@ use axum::{
 };
 use futures_util::{sink::SinkExt, stream::StreamExt};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     sync::{Arc, Mutex}, // std Mutex used only for the username set
 };
 use tokio::sync::{broadcast, Mutex as TokioMutex}; // async mutex for shared sink
 
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+use serde::{Deserialize, Serialize};
+
 struct AppState {
-    user_set: Mutex<HashSet<String>>,
+    /// Keys are the name of the channel
+    rooms: Mutex<HashMap<String, RoomState>>,
+}
+
+struct RoomState {
+    /// Previously stored in AppState
+    user_set: HashSet<String>,
+    /// Previously created in main.
     tx: broadcast::Sender<String>,
+}
+
+impl RoomState {
+    fn new() -> Self {
+        Self {
+            // Track usernames per room rather than globally.
+            user_set: HashSet::new(),
+            // Create a new channel for every room
+            tx: broadcast::channel(100).0,
+        }
+    }
 }
 
 async fn websocket_handler(
@@ -37,10 +57,9 @@ pub async fn setupsocket() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let user_set = Mutex::new(HashSet::new());
-    let (tx, _rx) = broadcast::channel(15001);
-
-    let app_state = Arc::new(AppState { user_set, tx });
+    let app_state = Arc::new(AppState {
+        rooms: Mutex::new(HashMap::new()),
+    });
 
     let app = Router::new()
         .route("/websocket", get(websocket_handler))
@@ -62,14 +81,48 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 
     // receive initial username message
     let mut username = String::new();
-    while let Some(Ok(message)) = receiver.next().await {
-        if let Message::Text(name) = message {
-            check_username(&state, &mut username, name.as_str());
+    let mut channel = String::new();
+    let mut tx = None::<broadcast::Sender<String>>;
 
-            if !username.is_empty() {
+    while let Some(Ok(message)) = receiver.next().await {
+        if let Message::Text(name) = message {            
+            #[derive(Deserialize)]
+            struct Connect {
+                username: String,
+                channel: String,
+            }
+
+            let connect: Connect = match serde_json::from_str(&name) {
+                Ok(connect) => connect,
+                Err(error) => {
+                    tracing::error!(%error);
+                    let mut s = sender.lock().await;
+                let _ = s
+                    .send(Message::Text(Utf8Bytes::from_static(
+                        "Failed to parse connect message",
+                    )))
+                    .await;
+                    break;
+                }
+            };
+            {
+                // If username that is sent by client is not taken, fill username string.
+                let mut rooms = state.rooms.lock().unwrap();
+
+                channel = connect.channel.clone();
+                let room = rooms.entry(connect.channel).or_insert_with(RoomState::new);
+
+                tx = Some(room.tx.clone());
+
+                if !room.user_set.contains(&connect.username) {
+                    room.user_set.insert(connect.username.to_owned());
+                    username = connect.username.clone();
+                }
+            }
+            if tx.is_some() && !username.is_empty() {
                 break;
             } else {
-                // send "username taken" only to this client
+                // Only send our client that username is taken.
                 let mut s = sender.lock().await;
                 let _ = s
                     .send(Message::Text(Utf8Bytes::from_static(
@@ -78,16 +131,19 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     .await;
                 return;
             }
+
+
         }
     }
 
+    let tx = tx.unwrap();
     // subscribe to broadcast channel
-    let mut rx = state.tx.subscribe();
+    let mut rx = tx.subscribe();
 
     // announce join to everyone
     let msg = format!("{username} joined.");
     tracing::debug!("{msg}");
-    let _ = state.tx.send(msg);
+    let _ = tx.send(msg);
 
     // task: forward broadcast messages to this client
     let mut send_task = {
@@ -113,7 +169,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 
     // task: read client messages, broadcast them, and send a custom reply to the sender only
     let mut recv_task = {
-        let tx = state.tx.clone();
+        let tx = tx.clone();
         let sender = sender.clone();
         let name = username.clone();
 
@@ -144,17 +200,10 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     // announce leave
     let msg = format!("{username} left.");
     tracing::debug!("{msg}");
-    let _ = state.tx.send(msg);
-
+    let _ = tx.send(msg);
+    let mut rooms = state.rooms.lock().unwrap();
     // free username
-    state.user_set.lock().unwrap().remove(&username);
+     rooms.get_mut(&channel).unwrap().user_set.remove(&username);
+
 }
 
-fn check_username(state: &AppState, string: &mut String, name: &str) {
-    let mut user_set = state.user_set.lock().unwrap();
-
-    if !user_set.contains(name) {
-        user_set.insert(name.to_owned());
-        string.push_str(name);
-    }
-}

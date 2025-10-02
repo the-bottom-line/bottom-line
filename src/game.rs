@@ -346,20 +346,24 @@ impl Game {
     }
 
     pub fn player_play_card(&mut self, character: Character, card_idx: usize) {
-        if let Some(player) = self.players.get_mut(&character) {
-            player.play_card(card_idx)
+        if character == self.current_turn {
+            if let Some(player) = self.players.get_mut(&character) {
+                player.play_card(card_idx)
+            }
         }
     }
 
-    pub fn player_draw_card(&mut self, role: Character, card_type: CardType) {
-        if let Some(player) = self.players.get_mut(&role) {
-            if player.cards_drawn.len() < 3 {
-                let card = match card_type {
-                    CardType::Asset => Either::Left(self.assets.draw()),
-                    CardType::Liability => Either::Right(self.liabilities.draw()),
-                };
-                player.cards_drawn.push(player.hand.len());
-                player.hand.push(card);
+    pub fn player_draw_card(&mut self, character: Character, card_type: CardType) {
+        if character == self.current_turn {
+            if let Some(player) = self.players.get_mut(&character) {
+                if player.cards_drawn.len() < 3 {
+                    let card = match card_type {
+                        CardType::Asset => Either::Left(self.assets.draw()),
+                        CardType::Liability => Either::Right(self.liabilities.draw()),
+                    };
+                    player.cards_drawn.push(player.hand.len());
+                    player.hand.push(card);
+                }
             }
         }
     }

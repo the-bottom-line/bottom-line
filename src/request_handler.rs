@@ -25,8 +25,14 @@ pub enum ReceiveJsonAction {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SendJson {
+    pub public: Option<PublicSendJson>,
+    pub private: Option<SendJsonAction>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum SendJson {
+pub enum SendJsonAction {
     ActionNotAllowed,
     StartGame {
         cash: u8,
@@ -39,6 +45,16 @@ pub enum SendJson {
         remove_idx: Option<usize>,
     },
     BuyAssetOk,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PublicSendJson {
+    DrawnCard { player_id: PlayerId },
+    PutBackCard { player_id: PlayerId },
+    BoughtAsset { player_id: PlayerId, asset: Asset },
+    IssuedLiability { player_id: PlayerId, liability: Liability },
+    SelectedCharacter { player_id: PlayerId },
 }
 
 pub fn handle_request(msg: ReceiveJson, room_state: Arc<RoomState>, player_name: &str) -> SendJson {

@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    rc::Rc,
+    sync::Arc,
 };
 
 use either::Either;
@@ -129,7 +129,7 @@ pub struct Asset {
     pub color: Color,
     pub ability: Option<AssetPowerup>,
     pub image_front_url: String,
-    pub image_back_url: Rc<String>,
+    pub image_back_url: Arc<String>,
 }
 
 impl std::fmt::Display for Asset {
@@ -156,7 +156,7 @@ pub struct Liability {
     pub value: u8,
     pub rfr_type: LiabilityType,
     pub image_front_url: String,
-    pub image_back_url: Rc<String>,
+    pub image_back_url: Arc<String>,
 }
 
 impl Liability {
@@ -319,13 +319,13 @@ pub struct Market {
     #[serde(rename = "Red", default)]
     pub red: MarketCondition,
     pub image_front_url: String,
-    pub image_back_url: Rc<String>,
+    pub image_back_url: Arc<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Deck<T> {
     #[serde(rename = "card_image_back_url")]
-    pub image_back_url: Rc<String>,
+    pub image_back_url: Arc<String>,
     #[serde(rename = "card_list")]
     pub deck: Vec<T>,
 }

@@ -73,15 +73,17 @@ impl Character {
     }
 
     pub fn next(&self) -> Option<Self> {
+        use Character::*;
+
         match self {
-            Self::Shareholder => Some(Self::Banker),
-            Self::Banker => Some(Self::Regulator),
-            Self::Regulator => Some(Self::CEO),
-            Self::CEO => Some(Self::CFO),
-            Self::CFO => Some(Self::CSO),
-            Self::CSO => Some(Self::HeadRnD),
-            Self::HeadRnD => Some(Self::Stakeholder),
-            Self::Stakeholder => None,
+            Shareholder => Some(Banker),
+            Banker => Some(Regulator),
+            Regulator => Some(CEO),
+            CEO => Some(CFO),
+            CFO => Some(CSO),
+            CSO => Some(HeadRnD),
+            HeadRnD => Some(Stakeholder),
+            Stakeholder => None,
         }
     }
 
@@ -170,7 +172,12 @@ impl Liability {
 impl std::fmt::Display for Liability {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let title = serde_json::to_string(&self.rfr_type).unwrap();
-        write!(f, "{title} - {}%\nvalue: {}\n", self.rfr_percentage(), self.value)
+        write!(
+            f,
+            "{title} - {}%\nvalue: {}\n",
+            self.rfr_percentage(),
+            self.value
+        )
     }
 }
 
@@ -194,7 +201,13 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new(name: &str, assets: [Asset; 2], liabilities: [Liability; 2], cash: u8) -> Player {
+    pub fn new(
+        name: &str,
+        id: usize,
+        assets: [Asset; 2],
+        liabilities: [Liability; 2],
+        cash: u8,
+    ) -> Player {
         let hand = assets
             .into_iter()
             .map(Either::Left)
@@ -240,7 +253,7 @@ impl Player {
                     self.liabilities.push(liability);
                     Some(CardType::Liability)
                 }
-                _ => None
+                _ => None,
             }
         } else {
             None
@@ -355,7 +368,7 @@ impl GameState {
             highest_amount_of_assets: 0,
         }
     }
-    
+
     /// Grab market card if available and reshuffles the rest of the deck.
     fn get_first_market(deck: &mut Deck<Either<Market, Event>>) -> Option<Market> {
         let mut rng = rand::rng();
@@ -390,7 +403,7 @@ impl GameState {
             })
             .collect()
     }
-    
+
     fn check_new_market(&self) -> bool {
         let max_asset_count = self
             .players
@@ -423,6 +436,8 @@ impl TheBottomLine for GameState {
                 }
             }
         }
+
+        None
     }
 
     fn player_draw_card(&mut self, character: Character, card_type: CardType) {

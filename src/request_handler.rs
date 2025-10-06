@@ -11,26 +11,37 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ReceiveJson {
-    user_id: usize,
     action: ReceiveJsonAction,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ReceiveJsonAction {
     StartGame,
     DrawCard { card_type: CardType },
-    PutBackCard { card: Either<Asset, Liability> },
-    BuyAsset { asset: Asset },
-    IssueLiability { liability: Liability },
+    PutBackCard { card_idx: usize },
+    BuyAsset { asset_idx: usize },
+    IssueLiability { liability_idx: usize },
     SelectCharacter { character: Character },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SendJson {}
+#[serde(rename_all = "snake_case")]
+pub enum SendJson {
+    StartGame {
+        cash: u8,
+        hand: Vec<Either<Asset, Liability>>,
+    },
+    DrawnCard {
+        card: Either<Asset, Liability>,
+    },
+    PutBackCard {
+        remove_idx: Option<usize>,
+    },
+    BuyAssetOk,
+}
 
-pub struct SendJsonAction {}
-
-pub fn handle_request(msg: ReceiveJson, room_state: Arc<RoomState>) -> Utf8Bytes {
+pub fn handle_request(msg: ReceiveJson, room_state: Arc<RoomState>, player_name: &str) -> Utf8Bytes {
     //todo parse json request and
 
     let mut game = room_state.game.lock().unwrap();
@@ -40,9 +51,9 @@ pub fn handle_request(msg: ReceiveJson, room_state: Arc<RoomState>) -> Utf8Bytes
             match msg.action {
                 ReceiveJsonAction::StartGame => todo!(),
                 ReceiveJsonAction::DrawCard { card_type } => todo!(),
-                ReceiveJsonAction::PutBackCard { card } => todo!(),
-                ReceiveJsonAction::BuyAsset { asset } => todo!(),
-                ReceiveJsonAction::IssueLiability { liability } => todo!(),
+                ReceiveJsonAction::PutBackCard { card_idx } => todo!(),
+                ReceiveJsonAction::BuyAsset { asset_idx } => todo!(),
+                ReceiveJsonAction::IssueLiability { liability_idx } => todo!(),
                 ReceiveJsonAction::SelectCharacter { character } => todo!(),
             }
         }
@@ -67,12 +78,10 @@ mod tests {
     #[test]
     fn fmt() {
         let action = ReceiveJson {
-            user_id: 10,
             action: ReceiveJsonAction::StartGame, // action: ReceiveJsonAction::DrawCard { card_type: CardType::Asset }
         };
 
         let action2 = ReceiveJson {
-            user_id: 20,
             action: ReceiveJsonAction::DrawCard {
                 card_type: CardType::Asset,
             },
@@ -83,5 +92,13 @@ mod tests {
 
         println!("json: {json}");
         println!("json2: {json2}");
+
+        let send = SendJson::PutBackCard {
+            remove_idx: None
+        };
+
+        let sjson = serde_json::to_string(&send).unwrap();
+
+        println!("send json: {sjson}");
     }
 }

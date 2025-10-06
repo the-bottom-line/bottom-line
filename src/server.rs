@@ -201,7 +201,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 //received a new message
                 let peronal_message = "test personal";
 
-                let response = handle_request(text, room.clone());
+                let response = handle_request(todo!(), room.clone(), &name);
 
                 // broadcast to everyone (including sender)
                 let _ = tx.send(format!("{response}"));

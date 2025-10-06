@@ -9,6 +9,21 @@ use serde::{Deserialize, Serialize};
 
 use crate::cards::GameData;
 
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct PlayerId(usize);
+
+impl From<usize> for PlayerId {
+    fn from(value: usize) -> Self {
+        Self(value)
+    }
+}
+
+impl From<PlayerId> for usize {
+    fn from(value: PlayerId) -> Self {
+        value.0
+    }
+}
+
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Color {
     Red,
@@ -167,6 +182,7 @@ pub enum CardType {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Player {
+    pub id: PlayerId,
     pub name: String,
     pub cash: u8,
     pub assets: Vec<Asset>,
@@ -186,6 +202,7 @@ impl Player {
             .collect();
 
         Player {
+            id: PlayerId(id),
             name: name.to_string(),
             cash,
             assets: vec![],

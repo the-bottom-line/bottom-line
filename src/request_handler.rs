@@ -74,12 +74,11 @@ pub fn handle_request(msg: ReceiveJson, room_state: Arc<RoomState>, player_name:
 }
 
 fn draw_card(state: &mut GameState, t: CardType, player_idx :usize) -> SendJson {
-    let card: Option<Either<Asset, Liability>> = state.player_draw_card(player_idx, t);
-    if (card.){
-
+    if let Some(card) = state.player_draw_card(player_idx, t) {
+        return SendJson::DrawnCard {card: card.cloned() }
+    }else{
+        return SendJson::ActionNotAllowed;
     }
-    
-    return "".into();
 }
 
 

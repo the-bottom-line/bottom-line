@@ -179,12 +179,11 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             while let Some(Ok(Message::Text(text))) = receiver.next().await {
                 //received a new message
                 let peronal_message = "test personal";
-
-                handle_request(text);
+                let response = handle_request(text);
                 
 
                 // broadcast to everyone (including sender)
-                let _ = tx.send(format!("{text}"));
+                let _ = tx.send(format!("{response}"));
 
                 // send a different message only to the sender
                 let mut s = sender.lock().await;

@@ -1,4 +1,4 @@
-use crate::request_handler::handle_request;
+use crate::{game::GameState, request_handler::handle_request};
 
 use axum::{
     Router,
@@ -20,25 +20,31 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use serde::{Deserialize, Serialize};
 
-struct AppState {
-    /// Keys are the name of the channel
-    rooms: Mutex<HashMap<String, RoomState>>,
+pub enum Game {
+    InLobby { user_set: HashSet<String> },
+    GameStarted { state: GameState },
 }
 
-struct RoomState {
-    /// Previously stored in AppState
-    user_set: HashSet<String>,
+pub struct AppState {
+    /// Keys are the name of the channel
+    rooms: Mutex<HashMap<String, Arc<RoomState>>>,
+}
+
+pub struct RoomState {
     /// Previously created in main.
     tx: broadcast::Sender<String>,
+    game: Mutex<Game>,
 }
 
 impl RoomState {
     fn new() -> Self {
         Self {
-            // Track usernames per room rather than globally.
-            user_set: HashSet::new(),
             // Create a new channel for every room
             tx: broadcast::channel(100).0,
+            // Track usernames per room rather than globally.
+            game: Mutex::new(Game::InLobby {
+                user_set: HashSet::new(),
+            }),
         }
     }
 }
@@ -112,13 +118,19 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 let mut rooms = state.rooms.lock().unwrap();
 
                 channel = connect.channel.clone();
-                let room = rooms.entry(connect.channel).or_insert_with(RoomState::new);
+                let room = rooms
+                    .entry(connect.channel)
+                    .or_insert_with(|| Arc::new(RoomState::new()));
 
                 tx = Some(room.tx.clone());
 
-                if !room.user_set.contains(&connect.username) {
-                    room.user_set.insert(connect.username.to_owned());
-                    username = connect.username.clone();
+                if let Ok(mut mutex) = room.game.lock() {
+                    if let Game::InLobby { user_set } = &mut *mutex {
+                        if !user_set.contains(&connect.username) {
+                            user_set.insert(connect.username.to_owned());
+                            username = connect.username.clone();
+                        }
+                    }
                 }
             }
 
@@ -136,6 +148,14 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             }
         }
     }
+
+    let room = {
+        let rooms = state.rooms.lock().unwrap();
+        rooms
+            .get(&channel)
+            .cloned()
+            .expect("The room should exist at this point")
+    };
 
     let tx = tx.unwrap();
     // subscribe to broadcast channel
@@ -180,7 +200,8 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             while let Some(Ok(Message::Text(text))) = receiver.next().await {
                 //received a new message
                 let peronal_message = "test personal";
-                let response = handle_request(text);
+
+                let response = handle_request(text, room.clone());
 
                 // broadcast to everyone (including sender)
                 let _ = tx.send(format!("{response}"));
@@ -207,7 +228,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let msg = format!("{username} left.");
     tracing::debug!("{msg}");
     let _ = tx.send(msg);
-    let mut rooms = state.rooms.lock().unwrap();
+    // let mut rooms = state.rooms.lock().unwrap();
     // free username
-    rooms.get_mut(&channel).unwrap().user_set.remove(&username);
+    // rooms.get_mut(&channel).unwrap().user_set.remove(&username);
 }

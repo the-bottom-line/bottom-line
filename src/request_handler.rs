@@ -28,6 +28,7 @@ pub enum ReceiveJsonAction {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SendJson {
+    ActionNotAllowed,
     StartGame {
         cash: u8,
         hand: Vec<Either<Asset, Liability>>,
@@ -41,16 +42,17 @@ pub enum SendJson {
     BuyAssetOk,
 }
 
-pub fn handle_request(msg: ReceiveJson, room_state: Arc<RoomState>, player_name: &str) -> Utf8Bytes {
+pub fn handle_request(msg: ReceiveJson, room_state: Arc<RoomState>, player_name: &str) -> SendJson {
     //todo parse json request and
 
     let mut game = room_state.game.lock().unwrap();
-
+    let mut response: SendJson = SendJson::ActionNotAllowed;
     match &mut *game {
         crate::server::Game::GameStarted { state } => {
+            let playerid :usize = state.player_by_name(player_name).unwrap().id.into();
             match msg.action {
                 ReceiveJsonAction::StartGame => todo!(),
-                ReceiveJsonAction::DrawCard { card_type } => todo!(),
+                ReceiveJsonAction::DrawCard { card_type } => {response = draw_card(state, card_type, playerid);},
                 ReceiveJsonAction::PutBackCard { card_idx } => todo!(),
                 ReceiveJsonAction::BuyAsset { asset_idx } => todo!(),
                 ReceiveJsonAction::IssueLiability { liability_idx } => todo!(),
@@ -68,8 +70,18 @@ pub fn handle_request(msg: ReceiveJson, room_state: Arc<RoomState>, player_name:
         },
     }
 
+    return response;
+}
+
+fn draw_card(state: &mut GameState, t: CardType, player_idx :usize) -> SendJson {
+    let card: Option<Either<Asset, Liability>> = state.player_draw_card(player_idx, t);
+    if (card.){
+
+    }
+    
     return "".into();
 }
+
 
 #[cfg(test)]
 mod tests {

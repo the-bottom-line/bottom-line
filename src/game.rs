@@ -437,6 +437,9 @@ pub trait TheBottomLine {
     /// Gets the character of the next turn
     fn next_player(&self) -> Option<&Player>;
 
+    /// Gets a player object based on a given username
+    fn player_by_name(&self, name: &str) -> Option<&Player>;
+
     /// Gets player if one exists with specified character
     fn player_from_character(&self, character: Character) -> Option<&Player>;
 
@@ -604,6 +607,10 @@ impl TheBottomLine for GameState {
         } else {
             None
         }
+    }
+
+    fn player_by_name(&self, name: &str) -> Option<&Player> {
+        self.players.iter().find(|p| p.name == name)
     }
 
     fn player_from_character(&self, character: Character) -> Option<&Player> {

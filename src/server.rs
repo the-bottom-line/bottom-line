@@ -207,10 +207,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     // send a different message only to the sender
                     let json_str = serde_json::to_string(&response).unwrap();
                     let mut s = sender.lock().await;
-                    if s.send(Message::Text(&json_str))
-                        .await
-                        .is_err()
-                    {
+                    if s.send(Message::Text(json_str.into())).await.is_err() {
                         break;
                     }
                 }

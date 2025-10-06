@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    rc::Rc,
+    sync::Arc,
 };
 
 use either::Either;
@@ -129,7 +129,7 @@ pub struct Asset {
     pub color: Color,
     pub ability: Option<AssetPowerup>,
     pub image_front_url: String,
-    pub image_back_url: Rc<String>,
+    pub image_back_url: Arc<String>,
 }
 
 impl std::fmt::Display for Asset {
@@ -156,7 +156,7 @@ pub struct Liability {
     pub value: u8,
     pub rfr_type: LiabilityType,
     pub image_front_url: String,
-    pub image_back_url: Rc<String>,
+    pub image_back_url: Arc<String>,
 }
 
 impl Liability {
@@ -319,13 +319,13 @@ pub struct Market {
     #[serde(rename = "Red", default)]
     pub red: MarketCondition,
     pub image_front_url: String,
-    pub image_back_url: Rc<String>,
+    pub image_back_url: Arc<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Deck<T> {
     #[serde(rename = "card_image_back_url")]
-    pub image_back_url: Rc<String>,
+    pub image_back_url: Arc<String>,
     #[serde(rename = "card_list")]
     pub deck: Vec<T>,
 }
@@ -437,6 +437,9 @@ pub trait TheBottomLine {
     /// Gets the character of the next turn
     fn next_player(&self) -> Option<&Player>;
 
+    /// Gets a player object based on a given username
+    fn player_by_name(&self, name: &str) -> Option<&Player>;
+
     /// Gets player if one exists with specified character
     fn player_from_character(&self, character: Character) -> Option<&Player>;
 
@@ -453,7 +456,7 @@ pub trait TheBottomLine {
     /// a new market.
     fn player_play_card(&mut self, player_idx: usize, card_idx: usize) -> Option<MarketChange>;
 
-    fn player_draw_card(&mut self, player_idx: usize, card_type: CardType);
+    fn player_draw_card(&mut self, player_idx: usize, card_type: CardType) -> Option<Either<&Asset, &Liability>>;
 
     fn end_player_turn(&mut self, player_idx: usize);
 }
@@ -473,19 +476,20 @@ pub struct GameState {
 }
 
 impl GameState {
-    pub fn new(player_count: usize, mut game_data: GameData) -> Self {
+    pub fn new(player_names: &[String], mut game_data: GameData) -> Self {
         game_data.shuffle_all();
 
         let current_market = Self::get_first_market(&mut game_data.market_deck)
             .expect("The default deck should have a market");
 
         let players = Self::get_players(
-            player_count,
+            player_names,
             &mut game_data.assets,
             &mut game_data.liabilities,
         );
 
-        let characters = ObtainingCharacters::new(player_count, players.first().unwrap().id.into());
+        let characters =
+            ObtainingCharacters::new(player_names.len(), players.first().unwrap().id.into());
 
         GameState {
             players,
@@ -515,21 +519,23 @@ impl GameState {
     }
 
     fn get_players(
-        player_count: usize,
+        player_names: &[String],
         assets: &mut Deck<Asset>,
         liabilites: &mut Deck<Liability>,
     ) -> Vec<Player> {
+        let player_count = player_names.len();
         assert!(
             player_count >= 4 && player_count <= 7,
             "This game supports playing with 4 to 7 players"
         );
 
-        (0..player_count)
+        player_names
             .into_iter()
-            .map(|i| {
+            .enumerate()
+            .map(|(i, name)| {
                 let assets = [assets.draw(), assets.draw()];
                 let liabilities = [liabilites.draw(), liabilites.draw()];
-                Player::new(&format!("Player {i}"), i, assets, liabilities, 1)
+                Player::new(&name, i, assets, liabilities, 1)
             })
             .collect()
     }
@@ -603,6 +609,10 @@ impl TheBottomLine for GameState {
         }
     }
 
+    fn player_by_name(&self, name: &str) -> Option<&Player> {
+        self.players.iter().find(|p| p.name == name)
+    }
+
     fn player_from_character(&self, character: Character) -> Option<&Player> {
         self.players.iter().find(|p| p.character == Some(character))
     }
@@ -624,7 +634,7 @@ impl TheBottomLine for GameState {
         None
     }
 
-    fn player_draw_card(&mut self, idx: usize, card_type: CardType) {
+    fn player_draw_card(&mut self, idx: usize, card_type: CardType) -> Option<Either<&Asset, &Liability>> {
         if let Some(player) = self.players.get_mut(idx) {
             if self.current_player == Some(player.id) && player.cards_drawn.len() < 3 {
                 let card = match card_type {
@@ -633,8 +643,11 @@ impl TheBottomLine for GameState {
                 };
                 player.cards_drawn.push(player.hand.len());
                 player.hand.push(card);
+                return player.hand.last().map(|c| c.as_ref());
             }
         }
+        
+        None
     }
 
     fn end_player_turn(&mut self, player_idx: usize) {
@@ -666,7 +679,15 @@ mod tests {
     #[test]
     fn draw_cards() {
         let data = GameData::new("assets/cards/boardgame.json").expect("this should exist");
-        let game = GameState::new(4, data);
+        let game = GameState::new(
+            &[
+                "your".to_owned(),
+                "mama".to_owned(),
+                "joe".to_owned(),
+                "biden".to_owned(),
+            ],
+            data,
+        );
 
         println!("{game:#?}");
     }

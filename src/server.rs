@@ -1,42 +1,50 @@
+use crate::{game::GameState, request_handler::{handle_request, ReceiveJson}};
+
 use axum::{
+    Router,
     extract::{
-        ws::{Message, Utf8Bytes, WebSocket, WebSocketUpgrade},
         State,
+        ws::{Message, Utf8Bytes, WebSocket, WebSocketUpgrade},
     },
     response::{Html, IntoResponse},
     routing::get,
-    Router,
 };
 use futures_util::{sink::SinkExt, stream::StreamExt};
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, Mutex}, // std Mutex used only for the username set
 };
-use tokio::sync::{broadcast, Mutex as TokioMutex}; // async mutex for shared sink
+use tokio::sync::{Mutex as TokioMutex, broadcast}; // async mutex for shared sink
 
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use serde::{Deserialize, Serialize};
 
-struct AppState {
-    /// Keys are the name of the channel
-    rooms: Mutex<HashMap<String, RoomState>>,
+pub enum Game {
+    InLobby { user_set: HashSet<String> },
+    GameStarted { state: GameState },
 }
 
-struct RoomState {
-    /// Previously stored in AppState
-    user_set: HashSet<String>,
+pub struct AppState {
+    /// Keys are the name of the channel
+    rooms: Mutex<HashMap<String, Arc<RoomState>>>,
+}
+
+pub struct RoomState {
     /// Previously created in main.
     tx: broadcast::Sender<String>,
+    pub game: Mutex<Game>,
 }
 
 impl RoomState {
     fn new() -> Self {
         Self {
-            // Track usernames per room rather than globally.
-            user_set: HashSet::new(),
             // Create a new channel for every room
             tx: broadcast::channel(100).0,
+            // Track usernames per room rather than globally.
+            game: Mutex::new(Game::InLobby {
+                user_set: HashSet::new(),
+            }),
         }
     }
 }
@@ -49,7 +57,7 @@ async fn websocket_handler(
 }
 
 pub async fn setupsocket() {
-        tracing_subscriber::registry()
+    tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| format!("{}=trace", env!("CARGO_CRATE_NAME")).into()),
@@ -70,7 +78,6 @@ pub async fn setupsocket() {
         .unwrap();
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app).await.unwrap();
-
 }
 
 async fn websocket(stream: WebSocket, state: Arc<AppState>) {
@@ -85,7 +92,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let mut tx = None::<broadcast::Sender<String>>;
 
     while let Some(Ok(message)) = receiver.next().await {
-        if let Message::Text(name) = message {            
+        if let Message::Text(name) = message {
             #[derive(Deserialize)]
             struct Connect {
                 username: String,
@@ -97,28 +104,36 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 Err(error) => {
                     tracing::error!(%error);
                     let mut s = sender.lock().await;
-                let _ = s
-                    .send(Message::Text(Utf8Bytes::from_static(
-                        "Failed to parse connect message",
-                    )))
-                    .await;
+                    let _ = s
+                        .send(Message::Text(Utf8Bytes::from_static(
+                            "Failed to parse connect message",
+                        )))
+                        .await;
                     break;
                 }
             };
+
             {
                 // If username that is sent by client is not taken, fill username string.
                 let mut rooms = state.rooms.lock().unwrap();
 
                 channel = connect.channel.clone();
-                let room = rooms.entry(connect.channel).or_insert_with(RoomState::new);
+                let room = rooms
+                    .entry(connect.channel)
+                    .or_insert_with(|| Arc::new(RoomState::new()));
 
                 tx = Some(room.tx.clone());
 
-                if !room.user_set.contains(&connect.username) {
-                    room.user_set.insert(connect.username.to_owned());
-                    username = connect.username.clone();
+                if let Ok(mut mutex) = room.game.lock() {
+                    if let Game::InLobby { user_set } = &mut *mutex {
+                        if !user_set.contains(&connect.username) {
+                            user_set.insert(connect.username.to_owned());
+                            username = connect.username.clone();
+                        }
+                    }
                 }
             }
+
             if tx.is_some() && !username.is_empty() {
                 break;
             } else {
@@ -131,10 +146,16 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     .await;
                 return;
             }
-
-
         }
     }
+
+    let room = {
+        let rooms = state.rooms.lock().unwrap();
+        rooms
+            .get(&channel)
+            .cloned()
+            .expect("The room should exist at this point")
+    };
 
     let tx = tx.unwrap();
     // subscribe to broadcast channel
@@ -153,10 +174,12 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 match rx.recv().await {
                     Ok(msg) => {
                         let mut s = sender.lock().await;
-                        if s.send(Message::Text(format!("{msg}").into())).await.is_err() {
+                        if s.send(Message::Text(format!("{msg}").into()))
+                            .await
+                            .is_err()
+                        {
                             break;
                         }
-                        
                     }
                     // If we lagged behind, just continue
                     Err(broadcast::error::RecvError::Lagged(_)) => continue,
@@ -175,17 +198,20 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 
         tokio::spawn(async move {
             while let Some(Ok(Message::Text(text))) = receiver.next().await {
-                // broadcast to everyone (including sender)
-                let _ = tx.send(format!("{name}: {text}"));
-
-                // send a different message only to the sender
-                let mut s = sender.lock().await;
-                if s
-                    .send(Message::Text(format!("(private) You said: {text}").into()))
-                    .await
-                    .is_err()
-                {
-                    break;
+                if let Ok(json) = serde_json::from_str::<ReceiveJson>(&text) {
+                    let response = handle_request(json, room.clone(), &name);
+    
+                    // // broadcast to everyone (including sender)
+                    // let _ = tx.send(format!("{response}"));
+    
+                    // send a different message only to the sender
+                    let mut s = sender.lock().await;
+                    if s.send(Message::Text(serde_json::to_string(&response).unwrap().into()))
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
                 }
             }
         })
@@ -201,9 +227,11 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let msg = format!("{username} left.");
     tracing::debug!("{msg}");
     let _ = tx.send(msg);
-    let mut rooms = state.rooms.lock().unwrap();
-    // free username
-     rooms.get_mut(&channel).unwrap().user_set.remove(&username);
-
+    // let mut rooms = state.rooms.lock().unwrap();
+    // // free username
+    // {
+    //     if let Game::InLobby { user_set } = &mut (*rooms).get(&channel).unwrap().game.lock().unwrap() {
+    //         user_set.remove(&username);
+    //     }
+    // }
 }
-

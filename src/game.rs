@@ -473,19 +473,19 @@ pub struct GameState {
 }
 
 impl GameState {
-    pub fn new(player_count: usize, mut game_data: GameData) -> Self {
+    pub fn new(player_names: &[String], mut game_data: GameData) -> Self {
         game_data.shuffle_all();
 
         let current_market = Self::get_first_market(&mut game_data.market_deck)
             .expect("The default deck should have a market");
 
         let players = Self::get_players(
-            player_count,
+            player_names,
             &mut game_data.assets,
             &mut game_data.liabilities,
         );
 
-        let characters = ObtainingCharacters::new(player_count, players.first().unwrap().id.into());
+        let characters = ObtainingCharacters::new(player_names.len(), players.first().unwrap().id.into());
 
         GameState {
             players,
@@ -515,21 +515,23 @@ impl GameState {
     }
 
     fn get_players(
-        player_count: usize,
+        player_names: &[String],
         assets: &mut Deck<Asset>,
         liabilites: &mut Deck<Liability>,
     ) -> Vec<Player> {
+        let player_count = player_names.len();
         assert!(
             player_count >= 4 && player_count <= 7,
             "This game supports playing with 4 to 7 players"
         );
 
-        (0..player_count)
+        player_names
             .into_iter()
-            .map(|i| {
+            .enumerate()
+            .map(|(i, name)| {
                 let assets = [assets.draw(), assets.draw()];
                 let liabilities = [liabilites.draw(), liabilites.draw()];
-                Player::new(&format!("Player {i}"), i, assets, liabilities, 1)
+                Player::new(&name, i, assets, liabilities, 1)
             })
             .collect()
     }
@@ -666,7 +668,15 @@ mod tests {
     #[test]
     fn draw_cards() {
         let data = GameData::new("assets/cards/boardgame.json").expect("this should exist");
-        let game = GameState::new(4, data);
+        let game = GameState::new(
+            &[
+                "your".to_owned(),
+                "mama".to_owned(),
+                "joe".to_owned(),
+                "biden".to_owned(),
+            ],
+            data
+        );
 
         println!("{game:#?}");
     }

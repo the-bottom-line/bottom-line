@@ -1,3 +1,5 @@
+use crate::request_handler::handle_request;
+
 use axum::{
     extract::{
         ws::{Message, Utf8Bytes, WebSocket, WebSocketUpgrade},
@@ -175,13 +177,19 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 
         tokio::spawn(async move {
             while let Some(Ok(Message::Text(text))) = receiver.next().await {
+                //received a new message
+                let peronal_message = "test personal";
+
+                handle_request(text);
+                
+
                 // broadcast to everyone (including sender)
-                let _ = tx.send(format!("{name}: {text}"));
+                let _ = tx.send(format!("{text}"));
 
                 // send a different message only to the sender
                 let mut s = sender.lock().await;
                 if s
-                    .send(Message::Text(format!("(private) You said: {text}").into()))
+                    .send(Message::Text(format!("{peronal_message}").into()))
                     .await
                     .is_err()
                 {

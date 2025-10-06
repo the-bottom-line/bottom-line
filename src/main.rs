@@ -1,6 +1,7 @@
 mod cards;
 mod game;
 mod server;
+mod request_handler;
 
 use server::*;
 use game::*;

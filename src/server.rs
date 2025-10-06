@@ -33,7 +33,7 @@ pub struct AppState {
 pub struct RoomState {
     /// Previously created in main.
     tx: broadcast::Sender<String>,
-    game: Mutex<Game>,
+    pub game: Mutex<Game>,
 }
 
 impl RoomState {
@@ -229,6 +229,10 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     tracing::debug!("{msg}");
     let _ = tx.send(msg);
     // let mut rooms = state.rooms.lock().unwrap();
-    // free username
-    // rooms.get_mut(&channel).unwrap().user_set.remove(&username);
+    // // free username
+    // {
+    //     if let Game::InLobby { user_set } = &mut (*rooms).get(&channel).unwrap().game.lock().unwrap() {
+    //         user_set.remove(&username);
+    //     }
+    // }
 }

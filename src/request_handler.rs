@@ -5,7 +5,6 @@ use crate::{
     game::*,
     server::{AppState, Game, RoomState},
 };
-use axum::extract::ws::Utf8Bytes;
 use either::Either;
 use serde::{Deserialize, Serialize};
 
@@ -41,7 +40,7 @@ pub enum SendJson {
     BuyAssetOk,
 }
 
-pub fn handle_request(msg: ReceiveJson, room_state: Arc<RoomState>, player_name: &str) -> Utf8Bytes {
+pub fn handle_request(msg: ReceiveJson, room_state: Arc<RoomState>, player_name: &str) -> SendJson {
     //todo parse json request and
 
     let mut game = room_state.game.lock().unwrap();
@@ -68,7 +67,7 @@ pub fn handle_request(msg: ReceiveJson, room_state: Arc<RoomState>, player_name:
         },
     }
 
-    return "".into();
+    todo!()
 }
 
 #[cfg(test)]

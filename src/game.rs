@@ -485,7 +485,8 @@ impl GameState {
             &mut game_data.liabilities,
         );
 
-        let characters = ObtainingCharacters::new(player_names.len(), players.first().unwrap().id.into());
+        let characters =
+            ObtainingCharacters::new(player_names.len(), players.first().unwrap().id.into());
 
         GameState {
             players,
@@ -675,7 +676,7 @@ mod tests {
                 "joe".to_owned(),
                 "biden".to_owned(),
             ],
-            data
+            data,
         );
 
         println!("{game:#?}");

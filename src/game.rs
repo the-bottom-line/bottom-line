@@ -33,7 +33,7 @@ pub enum Color {
     Blue,
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Character {
     Shareholder,
     Banker,

@@ -2,7 +2,6 @@ use std::{collections::HashSet, fs::read_to_string, path::Path};
 
 use either::Either;
 use rand::seq::SliceRandom;
-// use nanorand::{Rng, WyRand};
 use serde::{Deserialize, Serialize};
 
 use crate::{

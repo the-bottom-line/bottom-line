@@ -456,7 +456,7 @@ pub trait TheBottomLine {
     /// a new market.
     fn player_play_card(&mut self, player_idx: usize, card_idx: usize) -> Option<MarketChange>;
 
-    fn player_draw_card(&mut self, player_idx: usize, card_type: CardType);
+    fn player_draw_card(&mut self, player_idx: usize, card_type: CardType) -> Option<Either<&Asset, &Liability>>;
 
     fn end_player_turn(&mut self, player_idx: usize);
 }
@@ -634,7 +634,7 @@ impl TheBottomLine for GameState {
         None
     }
 
-    fn player_draw_card(&mut self, idx: usize, card_type: CardType) {
+    fn player_draw_card(&mut self, idx: usize, card_type: CardType) -> Option<Either<&Asset, &Liability>> {
         if let Some(player) = self.players.get_mut(idx) {
             if self.current_player == Some(player.id) && player.cards_drawn.len() < 3 {
                 let card = match card_type {
@@ -643,8 +643,11 @@ impl TheBottomLine for GameState {
                 };
                 player.cards_drawn.push(player.hand.len());
                 player.hand.push(card);
+                return player.hand.last().map(|c| c.as_ref());
             }
         }
+        
+        None
     }
 
     fn end_player_turn(&mut self, player_idx: usize) {

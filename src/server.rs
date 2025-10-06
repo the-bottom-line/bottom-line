@@ -1,4 +1,4 @@
-use crate::{game::GameState, request_handler::handle_request};
+use crate::{game::GameState, request_handler::{handle_request, ReceiveJson}};
 
 use axum::{
     Router,
@@ -198,21 +198,20 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 
         tokio::spawn(async move {
             while let Some(Ok(Message::Text(text))) = receiver.next().await {
-                //received a new message
-                let peronal_message = "test personal";
-
-                let response = handle_request(todo!(), room.clone(), &name);
-
-                // broadcast to everyone (including sender)
-                let _ = tx.send(format!("{response}"));
-
-                // send a different message only to the sender
-                let mut s = sender.lock().await;
-                if s.send(Message::Text(format!("{peronal_message}").into()))
-                    .await
-                    .is_err()
-                {
-                    break;
+                if let Ok(json) = serde_json::from_str::<ReceiveJson>(&text) {
+                    let response = handle_request(json, room.clone(), &name);
+    
+                    // // broadcast to everyone (including sender)
+                    // let _ = tx.send(format!("{response}"));
+    
+                    // send a different message only to the sender
+                    let mut s = sender.lock().await;
+                    if s.send(Message::Text(serde_json::to_string(&response).unwrap().into()))
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
                 }
             }
         })

@@ -1,20 +1,20 @@
 use crate::request_handler::handle_request;
 
 use axum::{
+    Router,
     extract::{
-        ws::{Message, Utf8Bytes, WebSocket, WebSocketUpgrade},
         State,
+        ws::{Message, Utf8Bytes, WebSocket, WebSocketUpgrade},
     },
     response::{Html, IntoResponse},
     routing::get,
-    Router,
 };
 use futures_util::{sink::SinkExt, stream::StreamExt};
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, Mutex}, // std Mutex used only for the username set
 };
-use tokio::sync::{broadcast, Mutex as TokioMutex}; // async mutex for shared sink
+use tokio::sync::{Mutex as TokioMutex, broadcast}; // async mutex for shared sink
 
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -51,7 +51,7 @@ async fn websocket_handler(
 }
 
 pub async fn setupsocket() {
-        tracing_subscriber::registry()
+    tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| format!("{}=trace", env!("CARGO_CRATE_NAME")).into()),
@@ -72,7 +72,6 @@ pub async fn setupsocket() {
         .unwrap();
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app).await.unwrap();
-
 }
 
 async fn websocket(stream: WebSocket, state: Arc<AppState>) {
@@ -87,7 +86,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let mut tx = None::<broadcast::Sender<String>>;
 
     while let Some(Ok(message)) = receiver.next().await {
-        if let Message::Text(name) = message {            
+        if let Message::Text(name) = message {
             #[derive(Deserialize)]
             struct Connect {
                 username: String,
@@ -99,14 +98,15 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 Err(error) => {
                     tracing::error!(%error);
                     let mut s = sender.lock().await;
-                let _ = s
-                    .send(Message::Text(Utf8Bytes::from_static(
-                        "Failed to parse connect message",
-                    )))
-                    .await;
+                    let _ = s
+                        .send(Message::Text(Utf8Bytes::from_static(
+                            "Failed to parse connect message",
+                        )))
+                        .await;
                     break;
                 }
             };
+
             {
                 // If username that is sent by client is not taken, fill username string.
                 let mut rooms = state.rooms.lock().unwrap();
@@ -121,6 +121,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     username = connect.username.clone();
                 }
             }
+
             if tx.is_some() && !username.is_empty() {
                 break;
             } else {
@@ -133,8 +134,6 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     .await;
                 return;
             }
-
-
         }
     }
 
@@ -155,10 +154,12 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 match rx.recv().await {
                     Ok(msg) => {
                         let mut s = sender.lock().await;
-                        if s.send(Message::Text(format!("{msg}").into())).await.is_err() {
+                        if s.send(Message::Text(format!("{msg}").into()))
+                            .await
+                            .is_err()
+                        {
                             break;
                         }
-                        
                     }
                     // If we lagged behind, just continue
                     Err(broadcast::error::RecvError::Lagged(_)) => continue,
@@ -180,15 +181,13 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 //received a new message
                 let peronal_message = "test personal";
                 let response = handle_request(text);
-                
 
                 // broadcast to everyone (including sender)
                 let _ = tx.send(format!("{response}"));
 
                 // send a different message only to the sender
                 let mut s = sender.lock().await;
-                if s
-                    .send(Message::Text(format!("{peronal_message}").into()))
+                if s.send(Message::Text(format!("{peronal_message}").into()))
                     .await
                     .is_err()
                 {
@@ -210,7 +209,5 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let _ = tx.send(msg);
     let mut rooms = state.rooms.lock().unwrap();
     // free username
-     rooms.get_mut(&channel).unwrap().user_set.remove(&username);
-
+    rooms.get_mut(&channel).unwrap().user_set.remove(&username);
 }
-

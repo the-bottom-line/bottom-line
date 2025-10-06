@@ -20,6 +20,8 @@ WORKDIR /app
 
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/bottom-line .
 
+EXPOSE 3000
+
 RUN chmod +x bottom-line
 
 CMD ["./bottom-line"]

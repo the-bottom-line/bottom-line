@@ -65,7 +65,7 @@ pub async fn setupsocket() {
         .route("/websocket", get(websocket_handler))
         .with_state(app_state);
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
         .await
         .unwrap();
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
@@ -85,7 +85,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let mut tx = None::<broadcast::Sender<String>>;
 
     while let Some(Ok(message)) = receiver.next().await {
-        if let Message::Text(name) = message {            
+        if let Message::Text(name) = message {
             #[derive(Deserialize)]
             struct Connect {
                 username: String,

@@ -1,7 +1,10 @@
-use crate::{game::GameState, request_handler::{handle_request, ReceiveJson}};
+use crate::{
+    game::GameState,
+    request_handler::{PublicSendJson, ReceiveJson, SendJson, handle_request},
+};
 
 use axum::{
-    Router,
+    Json, Router,
     extract::{
         State,
         ws::{Message, Utf8Bytes, WebSocket, WebSocketUpgrade},
@@ -32,7 +35,7 @@ pub struct AppState {
 
 pub struct RoomState {
     /// Previously created in main.
-    tx: broadcast::Sender<String>,
+    tx: broadcast::Sender<Json<PublicSendJson>>,
     pub game: Mutex<Game>,
 }
 
@@ -89,7 +92,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     // receive initial username message
     let mut username = String::new();
     let mut channel = String::new();
-    let mut tx = None::<broadcast::Sender<String>>;
+    let mut tx = None::<broadcast::Sender<Json<PublicSendJson>>>;
 
     while let Some(Ok(message)) = receiver.next().await {
         if let Message::Text(name) = message {
@@ -162,9 +165,9 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let mut rx = tx.subscribe();
 
     // announce join to everyone
-    let msg = format!("{username} joined.");
-    tracing::debug!("{msg}");
-    let _ = tx.send(msg);
+    let msg = PublicSendJson::Msg(format!("{username} joined."));
+    tracing::debug!("{msg:?}");
+    let _ = tx.send(msg.into());
 
     // task: forward broadcast messages to this client
     let mut send_task = {
@@ -174,7 +177,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 match rx.recv().await {
                     Ok(msg) => {
                         let mut s = sender.lock().await;
-                        if s.send(Message::Text(format!("{msg}").into()))
+                        if s.send(Message::Text(format!("{msg:?}").into()))
                             .await
                             .is_err()
                         {
@@ -199,15 +202,16 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
         tokio::spawn(async move {
             while let Some(Ok(Message::Text(text))) = receiver.next().await {
                 if let Ok(json) = serde_json::from_str::<ReceiveJson>(&text) {
-                    let response = handle_request(json, room.clone(), &name);
-    
+                    let SendJson(public, private) = handle_request(json, room.clone(), &name);
+
                     // // broadcast to everyone (including sender)
-                    // let _ = tx.send(format!("{response}"));
-    
+                    // let public_ser = serde_json::to_string(&public).unwrap();
+                    let _ = tx.send(public.into());
+
                     // send a different message only to the sender
-                    let json_str = serde_json::to_string(&response).unwrap();
+                    let private_ser = serde_json::to_string(&private).unwrap();
                     let mut s = sender.lock().await;
-                    if s.send(Message::Text(json_str.into())).await.is_err() {
+                    if s.send(private_ser.into()).await.is_err() {
                         break;
                     }
                 }
@@ -224,12 +228,16 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     // announce leave
     let msg = format!("{username} left.");
     tracing::debug!("{msg}");
-    let _ = tx.send(msg);
-    // let mut rooms = state.rooms.lock().unwrap();
-    // // free username
-    // {
-    //     if let Game::InLobby { user_set } = &mut (*rooms).get(&channel).unwrap().game.lock().unwrap() {
-    //         user_set.remove(&username);
-    //     }
-    // }
+    let _ = tx.send(PublicSendJson::Msg(msg).into());
+    // remove username on disconnect
+    {
+        let rooms = state.rooms.lock().unwrap();
+        let room = rooms
+            .get(&channel)
+            .cloned()
+            .expect("The room should exist at this point");
+        if let Game::InLobby { user_set } = &mut *room.game.lock().unwrap() {
+            user_set.remove(&username);
+        }
+    }
 }

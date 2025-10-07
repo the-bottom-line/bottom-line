@@ -94,7 +94,6 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     // receive initial username message
     let mut username = String::new();
     let mut channel = String::new();
-    let mut tx = None::<broadcast::Sender<Json<PublicSendJson>>>;
 
     while let Some(Ok(message)) = receiver.next().await {
         if let Message::Text(name) = message {
@@ -127,8 +126,6 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     .entry(connect.channel)
                     .or_insert_with(|| Arc::new(RoomState::new()));
 
-                tx = Some(room.tx.clone());
-
                 if let Ok(mut mutex) = room.game.lock() {
                     if let Game::InLobby { user_set } = &mut *mutex {
                         if !user_set.contains(&connect.username) {
@@ -139,7 +136,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 }
             }
 
-            if tx.is_some() && !username.is_empty() {
+            if !username.is_empty() {
                 break;
             } else {
                 // Only send our client that username is taken.
@@ -162,9 +159,14 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             .expect("The room should exist at this point")
     };
 
-    let tx = tx.unwrap();
+    let tx = room.tx.clone();
     // subscribe to broadcast channel
     let mut rx = tx.subscribe();
+
+    {
+        let mut s = sender.lock().await;
+        let _ = s.send(Message::Text(format!("username: {username}").into())).await;
+    }
 
     // announce join to everyone
     let msg = PublicSendJson::PlayerJoined {
@@ -182,13 +184,17 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
         tokio::spawn(async move {
             loop {
                 match rx.recv().await {
-                    Ok(msg) => {
-                        let mut s = sender.lock().await;
-                        if s.send(Message::Text(format!("{msg:?}").into()))
-                            .await
-                            .is_err()
-                        {
-                            break;
+                    Ok(Json(json)) => {
+                        tracing::debug!("public recv: {json:?}");
+                        if let Some(private) = handle_public_request(json, room.clone(), &name) {
+                            let msg = serde_json::to_string(&private).unwrap();
+                            let mut s = sender.lock().await;
+                            if s.send(Message::Text(msg.into()))
+                                .await
+                                .is_err()
+                            {
+                                break;
+                            }
                         }
                     }
                     // If we lagged behind, just continue
@@ -205,21 +211,26 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
         let tx = tx.clone();
         let sender = sender.clone();
         let name = username.clone();
+        let room = room.clone();
 
         tokio::spawn(async move {
             while let Some(Ok(Message::Text(text))) = receiver.next().await {
                 if let Ok(json) = serde_json::from_str::<ReceiveJson>(&text) {
+                    tracing::debug!("incoming json: {json:?}");
                     let SendJson(public, private) = handle_request(json, room.clone(), &name);
 
                     // // broadcast to everyone (including sender)
                     // let public_ser = serde_json::to_string(&public).unwrap();
+                    tracing::debug!("public send: {public:?}");
                     let _ = tx.send(public.into());
 
                     // send a different message only to the sender
                     let private_ser = serde_json::to_string(&private).unwrap();
-                    let mut s = sender.lock().await;
-                    if s.send(private_ser.into()).await.is_err() {
-                        break;
+                    {
+                        let mut s = sender.lock().await;
+                        if s.send(private_ser.into()).await.is_err() {
+                            break;
+                        }
                     }
                 }
             }

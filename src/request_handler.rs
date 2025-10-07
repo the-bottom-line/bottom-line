@@ -25,14 +25,11 @@ pub enum ReceiveJsonAction {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SendJson {
-    pub public: PublicSendJson,
-    pub private: PrivateSendJson,
-}
+pub struct SendJson(pub PublicSendJson, pub PrivateSendJson);
 
 impl SendJson {
     pub fn new(public: PublicSendJson, private: PrivateSendJson) -> Self {
-        Self { public, private }
+        Self(public, private)
     }
 }
 
@@ -63,6 +60,7 @@ pub enum PrivateSendJson {
 #[serde(rename_all = "snake_case")]
 pub enum PublicSendJson {
     ActionPerformed, // all-round placeholder
+    Msg(String),
     DrawnCard {
         player_id: PlayerId,
     },
@@ -115,7 +113,7 @@ pub fn handle_request(msg: ReceiveJson, room_state: Arc<RoomState>, player_name:
     return response;
 }
 
-fn draw_card(state: &mut GameState, t: CardType, player_idx :usize) -> SendJson {
+fn draw_card(state: &mut GameState, t: CardType, player_idx: usize) -> SendJson {
     if let Some(card) = state.player_draw_card(player_idx, t) {
         return PrivateSendJson::DrawnCard {
             card: card.cloned(),

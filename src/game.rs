@@ -267,6 +267,14 @@ impl Player {
         self.hand.push(card);
     }
 
+    pub fn give_back_card(&mut self, card_idx: usize) -> Option<Either<Asset, Liability>> {
+        if let Some(_) = self.hand.get(card_idx) {
+            Some(self.hand.remove(card_idx))
+        } else {
+            None
+        }
+    }
+
     pub fn assign_character(&mut self, character: Character) {
         use Character::*;
 
@@ -456,7 +464,14 @@ pub trait TheBottomLine {
     /// a new market.
     fn player_play_card(&mut self, player_idx: usize, card_idx: usize) -> Option<MarketChange>;
 
-    fn player_draw_card(&mut self, player_idx: usize, card_type: CardType) -> Option<Either<&Asset, &Liability>>;
+    fn player_draw_card(
+        &mut self,
+        player_idx: usize,
+        card_type: CardType,
+    ) -> Option<Either<&Asset, &Liability>>;
+
+    /// When the player grabs 3 cards, the player should give back one.
+    fn player_give_back_card(&mut self, player_idx: usize, card_idx: usize) -> Option<usize>;
 
     fn end_player_turn(&mut self, player_idx: usize);
 }
@@ -634,7 +649,11 @@ impl TheBottomLine for GameState {
         None
     }
 
-    fn player_draw_card(&mut self, idx: usize, card_type: CardType) -> Option<Either<&Asset, &Liability>> {
+    fn player_draw_card(
+        &mut self,
+        idx: usize,
+        card_type: CardType,
+    ) -> Option<Either<&Asset, &Liability>> {
         if let Some(player) = self.players.get_mut(idx) {
             if self.current_player == Some(player.id) && player.cards_drawn.len() < 3 {
                 let card = match card_type {
@@ -646,7 +665,23 @@ impl TheBottomLine for GameState {
                 return player.hand.last().map(|c| c.as_ref());
             }
         }
-        
+
+        None
+    }
+
+    /// When the player grabs 3 cards, the player should give back one.
+    fn player_give_back_card(&mut self, player_idx: usize, card_idx: usize) -> Option<usize> {
+        if let Some(player) = self.players.get_mut(player_idx) {
+            if self.current_player == Some(player.id) && player.cards_drawn.len() >= 3 {
+                match player.give_back_card(card_idx) {
+                    Some(Either::Left(asset)) => self.assets.deck.insert(0, asset),
+                    Some(Either::Right(liability)) => self.liabilities.deck.insert(0, liability),
+                    None => return None,
+                }
+                return Some(card_idx);
+            }
+        }
+
         None
     }
 

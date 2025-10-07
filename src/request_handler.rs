@@ -119,8 +119,8 @@ pub fn handle_request(msg: ReceiveJson, room_state: Arc<RoomState>, player_name:
                 ReceiveJsonAction::StartGame => todo!(),
                 ReceiveJsonAction::DrawCard { card_type } => draw_card(state, card_type, playerid),
                 ReceiveJsonAction::PutBackCard { card_idx } => put_back_card(state, card_idx, playerid),
-                ReceiveJsonAction::BuyAsset { asset_idx } => buy_asset(state, asset_idx, playerid),
-                ReceiveJsonAction::IssueLiability { liability_idx } => issue_liability(state, liability_idx, playerid),
+                ReceiveJsonAction::BuyAsset { asset_idx } => play_card(state, asset_idx, playerid),
+                ReceiveJsonAction::IssueLiability { liability_idx } => play_card(state, liability_idx, playerid),
                 ReceiveJsonAction::SelectCharacter { character } => todo!(),
             }
         }
@@ -171,26 +171,27 @@ fn put_back_card(state: &mut GameState, card_idx: usize, player_idx: usize) -> S
     }
 }
 
-fn buy_asset(state: &mut GameState, asset_idx: usize, player_idx: usize) -> SendJson{
-    if let Some(played_card) = state.player_play_card(player_idx, asset_idx) {
-        return SendJson::new(
+fn play_card(state: &mut GameState, card_idx: usize, player_idx: usize) -> SendJson{
+    if let Some(played_card) = state.player_play_card(player_idx, card_idx) {
+        match played_card.used_card {
+                    Either::Left(asset) => {
+                        return SendJson::new(
             PublicSendJson::BoughtAsset { 
-                player_id: player_idx.into(), asset: Some((played_card.card)) } ,
+                player_id: player_idx.into(), asset: asset } ,
             PrivateSendJson::BuyAssetOk
         );
-    } else {
-        return PrivateSendJson::ActionNotAllowed.into();
-    }
-}
-
-fn issue_liability(state: &mut GameState, liability_idx: usize, player_idx: usize) -> SendJson{
-    if let Some(played_card) = state.player_play_card(player_idx, liability_idx) {
-        return SendJson::new(
-            PublicSendJson::BoughtAsset { 
-                player_id: player_idx.into(), asset: Some((played_card.card)) },
+                    }
+                    Either::Right(liability) => {
+                        return SendJson::new(
+            PublicSendJson::IssuedLiability { 
+                player_id: player_idx.into(),
+                 liability: liability
+                },
             PrivateSendJson::IssuedLiabilityOk
         );
-    } else {
+                }
+            } 
+        } else {
         return PrivateSendJson::ActionNotAllowed.into();
     }
 }

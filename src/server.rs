@@ -1,6 +1,8 @@
 use crate::{
     game::GameState,
-    request_handler::{PublicSendJson, ReceiveJson, SendJson, handle_request},
+    request_handler::{
+        PublicSendJson, ReceiveJson, SendJson, handle_public_request, handle_request,
+    },
 };
 
 use axum::{
@@ -171,7 +173,10 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 
     // task: forward broadcast messages to this client
     let mut send_task = {
+        let name = username.clone();
+        let room = room.clone();
         let sender = sender.clone();
+
         tokio::spawn(async move {
             loop {
                 match rx.recv().await {

@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    sync::Arc,
+    sync::Arc, vec,
 };
 
 use either::Either;
@@ -457,6 +457,9 @@ pub trait TheBottomLine {
     /// Gets player if one exists with specified character
     fn player_from_character(&self, character: Character) -> Option<&Player>;
 
+    /// Gets list of selectable caracters if its the players turn
+    fn get_selectable_characters(&self, player_idx: usize) -> Option<Vec<Character>>;
+
     /// Assigns a character role to a specific player. Returns a set of pickable characters for the
     /// next player to choose from
     fn next_player_select_character(
@@ -608,6 +611,16 @@ impl TheBottomLine for GameState {
             }
         }
 
+        None
+    }
+
+    fn get_selectable_characters(
+        &self,
+        player_idx: usize
+    ) -> Option<Vec<Character>> {
+        if self.is_selecting_characters() && player_idx == self.characters.applies_to_player() {
+            return  Some(self.characters.available_characters.deck.to_vec());
+        }
         None
     }
 

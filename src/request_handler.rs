@@ -20,6 +20,7 @@ pub enum ReceiveJsonAction {
     PutBackCard { card_idx: usize },
     BuyAsset { asset_idx: usize },
     IssueLiability { liability_idx: usize },
+    GetSelectableCharacters,
     SelectCharacter { character: Character },
 }
 
@@ -54,6 +55,10 @@ pub enum PrivateSendJson {
     },
     BuyAssetOk,
     IssuedLiabilityOk,
+    SelectableCharacters {
+        characters: Vec<Character>,
+    },
+    SelectCharacterOk,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -116,12 +121,13 @@ pub fn handle_request(msg: ReceiveJson, room_state: Arc<RoomState>, player_name:
         crate::server::Game::GameStarted { state } => {
             let playerid: usize = state.player_by_name(player_name).unwrap().id.into();
             match msg.action {
-                ReceiveJsonAction::StartGame => todo!(),
+                ReceiveJsonAction::StartGame => PrivateSendJson::ActionNotAllowed.into(),
                 ReceiveJsonAction::DrawCard { card_type } => draw_card(state, card_type, playerid),
                 ReceiveJsonAction::PutBackCard { card_idx } => put_back_card(state, card_idx, playerid),
                 ReceiveJsonAction::BuyAsset { asset_idx } => play_card(state, asset_idx, playerid),
                 ReceiveJsonAction::IssueLiability { liability_idx } => play_card(state, liability_idx, playerid),
-                ReceiveJsonAction::SelectCharacter { character } => todo!(),
+                ReceiveJsonAction::GetSelectableCharacters => get_selectable_characters(state, playerid),
+                ReceiveJsonAction::SelectCharacter { character } => select_character(state, character, playerid),
             }
         }
         crate::server::Game::InLobby { user_set } => match msg.action {
@@ -192,6 +198,32 @@ fn play_card(state: &mut GameState, card_idx: usize, player_idx: usize) -> SendJ
                 }
             } 
         } else {
+        return PrivateSendJson::ActionNotAllowed.into();
+    }
+}
+
+fn select_character(state: &mut GameState, character: Character, player_idx: usize) -> SendJson{
+    let cs= state.next_player_select_character(player_idx, character);
+    if let Some(c) = cs {
+        return SendJson::new(
+            PublicSendJson::SelectedCharacter { 
+                player_id: player_idx.into()
+            },
+            PrivateSendJson::SelectCharacterOk
+        );
+    } else {
+        return PrivateSendJson::ActionNotAllowed.into();
+    }
+}
+
+fn get_selectable_characters(state: &mut GameState, player_idx: usize) -> SendJson{
+    let cs= state.get_selectable_characters(player_idx);
+    if let Some(c) = cs {
+        return SendJson::new(
+         PublicSendJson::ActionPerformed,
+        PrivateSendJson::SelectableCharacters { characters: c }
+        );
+    } else {
         return PrivateSendJson::ActionNotAllowed.into();
     }
 }

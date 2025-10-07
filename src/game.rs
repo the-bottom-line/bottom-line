@@ -239,21 +239,21 @@ impl Player {
 
     /// Plays card in players hand with index `idx`. If that index is valid, the card is played
     /// if
-    pub fn play_card(&mut self, idx: usize) -> Option<CardType> {
+    pub fn play_card(&mut self, idx: usize) -> Option<Either<Asset, Liability>> {
         if let Some(card) = self.hand.get(idx) {
             match card {
                 Either::Left(a) if self.assets_to_play > 0 && self.cash >= a.gold_value => {
                     let asset = self.hand.remove(idx).left().unwrap();
                     self.cash -= asset.gold_value;
                     self.assets_to_play -= 1;
-                    self.assets.push(asset);
-                    Some(CardType::Asset)
+                    self.assets.push(asset.clone());
+                    Some(Either::Left(asset))
                 }
                 Either::Right(_) if self.liabilities_to_play > 0 => {
                     let liability = self.hand.remove(idx).right().unwrap();
                     self.liabilities_to_play -= 1;
-                    self.liabilities.push(liability);
-                    Some(CardType::Liability)
+                    self.liabilities.push(liability.clone());
+                    Some(Either::Right(liability))
                 }
                 _ => None,
             }
@@ -434,6 +434,12 @@ pub struct MarketChange {
     pub new_market: Market,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlayerPlayedCard {
+    pub market: Option<MarketChange>,
+    pub used_card: Either<Asset, Liability>,
+}
+
 pub trait TheBottomLine {
     /// Checks if the game is in a selecting characters phase, which happens before each round
     /// starts.
@@ -462,7 +468,7 @@ pub trait TheBottomLine {
     /// Attempts to play a card (either an asset or liability) for player with `player_idx`. If
     /// playing this card triggers a market change, returns an object with a list of events and
     /// a new market.
-    fn player_play_card(&mut self, player_idx: usize, card_idx: usize) -> Option<MarketChange>;
+    fn player_play_card(&mut self, player_idx: usize, card_idx: usize) -> Option<PlayerPlayedCard>;
 
     fn player_draw_card(
         &mut self,
@@ -632,14 +638,21 @@ impl TheBottomLine for GameState {
         self.players.iter().find(|p| p.character == Some(character))
     }
 
-    fn player_play_card(&mut self, idx: usize, card_idx: usize) -> Option<MarketChange> {
+    fn player_play_card(&mut self, idx: usize, card_idx: usize) -> Option<PlayerPlayedCard> {
         let current_character = self.current_player().unwrap().character;
 
         if let Some(player) = self.players.get_mut(idx) {
             if player.character == current_character {
                 match player.play_card(card_idx) {
-                    Some(CardType::Asset) if self.check_new_market() => {
-                        return Some(self.new_market());
+                    Some(Either::Left(asset)) if self.check_new_market() => {
+                        let market = Some(self.new_market());
+                        let used_card = Either::Left(asset.clone());
+                        return Some(PlayerPlayedCard { market, used_card });
+                    }
+                    Some(Either::Right(liability)) => {
+                        let market = None;
+                        let used_card = Either::Right(liability);
+                        return Some(PlayerPlayedCard { market, used_card });
                     }
                     _ => {}
                 }

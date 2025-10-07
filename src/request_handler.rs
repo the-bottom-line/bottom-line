@@ -14,7 +14,6 @@ pub struct ReceiveJson {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum ReceiveJsonAction {
     StartGame,
     DrawCard { card_type: CardType },
@@ -40,9 +39,9 @@ impl From<PrivateSendJson> for SendJson {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum PrivateSendJson {
     ActionNotAllowed,
+    GameStartedOk,
     StartGame {
         cash: u8,
         hand: Vec<Either<Asset, Liability>>,
@@ -58,11 +57,15 @@ pub enum PrivateSendJson {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum PublicSendJson {
     ActionPerformed, // all-round placeholder
+    PlayerJoined {
+        username: String,
+    },
+    PlayerLeft {
+        username: String,
+    },
     GameStarted,
-    Msg(String),
     DrawnCard {
         player_id: PlayerId,
         card_type: CardType,
@@ -84,24 +87,40 @@ pub enum PublicSendJson {
     },
 }
 
+pub fn handle_public_request(
+    msg: PublicSendJson,
+    room_state: Arc<RoomState>,
+    player_name: &str,
+) -> Option<PrivateSendJson> {
+    match &*room_state.game.lock().unwrap() {
+        Game::GameStarted { state } => {
+            let player = state.player_by_name(&player_name).unwrap();
+            match msg {
+                PublicSendJson::GameStarted => {
+                    let hand = player.hand.clone();
+                    let cash = player.cash;
+                    Some(PrivateSendJson::StartGame { hand, cash })
+                }
+                _ => None,
+            }
+        }
+        Game::InLobby { user_set: _ } => None,
+    }
+}
+
 pub fn handle_request(msg: ReceiveJson, room_state: Arc<RoomState>, player_name: &str) -> SendJson {
     //todo parse json request and
 
     let mut game = room_state.game.lock().unwrap();
-    let mut response = SendJson::from(PrivateSendJson::ActionNotAllowed);
     match &mut *game {
         crate::server::Game::GameStarted { state } => {
             let playerid: usize = state.player_by_name(player_name).unwrap().id.into();
             match msg.action {
                 ReceiveJsonAction::StartGame => todo!(),
-                ReceiveJsonAction::DrawCard { card_type } => {
-                    response = draw_card(state, card_type, playerid);
-                },
-                ReceiveJsonAction::PutBackCard { card_idx } => {
-                    response = put_back_card(state, card_idx, playerid)
-                },
-                ReceiveJsonAction::BuyAsset { asset_idx } =>  response = buy_asset(state, asset_idx, playerid),
-                ReceiveJsonAction::IssueLiability { liability_idx } => todo!(),
+                ReceiveJsonAction::DrawCard { card_type } => draw_card(state, card_type, playerid),
+                ReceiveJsonAction::PutBackCard { card_idx } => put_back_card(state, card_idx, playerid),
+                ReceiveJsonAction::BuyAsset { asset_idx } => buy_asset(state, asset_idx, playerid),
+                ReceiveJsonAction::IssueLiability { liability_idx } => issue_liability(state, liability_idx, playerid),
                 ReceiveJsonAction::SelectCharacter { character } => todo!(),
             }
         }
@@ -111,12 +130,12 @@ pub fn handle_request(msg: ReceiveJson, room_state: Arc<RoomState>, player_name:
                 let data = GameData::new("assets/cards/boardgame.json").expect("this should exist");
                 let state = GameState::new(&names, data);
                 *game = Game::GameStarted { state };
+                tracing::debug!("{msg:?}");
+                SendJson(PublicSendJson::GameStarted, PrivateSendJson::GameStartedOk)
             }
-            _ => panic!(),
+            _ => PrivateSendJson::ActionNotAllowed.into(),
         },
     }
-
-    return response;
 }
 
 fn draw_card(state: &mut GameState, t: CardType, player_idx: usize) -> SendJson {

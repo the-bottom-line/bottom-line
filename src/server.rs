@@ -1,6 +1,8 @@
 use crate::{
     game::GameState,
-    request_handler::{PublicSendJson, ReceiveJson, SendJson, handle_request},
+    request_handler::{
+        PublicSendJson, ReceiveJson, SendJson, handle_public_request, handle_request,
+    },
 };
 
 use axum::{
@@ -165,13 +167,18 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let mut rx = tx.subscribe();
 
     // announce join to everyone
-    let msg = PublicSendJson::Msg(format!("{username} joined."));
+    let msg = PublicSendJson::PlayerJoined {
+        username: username.clone(),
+    };
     tracing::debug!("{msg:?}");
     let _ = tx.send(msg.into());
 
     // task: forward broadcast messages to this client
     let mut send_task = {
+        let name = username.clone();
+        let room = room.clone();
         let sender = sender.clone();
+
         tokio::spawn(async move {
             loop {
                 match rx.recv().await {
@@ -226,9 +233,11 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     };
 
     // announce leave
-    let msg = format!("{username} left.");
-    tracing::debug!("{msg}");
-    let _ = tx.send(PublicSendJson::Msg(msg).into());
+    let msg = PublicSendJson::PlayerLeft {
+        username: username.clone(),
+    };
+    tracing::debug!("{msg:?}");
+    let _ = tx.send(msg.into());
     // remove username on disconnect
     {
         let rooms = state.rooms.lock().unwrap();

@@ -14,7 +14,6 @@ pub struct ReceiveJson {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum ReceiveJsonAction {
     StartGame,
     DrawCard { card_type: CardType },
@@ -40,7 +39,6 @@ impl From<PrivateSendJson> for SendJson {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum PrivateSendJson {
     ActionNotAllowed,
     GameStartedOk,
@@ -58,7 +56,6 @@ pub enum PrivateSendJson {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum PublicSendJson {
     ActionPerformed, // all-round placeholder
     PlayerJoined { username: String },

@@ -58,8 +58,13 @@ pub enum PrivateSendJson {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum PublicSendJson {
     ActionPerformed, // all-round placeholder
-    PlayerJoined { username: String },
-    PlayerLeft { username: String },
+    PlayerJoined {
+        username: String,
+    },
+    PlayerLeft {
+        username: String,
+    },
+    GameStarted,
     DrawnCard {
         player_id: PlayerId,
     },

@@ -618,7 +618,8 @@ impl TheBottomLine for GameState {
         &self,
         player_idx: usize
     ) -> Option<Vec<Character>> {
-        if self.is_selecting_characters() && player_idx == self.characters.applies_to_player() {
+        if self.is_selecting_characters() {
+            //missing check for if its the requesting player's turn
             return  Some(self.characters.available_characters.deck.to_vec());
         }
         None

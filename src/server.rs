@@ -165,7 +165,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let mut rx = tx.subscribe();
 
     // announce join to everyone
-    let msg = PublicSendJson::Msg(format!("{username} joined."));
+    let msg = PublicSendJson::PlayerJoined { username: username.clone() };
     tracing::debug!("{msg:?}");
     let _ = tx.send(msg.into());
 
@@ -226,9 +226,9 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     };
 
     // announce leave
-    let msg = format!("{username} left.");
-    tracing::debug!("{msg}");
-    let _ = tx.send(PublicSendJson::Msg(msg).into());
+    let msg = PublicSendJson::PlayerLeft { username: username.clone() };
+    tracing::debug!("{msg:?}");
+    let _ = tx.send(msg.into());
     // remove username on disconnect
     {
         let rooms = state.rooms.lock().unwrap();

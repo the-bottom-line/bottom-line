@@ -60,7 +60,8 @@ pub enum PrivateSendJson {
 #[serde(rename_all = "snake_case")]
 pub enum PublicSendJson {
     ActionPerformed, // all-round placeholder
-    Msg(String),
+    PlayerJoined { username: String },
+    PlayerLeft { username: String },
     DrawnCard {
         player_id: PlayerId,
     },

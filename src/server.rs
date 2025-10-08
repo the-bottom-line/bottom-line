@@ -163,11 +163,6 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     // subscribe to broadcast channel
     let mut rx = tx.subscribe();
 
-    {
-        let mut s = sender.lock().await;
-        let _ = s.send(Message::Text(format!("username: {username}").into())).await;
-    }
-
     // announce join to everyone
     let msg = PublicSendJson::PlayerJoined {
         username: username.clone(),

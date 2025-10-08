@@ -387,7 +387,7 @@ impl ObtainingCharacters {
         let closed_character = available_characters.draw();
 
         ObtainingCharacters {
-            player_count: 0,
+            player_count,
             draw_idx: 0,
             chairman_id,
             available_characters,

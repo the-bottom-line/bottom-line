@@ -9,12 +9,8 @@ use either::Either;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ReceiveJson {
-    action: ReceiveJsonAction,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum ReceiveJsonAction {
+#[serde(tag = "action", content = "data")]
+pub enum ReceiveJson {
     StartGame,
     DrawCard { card_type: CardType },
     PutBackCard { card_idx: usize },
@@ -39,6 +35,7 @@ impl From<PrivateSendJson> for SendJson {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "action", content = "data")]
 pub enum PrivateSendJson {
     ActionNotAllowed,
     GameStartedOk,
@@ -57,6 +54,7 @@ pub enum PrivateSendJson {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "action", content = "data")]
 pub enum PublicSendJson {
     ActionPerformed, // all-round placeholder
     PlayerJoined {
@@ -115,17 +113,17 @@ pub fn handle_request(msg: ReceiveJson, room_state: Arc<RoomState>, player_name:
     match &mut *game {
         crate::server::Game::GameStarted { state } => {
             let playerid: usize = state.player_by_name(player_name).unwrap().id.into();
-            match msg.action {
-                ReceiveJsonAction::StartGame => todo!(),
-                ReceiveJsonAction::DrawCard { card_type } => draw_card(state, card_type, playerid),
-                ReceiveJsonAction::PutBackCard { card_idx } => put_back_card(state, card_idx, playerid),
-                ReceiveJsonAction::BuyAsset { asset_idx } => play_card(state, asset_idx, playerid),
-                ReceiveJsonAction::IssueLiability { liability_idx } => play_card(state, liability_idx, playerid),
-                ReceiveJsonAction::SelectCharacter { character } => todo!(),
+            match msg {
+                ReceiveJson::StartGame => todo!(),
+                ReceiveJson::DrawCard { card_type } => draw_card(state, card_type, playerid),
+                ReceiveJson::PutBackCard { card_idx } => put_back_card(state, card_idx, playerid),
+                ReceiveJson::BuyAsset { asset_idx } => play_card(state, asset_idx, playerid),
+                ReceiveJson::IssueLiability { liability_idx } => play_card(state, liability_idx, playerid),
+                ReceiveJson::SelectCharacter { character } => todo!(),
             }
         }
-        crate::server::Game::InLobby { user_set } => match msg.action {
-            ReceiveJsonAction::StartGame => {
+        crate::server::Game::InLobby { user_set } => match msg {
+            ReceiveJson::StartGame => {
                 let names = user_set.iter().cloned().collect::<Vec<_>>();
                 let data = GameData::new("assets/cards/boardgame.json").expect("this should exist");
                 let state = GameState::new(&names, data);
@@ -202,14 +200,10 @@ mod tests {
 
     #[test]
     fn fmt() {
-        let action = ReceiveJson {
-            action: ReceiveJsonAction::StartGame, // action: ReceiveJsonAction::DrawCard { card_type: CardType::Asset }
-        };
+        let action = ReceiveJson::StartGame;
 
-        let action2 = ReceiveJson {
-            action: ReceiveJsonAction::DrawCard {
-                card_type: CardType::Asset,
-            },
+        let action2 = ReceiveJson::DrawCard {
+            card_type: CardType::Asset,
         };
 
         let json = serde_json::to_string(&action).unwrap();

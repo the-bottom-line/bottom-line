@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    sync::Arc,
+    sync::Arc, vec,
 };
 
 use either::Either;
@@ -422,7 +422,6 @@ impl ObtainingCharacters {
 
         res
     }
-
     pub fn applies_to_player(&self) -> usize {
         (self.draw_idx + self.chairman_id.0) % self.player_count
     }
@@ -456,6 +455,9 @@ pub trait TheBottomLine {
 
     /// Gets player if one exists with specified character
     fn player_from_character(&self, character: Character) -> Option<&Player>;
+
+    /// Gets list of selectable caracters if its the players turn
+    fn get_selectable_characters(&self, player_idx: usize) -> Option<Vec<Character>>;
 
     /// Assigns a character role to a specific player. Returns a set of pickable characters for the
     /// next player to choose from
@@ -511,7 +513,6 @@ impl GameState {
 
         let characters =
             ObtainingCharacters::new(player_names.len(), players.first().unwrap().id.into());
-
         GameState {
             players,
             characters,
@@ -604,10 +605,22 @@ impl TheBottomLine for GameState {
         if self.is_selecting_characters() && player_idx == self.characters.applies_to_player() {
             if let Some(player) = self.players.get_mut(player_idx) {
                 player.character = Some(character);
+                dbg!(player);
                 return self.characters.next();
             }
         }
 
+        None
+    }
+
+    fn get_selectable_characters(
+        &self,
+        player_idx: usize
+    ) -> Option<Vec<Character>> {
+        if self.is_selecting_characters() && player_idx == self.characters.applies_to_player(){
+            //missing check for if its the requesting player's turn
+            return  Some(self.characters.available_characters.deck.to_vec());
+        }
         None
     }
 

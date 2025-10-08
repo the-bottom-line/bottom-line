@@ -9,9 +9,12 @@ either = { version = "1.15.0", features = ["serde"] }
 rand = "0.9.2"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
-
 axum = { version = "0.8.6", features = ["ws"] }
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+tokio-tungstenite = "0.24"
+tungstenite = "0.24"

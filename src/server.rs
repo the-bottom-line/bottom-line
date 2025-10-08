@@ -261,3 +261,37 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio_tungstenite::connect_async;
+
+    #[tokio::test]
+    async fn start_game() {
+        let url = "127.0.0.1:3000";
+
+        tokio::task::spawn(async move {
+            setupsocket().await;
+        });
+
+        let (ws_stream1, _) = connect_async(format!("{}/websocket", url)).await.unwrap();
+        let (mut write1, mut read1) = ws_stream1.split();
+
+        let (ws_stream2, _) = connect_async(format!("{}/websocket", url)).await.unwrap();
+        let (mut write2, mut read2) = ws_stream2.split();
+
+        let (ws_stream3, _) = connect_async(format!("{}/websocket", url)).await.unwrap();
+        let (mut write3, mut read3) = ws_stream3.split();
+
+        let (ws_stream4, _) = connect_async(format!("{}/websocket", url)).await.unwrap();
+        let (mut write4, mut read4) = ws_stream4.split();
+
+        write1.send(tokio_tungstenite::tungstenite::Message::Text(
+            r#"{"channel":"thing","username": "user1"}"#.into()
+        )).await.unwrap();
+        let msg = read1.next().await.unwrap().unwrap();
+        dbg!(msg);
+
+    }
+}

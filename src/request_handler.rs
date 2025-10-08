@@ -118,7 +118,7 @@ pub fn handle_request(msg: ReceiveJson, room_state: Arc<RoomState>, player_name:
     match &mut *game {
         crate::server::Game::GameStarted { state } => {
             let playerid: usize = state.player_by_name(player_name).unwrap().id.into();
-            match msg.action {
+            match msg {
                 ReceiveJson::StartGame => PrivateSendJson::ActionNotAllowed.into(),
                 ReceiveJson::DrawCard { card_type } => draw_card(state, card_type, playerid),
                 ReceiveJson::PutBackCard { card_idx } => put_back_card(state, card_idx, playerid),

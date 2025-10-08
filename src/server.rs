@@ -209,24 +209,32 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
         let room = room.clone();
 
         tokio::spawn(async move {
-            while let Some(Ok(Message::Text(text))) = receiver.next().await {
-                if let Ok(json) = serde_json::from_str::<ReceiveJson>(&text) {
-                    tracing::debug!("incoming json: {json:?}");
-                    let SendJson(public, private) = handle_request(json, room.clone(), &name);
-
-                    // // broadcast to everyone (including sender)
-                    // let public_ser = serde_json::to_string(&public).unwrap();
-                    tracing::debug!("public send: {public:?}");
-                    let _ = tx.send(public.into());
-
-                    // send a different message only to the sender
-                    let private_ser = serde_json::to_string(&private).unwrap();
-                    {
-                        let mut s = sender.lock().await;
-                        if s.send(private_ser.into()).await.is_err() {
-                            break;
+            while let Some(Ok(message)) = receiver.next().await {
+                match message {
+                    Message::Text(text) => {
+                        if let Ok(json) = serde_json::from_str::<ReceiveJson>(&text) {
+                            tracing::debug!("incoming json: {json:?}");
+                            let SendJson(public, private) = handle_request(json, room.clone(), &name);
+        
+                            // // broadcast to everyone (including sender)
+                            // let public_ser = serde_json::to_string(&public).unwrap();
+                            tracing::debug!("public send: {public:?}");
+                            let _ = tx.send(public.into());
+        
+                            // send a different message only to the sender
+                            let private_ser = serde_json::to_string(&private).unwrap();
+                            {
+                                let mut s = sender.lock().await;
+                                if s.send(private_ser.into()).await.is_err() {
+                                    break;
+                                }
+                            }
                         }
-                    }
+                    },
+                    Message::Close(close_frame) => break,
+                    Message::Binary(bytes) => todo!(),
+                    Message::Ping(bytes) => todo!(),
+                    Message::Pong(bytes) => todo!(),
                 }
             }
         })

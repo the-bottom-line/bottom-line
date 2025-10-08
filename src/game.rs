@@ -387,7 +387,7 @@ impl ObtainingCharacters {
         let closed_character = available_characters.draw();
 
         ObtainingCharacters {
-            player_count: 0,
+            player_count,
             draw_idx: 0,
             chairman_id,
             available_characters,
@@ -422,7 +422,6 @@ impl ObtainingCharacters {
 
         res
     }
-
     pub fn applies_to_player(&self) -> usize {
         (self.draw_idx + self.chairman_id.0) % self.player_count
     }
@@ -514,7 +513,6 @@ impl GameState {
 
         let characters =
             ObtainingCharacters::new(player_names.len(), players.first().unwrap().id.into());
-
         GameState {
             players,
             characters,
@@ -607,6 +605,7 @@ impl TheBottomLine for GameState {
         if self.is_selecting_characters() && player_idx == self.characters.applies_to_player() {
             if let Some(player) = self.players.get_mut(player_idx) {
                 player.character = Some(character);
+                dbg!(player);
                 return self.characters.next();
             }
         }
@@ -618,7 +617,7 @@ impl TheBottomLine for GameState {
         &self,
         player_idx: usize
     ) -> Option<Vec<Character>> {
-        if self.is_selecting_characters() {
+        if self.is_selecting_characters() && player_idx == self.characters.applies_to_player(){
             //missing check for if its the requesting player's turn
             return  Some(self.characters.available_characters.deck.to_vec());
         }

@@ -150,12 +150,8 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     return;
                 }
             },
-            Message::Close(_) => {
-                return;
-            },
-            Message::Binary(_) => todo!(),
-            Message::Ping(_) => todo!(),
-            Message::Pong(_) => todo!(),
+            Message::Close(_) => return,
+            _ => continue,
         }
     }
 
@@ -240,9 +236,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                         }
                     },
                     Message::Close(_) => break,
-                    Message::Binary(_) => todo!(),
-                    Message::Ping(_) => todo!(),
-                    Message::Pong(_) => todo!(),
+                    _ => continue,
                 }
             }
         })

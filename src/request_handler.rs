@@ -68,6 +68,7 @@ pub enum PublicSendJson {
     PlayerLeft {
         username: String,
     },
+    UsernameAlreadyTaken,
     GameStarted,
     DrawnCard {
         player_id: PlayerId,

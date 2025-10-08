@@ -106,12 +106,10 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     Ok(connect) => connect,
                     Err(error) => {
                         tracing::error!(%error);
+                        let msg =
+                            serde_json::to_string(&PublicSendJson::UsernameAlreadyTaken).unwrap();
                         let mut s = sender.lock().await;
-                        let _ = s
-                            .send(Message::Text(Utf8Bytes::from_static(
-                                "Failed to parse connect message",
-                            )))
-                            .await;
+                        let _ = s.send(Message::Text(msg.into())).await;
                         break;
                     }
                 };

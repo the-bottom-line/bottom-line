@@ -96,58 +96,66 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let mut channel = String::new();
 
     while let Some(Ok(message)) = receiver.next().await {
-        if let Message::Text(name) = message {
-            #[derive(Deserialize)]
-            struct Connect {
-                username: String,
-                channel: String,
-            }
-
-            let connect: Connect = match serde_json::from_str(&name) {
-                Ok(connect) => connect,
-                Err(error) => {
-                    tracing::error!(%error);
-                    let mut s = sender.lock().await;
-                    let _ = s
-                        .send(Message::Text(Utf8Bytes::from_static(
-                            "Failed to parse connect message",
-                        )))
-                        .await;
-                    break;
-                }
-            };
-
-            {
-                // If username that is sent by client is not taken, fill username string.
-                let mut rooms = state.rooms.lock().unwrap();
-
-                channel = connect.channel.clone();
-                let room = rooms
-                    .entry(connect.channel)
-                    .or_insert_with(|| Arc::new(RoomState::new()));
-
-                if let Ok(mut mutex) = room.game.lock() {
-                    if let Game::InLobby { user_set } = &mut *mutex {
-                        if !user_set.contains(&connect.username) {
-                            user_set.insert(connect.username.to_owned());
-                            username = connect.username.clone();
+        #[derive(Deserialize)]
+        struct Connect {
+            username: String,
+            channel: String,
+        }
+        
+        match message {
+            Message::Text(text) => {
+                let connect: Connect = match serde_json::from_str(&text) {
+                    Ok(connect) => connect,
+                    Err(error) => {
+                        tracing::error!(%error);
+                        let mut s = sender.lock().await;
+                        let _ = s
+                            .send(Message::Text(Utf8Bytes::from_static(
+                                "Failed to parse connect message",
+                            )))
+                            .await;
+                        break;
+                    }
+                };
+    
+                {
+                    // If username that is sent by client is not taken, fill username string.
+                    let mut rooms = state.rooms.lock().unwrap();
+    
+                    channel = connect.channel.clone();
+                    let room = rooms
+                        .entry(connect.channel)
+                        .or_insert_with(|| Arc::new(RoomState::new()));
+    
+                    if let Ok(mut mutex) = room.game.lock() {
+                        if let Game::InLobby { user_set } = &mut *mutex {
+                            if !user_set.contains(&connect.username) {
+                                user_set.insert(connect.username.to_owned());
+                                username = connect.username.clone();
+                            }
                         }
                     }
                 }
-            }
-
-            if !username.is_empty() {
-                break;
-            } else {
-                // Only send our client that username is taken.
-                let mut s = sender.lock().await;
-                let _ = s
-                    .send(Message::Text(Utf8Bytes::from_static(
-                        "Username already taken.",
-                    )))
-                    .await;
+    
+                if !username.is_empty() {
+                    break;
+                } else {
+                    // Only send our client that username is taken.
+                    let mut s = sender.lock().await;
+                    let _ = s
+                        .send(Message::Text(Utf8Bytes::from_static(
+                            "Username already taken.",
+                        )))
+                        .await;
+                    return;
+                }
+            },
+            Message::Close(_) => {
                 return;
-            }
+            },
+            Message::Binary(_) => todo!(),
+            Message::Ping(_) => todo!(),
+            Message::Pong(_) => todo!(),
         }
     }
 
@@ -231,10 +239,10 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                             }
                         }
                     },
-                    Message::Close(close_frame) => break,
-                    Message::Binary(bytes) => todo!(),
-                    Message::Ping(bytes) => todo!(),
-                    Message::Pong(bytes) => todo!(),
+                    Message::Close(_) => break,
+                    Message::Binary(_) => todo!(),
+                    Message::Ping(_) => todo!(),
+                    Message::Pong(_) => todo!(),
                 }
             }
         })

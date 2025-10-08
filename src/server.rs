@@ -11,7 +11,7 @@ use axum::{
         State,
         ws::{Message, Utf8Bytes, WebSocket, WebSocketUpgrade},
     },
-    response::{Html, IntoResponse},
+    response::IntoResponse,
     routing::get,
 };
 use futures_util::{sink::SinkExt, stream::StreamExt};

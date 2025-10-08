@@ -1,7 +1,4 @@
-use std::{
-    collections::HashSet,
-    sync::Arc, vec,
-};
+use std::{collections::HashSet, sync::Arc, vec};
 
 use either::Either;
 use rand::seq::SliceRandom;
@@ -479,7 +476,11 @@ pub trait TheBottomLine {
     ) -> Option<Either<&Asset, &Liability>>;
 
     /// When the player grabs 3 cards, the player should give back one.
-    fn player_give_back_card(&mut self, player_idx: usize, card_idx: usize) -> (Option<usize>, CardType);
+    fn player_give_back_card(
+        &mut self,
+        player_idx: usize,
+        card_idx: usize,
+    ) -> (Option<usize>, CardType);
 
     fn end_player_turn(&mut self, player_idx: usize);
 }
@@ -613,13 +614,10 @@ impl TheBottomLine for GameState {
         None
     }
 
-    fn get_selectable_characters(
-        &self,
-        player_idx: usize
-    ) -> Option<Vec<Character>> {
-        if self.is_selecting_characters() && player_idx == self.characters.applies_to_player(){
+    fn get_selectable_characters(&self, player_idx: usize) -> Option<Vec<Character>> {
+        if self.is_selecting_characters() && player_idx == self.characters.applies_to_player() {
             //missing check for if its the requesting player's turn
-            return  Some(self.characters.available_characters.deck.to_vec());
+            return Some(self.characters.available_characters.deck.to_vec());
         }
         None
     }
@@ -696,23 +694,27 @@ impl TheBottomLine for GameState {
     }
 
     /// When the player grabs 3 cards, the player should give back one.
-    fn player_give_back_card(&mut self, player_idx: usize, card_idx: usize) -> (Option<usize>, CardType) {
-        let mut card_type= CardType::Asset;
+    fn player_give_back_card(
+        &mut self,
+        player_idx: usize,
+        card_idx: usize,
+    ) -> (Option<usize>, CardType) {
+        let mut card_type = CardType::Asset;
         if let Some(player) = self.players.get_mut(player_idx) {
             if self.current_player == Some(player.id) && player.cards_drawn.len() >= 3 {
                 match player.give_back_card(card_idx) {
                     Some(Either::Left(asset)) => self.assets.deck.insert(0, asset),
-                    Some(Either::Right(liability)) =>{
+                    Some(Either::Right(liability)) => {
                         self.liabilities.deck.insert(0, liability);
                         card_type = CardType::Liability;
-                    } 
-                    None => return (None,card_type)
+                    }
+                    None => return (None, card_type),
                 }
-                return (Some(card_idx),card_type);
+                return (Some(card_idx), card_type);
             }
         }
 
-        return (None,card_type)
+        return (None, card_type);
     }
 
     fn end_player_turn(&mut self, player_idx: usize) {

@@ -78,9 +78,7 @@ pub async fn setupsocket() {
         .route("/websocket", get(websocket_handler))
         .with_state(app_state);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
-        .await
-        .unwrap();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app).await.unwrap();
 }
@@ -101,7 +99,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             username: String,
             channel: String,
         }
-        
+
         match message {
             Message::Text(text) => {
                 let connect: Connect = match serde_json::from_str(&text) {
@@ -117,16 +115,16 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                         break;
                     }
                 };
-    
+
                 {
                     // If username that is sent by client is not taken, fill username string.
                     let mut rooms = state.rooms.lock().unwrap();
-    
+
                     channel = connect.channel.clone();
                     let room = rooms
                         .entry(connect.channel)
                         .or_insert_with(|| Arc::new(RoomState::new()));
-    
+
                     if let Ok(mut mutex) = room.game.lock() {
                         if let Game::InLobby { user_set } = &mut *mutex {
                             if !user_set.contains(&connect.username) {
@@ -136,7 +134,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                         }
                     }
                 }
-    
+
                 if !username.is_empty() {
                     break;
                 } else {
@@ -149,7 +147,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                         .await;
                     return;
                 }
-            },
+            }
             Message::Close(_) => return,
             _ => continue,
         }
@@ -188,10 +186,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                         if let Some(private) = handle_public_request(json, room.clone(), &name) {
                             let msg = serde_json::to_string(&private).unwrap();
                             let mut s = sender.lock().await;
-                            if s.send(Message::Text(msg.into()))
-                                .await
-                                .is_err()
-                            {
+                            if s.send(Message::Text(msg.into())).await.is_err() {
                                 break;
                             }
                         }
@@ -218,13 +213,14 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     Message::Text(text) => {
                         if let Ok(json) = serde_json::from_str::<ReceiveJson>(&text) {
                             tracing::debug!("incoming json: {json:?}");
-                            let SendJson(public, private) = handle_request(json, room.clone(), &name);
-        
+                            let SendJson(public, private) =
+                                handle_request(json, room.clone(), &name);
+
                             // // broadcast to everyone (including sender)
                             // let public_ser = serde_json::to_string(&public).unwrap();
                             tracing::debug!("public send: {public:?}");
                             let _ = tx.send(public.into());
-        
+
                             // send a different message only to the sender
                             let private_ser = serde_json::to_string(&private).unwrap();
                             {
@@ -234,7 +230,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                                 }
                             }
                         }
-                    },
+                    }
                     Message::Close(_) => break,
                     _ => continue,
                 }
@@ -292,11 +288,13 @@ mod tests {
         let (ws_stream4, _) = connect_async(format!("{}/websocket", url)).await.unwrap();
         let (mut write4, mut read4) = ws_stream4.split();
 
-        write1.send(tokio_tungstenite::tungstenite::Message::Text(
-            r#"{"channel":"thing","username": "user1"}"#.into()
-        )).await.unwrap();
+        write1
+            .send(tokio_tungstenite::tungstenite::Message::Text(
+                r#"{"channel":"thing","username": "user1"}"#.into(),
+            ))
+            .await
+            .unwrap();
         let msg = read1.next().await.unwrap().unwrap();
         dbg!(msg);
-
     }
 }

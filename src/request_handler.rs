@@ -123,9 +123,13 @@ pub fn handle_request(msg: ReceiveJson, room_state: Arc<RoomState>, player_name:
                 ReceiveJson::DrawCard { card_type } => draw_card(state, card_type, playerid),
                 ReceiveJson::PutBackCard { card_idx } => put_back_card(state, card_idx, playerid),
                 ReceiveJson::BuyAsset { asset_idx } => play_card(state, asset_idx, playerid),
-                ReceiveJson::IssueLiability { liability_idx } => play_card(state, liability_idx, playerid),
+                ReceiveJson::IssueLiability { liability_idx } => {
+                    play_card(state, liability_idx, playerid)
+                }
                 ReceiveJson::GetSelectableCharacters => get_selectable_characters(state, playerid),
-                ReceiveJson::SelectCharacter { character } => select_character(state, character, playerid),
+                ReceiveJson::SelectCharacter { character } => {
+                    select_character(state, character, playerid)
+                }
             }
         }
         crate::server::Game::InLobby { user_set } => match msg {
@@ -147,79 +151,81 @@ fn draw_card(state: &mut GameState, t: CardType, player_idx: usize) -> SendJson 
         return SendJson::new(
             PublicSendJson::DrawnCard {
                 player_id: player_idx.into(),
-                card_type: t
+                card_type: t,
             },
             PrivateSendJson::DrawnCard {
-            card: card.cloned(),
-            }
+                card: card.cloned(),
+            },
         );
     } else {
         return PrivateSendJson::ActionNotAllowed.into();
     }
 }
 
-fn put_back_card(state: &mut GameState, card_idx: usize, player_idx: usize) -> SendJson{
-    let t= state.player_give_back_card(player_idx, card_idx);
+fn put_back_card(state: &mut GameState, card_idx: usize, player_idx: usize) -> SendJson {
+    let t = state.player_give_back_card(player_idx, card_idx);
     if let Some(idx) = t.0 {
         return SendJson::new(
             PublicSendJson::PutBackCard {
                 player_id: player_idx.into(),
-                card_type: t.1
+                card_type: t.1,
             },
             PrivateSendJson::PutBackCard {
                 remove_idx: Some(idx),
-            }
+            },
         );
     } else {
         return PrivateSendJson::ActionNotAllowed.into();
     }
 }
 
-fn play_card(state: &mut GameState, card_idx: usize, player_idx: usize) -> SendJson{
+fn play_card(state: &mut GameState, card_idx: usize, player_idx: usize) -> SendJson {
     if let Some(played_card) = state.player_play_card(player_idx, card_idx) {
         match played_card.used_card {
-                    Either::Left(asset) => {
-                        return SendJson::new(
-            PublicSendJson::BoughtAsset {
-                player_id: player_idx.into(), asset: asset } ,
-            PrivateSendJson::BuyAssetOk
-        );
-                    }
-                    Either::Right(liability) => {
-                        return SendJson::new(
-            PublicSendJson::IssuedLiability {
-                player_id: player_idx.into(),
-                 liability: liability
-                },
-            PrivateSendJson::IssuedLiabilityOk
-        );
-                }
+            Either::Left(asset) => {
+                return SendJson::new(
+                    PublicSendJson::BoughtAsset {
+                        player_id: player_idx.into(),
+                        asset: asset,
+                    },
+                    PrivateSendJson::BuyAssetOk,
+                );
             }
-        } else {
+            Either::Right(liability) => {
+                return SendJson::new(
+                    PublicSendJson::IssuedLiability {
+                        player_id: player_idx.into(),
+                        liability: liability,
+                    },
+                    PrivateSendJson::IssuedLiabilityOk,
+                );
+            }
+        }
+    } else {
         return PrivateSendJson::ActionNotAllowed.into();
     }
 }
 
-fn select_character(state: &mut GameState, character: Character, player_idx: usize) -> SendJson{
-    let cs= state.next_player_select_character(player_idx, character);
+fn select_character(state: &mut GameState, character: Character, player_idx: usize) -> SendJson {
+    let cs = state.next_player_select_character(player_idx, character);
     if let Some(c) = cs {
         return SendJson::new(
             PublicSendJson::SelectedCharacter {
-                player_id: player_idx.into()
+                player_id: player_idx.into(),
             },
-            PrivateSendJson::SelectCharacterOk
+            PrivateSendJson::SelectCharacterOk,
         );
     } else {
         return PrivateSendJson::ActionNotAllowed.into();
     }
 }
 
-fn get_selectable_characters(state: &mut GameState, player_idx: usize) -> SendJson{
-    let cs= state.get_selectable_characters(player_idx);
+fn get_selectable_characters(state: &mut GameState, player_idx: usize) -> SendJson {
+    let cs = state.get_selectable_characters(player_idx);
     if let Some(c) = cs {
         return SendJson::new(
-         PublicSendJson::ActionPerformed,
-        PrivateSendJson::SelectableCharacters { characters: c }
+            PublicSendJson::ActionPerformed,
+            PrivateSendJson::SelectableCharacters { characters: c },
         );
     } else {
         return PrivateSendJson::ActionNotAllowed.into();

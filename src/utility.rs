@@ -37,21 +37,14 @@ pub mod serde_asset_liability {
         where
             S: Serializer,
         {
-            let wrapper = match value {
-                Either::Left(asset) => EitherAssetLiability::Left(asset.clone()),
-                Either::Right(liability) => EitherAssetLiability::Right(liability.clone()),
-            };
-            wrapper.serialize(serializer)
+            EitherAssetLiability::from(value).serialize(serializer)
         }
 
         fn deserialize<'de, D>(deserializer: D) -> Result<Either<Asset, Liability>, D::Error>
         where
             D: Deserializer<'de>,
         {
-            match EitherAssetLiability::deserialize(deserializer)? {
-                EitherAssetLiability::Left(asset) => Ok(Either::Left(asset)),
-                EitherAssetLiability::Right(liability) => Ok(Either::Right(liability)),
-            }
+            EitherAssetLiability::deserialize(deserializer).map(|e| e.into())
         }
     }
 

@@ -41,6 +41,9 @@ impl From<PrivateSendJson> for SendJson {
 pub enum PrivateSendJson {
     ActionNotAllowed,
     GameStartedOk,
+    PlayersInLobby {
+        usernames: Vec<String>,
+    },
     StartGame {
         cash: u8,
         #[serde(with = "serde_asset_liability::vec")]
@@ -111,7 +114,13 @@ pub fn handle_public_request(
                 _ => None,
             }
         }
-        Game::InLobby { user_set: _ } => None,
+        Game::InLobby { user_set } => match msg {
+            PublicSendJson::PlayerJoined { username: _ }
+            | PublicSendJson::PlayerLeft { username: _ } => Some(PrivateSendJson::PlayersInLobby {
+                usernames: user_set.iter().cloned().collect(),
+            }),
+            _ => None,
+        },
     }
 }
 

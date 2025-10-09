@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use crate::{
     cards::GameData,
@@ -42,7 +42,7 @@ pub enum PrivateSendJson {
     ActionNotAllowed,
     GameStartedOk,
     PlayersInLobby {
-        usernames: Vec<String>,
+        usernames: HashSet<String>,
     },
     StartGame {
         cash: u8,
@@ -117,7 +117,7 @@ pub fn handle_public_request(
         Game::InLobby { user_set } => match msg {
             PublicSendJson::PlayerJoined { username: _ }
             | PublicSendJson::PlayerLeft { username: _ } => Some(PrivateSendJson::PlayersInLobby {
-                usernames: user_set.iter().cloned().collect(),
+                usernames: user_set.clone(),
             }),
             _ => None,
         },

@@ -34,7 +34,10 @@ pub mod serde_asset_liability {
     pub mod value {
         use super::*;
 
-        pub fn serialize<S>(value: &Either<Asset, Liability>, serializer: S) -> Result<S::Ok, S::Error>
+        pub fn serialize<S>(
+            value: &Either<Asset, Liability>,
+            serializer: S,
+        ) -> Result<S::Ok, S::Error>
         where
             S: Serializer,
         {

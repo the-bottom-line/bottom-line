@@ -4,7 +4,7 @@ use crate::{
     cards::GameData,
     game::*,
     server::{AppState, Game, RoomState},
-    utility::serde_asset_liability
+    utility::serde_asset_liability,
 };
 use either::Either;
 use serde::{Deserialize, Serialize};

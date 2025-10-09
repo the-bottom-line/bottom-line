@@ -4,7 +4,7 @@ use either::Either;
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
-use crate::cards::GameData;
+use crate::{cards::GameData, utility::serde_asset_liability};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PlayerId(usize);
@@ -192,6 +192,7 @@ pub struct Player {
     pub assets: Vec<Asset>,
     pub liabilities: Vec<Liability>,
     pub character: Option<Character>,
+    #[serde(with = "serde_asset_liability::vec")]
     pub hand: Vec<Either<Asset, Liability>>,
     pub cards_drawn: Vec<usize>,
     pub assets_to_play: u8,

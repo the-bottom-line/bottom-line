@@ -19,6 +19,7 @@ pub enum ReceiveJson {
     IssueLiability { liability_idx: usize },
     GetSelectableCharacters,
     SelectCharacter { character: Character },
+    EndTurn,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -50,6 +51,7 @@ pub enum PrivateSendJson {
         cash: u8,
         #[serde(with = "serde_asset_liability::vec")]
         hand: Vec<Either<Asset, Liability>>,
+        pickable_characters: Option<PickableCharacters>,
     },
     DrawnCard {
         #[serde(with = "serde_asset_liability::value")]
@@ -61,9 +63,10 @@ pub enum PrivateSendJson {
     BuyAssetOk,
     IssuedLiabilityOk,
     SelectableCharacters {
-        characters: Vec<Character>,
+        pickable_characters: PickableCharacters,
     },
     SelectCharacterOk,
+    EndedTurnOk,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -78,22 +81,33 @@ pub enum PublicSendJson {
     },
     GameStarted,
     DrawnCard {
+        // #[serde(flatten)]
         player_id: PlayerId,
         card_type: CardType,
     },
     PutBackCard {
+        // #[serde(flatten)]
         player_id: PlayerId,
         card_type: CardType,
     },
     BoughtAsset {
+        // #[serde(flatten)]
         player_id: PlayerId,
         asset: Asset,
     },
     IssuedLiability {
+        // #[serde(flatten)]
         player_id: PlayerId,
         liability: Liability,
     },
     SelectedCharacter {
+        // #[serde(flatten)]
+        player_id: PlayerId,
+    },
+    EndedTurn {
+        player_id: PlayerId,
+    },
+    NewChairman {
         player_id: PlayerId,
     },
 }
@@ -110,7 +124,12 @@ pub fn handle_public_request(
                 PublicSendJson::GameStarted => {
                     let hand = player.hand.clone();
                     let cash = player.cash;
-                    Some(PrivateSendJson::StartGame { hand, cash })
+                    let pickable_characters = state.get_selectable_characters(player.id.into());
+                    Some(PrivateSendJson::StartGame {
+                        hand,
+                        cash,
+                        pickable_characters,
+                    })
                 }
                 _ => None,
             }
@@ -131,7 +150,7 @@ pub fn handle_request(msg: ReceiveJson, room_state: Arc<RoomState>, player_name:
     let mut game = room_state.game.lock().unwrap();
     match &mut *game {
         crate::server::Game::GameStarted { state } => {
-            let playerid: usize = state.player_by_name(player_name).unwrap().id.into();
+            let playerid = state.player_by_name(player_name).unwrap().id.into();
             match msg {
                 ReceiveJson::StartGame => PrivateSendJson::ActionNotAllowed.into(),
                 ReceiveJson::DrawCard { card_type } => draw_card(state, card_type, playerid),
@@ -144,6 +163,7 @@ pub fn handle_request(msg: ReceiveJson, room_state: Arc<RoomState>, player_name:
                 ReceiveJson::SelectCharacter { character } => {
                     select_character(state, character, playerid)
                 }
+                ReceiveJson::EndTurn => end_turn(state, playerid),
             }
         }
         crate::server::Game::InLobby { user_set } => match msg {
@@ -239,10 +259,31 @@ fn get_selectable_characters(state: &mut GameState, player_idx: usize) -> SendJs
     if let Some(c) = cs {
         return SendJson::new(
             PublicSendJson::ActionPerformed,
-            PrivateSendJson::SelectableCharacters { characters: c },
+            PrivateSendJson::SelectableCharacters {
+                pickable_characters: c,
+            },
         );
     } else {
         return PrivateSendJson::ActionNotAllowed.into();
+    }
+}
+
+fn end_turn(state: &mut GameState, player_idx: usize) -> SendJson {
+    match state.end_player_turn(player_idx) {
+        Some(TurnEnded {
+            next_player: Some(player_id),
+        }) => SendJson(
+            PublicSendJson::EndedTurn { player_id },
+            PrivateSendJson::EndedTurnOk,
+        ),
+        Some(_) => {
+            let player_id = state.chairman().id;
+            SendJson(
+                PublicSendJson::NewChairman { player_id },
+                PrivateSendJson::EndedTurnOk,
+            )
+        }
+        None => PrivateSendJson::ActionNotAllowed.into(),
     }
 }
 

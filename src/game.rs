@@ -355,10 +355,10 @@ impl<T> Deck<T> {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct PickableCharacters<'a> {
-    characters: Vec<&'a Character>,
-    closed_character: Option<&'a Character>,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PickableCharacters {
+    characters: Vec<Character>,
+    closed_character: Option<Character>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -394,14 +394,14 @@ impl ObtainingCharacters {
         }
     }
 
-    pub fn next(&'_ mut self) -> Option<PickableCharacters<'_>> {
-        let res = match self.draw_idx {
+    pub fn peek(&self) -> Option<PickableCharacters> {
+        match self.draw_idx {
             0 => Some(PickableCharacters {
-                characters: self.available_characters.deck.iter().collect(),
-                closed_character: Some(&self.closed_character),
+                characters: self.available_characters.deck.iter().cloned().collect(),
+                closed_character: Some(self.closed_character),
             }),
             n if n < self.player_count - 1 => Some(PickableCharacters {
-                characters: self.available_characters.deck.iter().collect(),
+                characters: self.available_characters.deck.iter().cloned().collect(),
                 closed_character: None,
             }),
             n if n == self.player_count - 1 => Some(PickableCharacters {
@@ -409,16 +409,19 @@ impl ObtainingCharacters {
                     .available_characters
                     .deck
                     .iter()
-                    .chain([&self.closed_character])
+                    .cloned()
+                    .chain([self.closed_character])
                     .collect(),
                 closed_character: None,
             }),
             _ => None,
-        };
+        }
+    }
 
+    pub fn next(&mut self) -> Option<PickableCharacters> {
         self.draw_idx += 1;
 
-        res
+        self.peek()
     }
     pub fn applies_to_player(&self) -> usize {
         (self.draw_idx + self.chairman_id.0) % self.player_count
@@ -438,10 +441,24 @@ pub struct PlayerPlayedCard {
     pub used_card: Either<Asset, Liability>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TurnEnded {
+    pub next_player: Option<PlayerId>,
+}
+
+impl TurnEnded {
+    pub fn new(next_player: Option<PlayerId>) -> Self {
+        Self { next_player }
+    }
+}
+
 pub trait TheBottomLine {
     /// Checks if the game is in a selecting characters phase, which happens before each round
     /// starts.
     fn is_selecting_characters(&self) -> bool;
+
+    /// Get selectable characters if player_idx is allowed to pick them
+    fn selectable_characters(&mut self, player_idx: usize) -> Option<PickableCharacters>;
 
     /// Gets the character of the current turn.
     fn current_player(&self) -> Option<&Player>;
@@ -455,8 +472,10 @@ pub trait TheBottomLine {
     /// Gets player if one exists with specified character
     fn player_from_character(&self, character: Character) -> Option<&Player>;
 
+    fn chairman(&self) -> &Player;
+
     /// Gets list of selectable caracters if its the players turn
-    fn get_selectable_characters(&self, player_idx: usize) -> Option<Vec<Character>>;
+    fn get_selectable_characters(&self, player_idx: usize) -> Option<PickableCharacters>;
 
     /// Assigns a character role to a specific player. Returns a set of pickable characters for the
     /// next player to choose from
@@ -464,7 +483,7 @@ pub trait TheBottomLine {
         &mut self,
         player_idx: usize,
         character: Character,
-    ) -> Option<PickableCharacters<'_>>;
+    ) -> Option<PickableCharacters>;
 
     /// Attempts to play a card (either an asset or liability) for player with `player_idx`. If
     /// playing this card triggers a market change, returns an object with a list of events and
@@ -484,7 +503,7 @@ pub trait TheBottomLine {
         card_idx: usize,
     ) -> (Option<usize>, CardType);
 
-    fn end_player_turn(&mut self, player_idx: usize);
+    fn end_player_turn(&mut self, player_idx: usize) -> Option<TurnEnded>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -600,11 +619,21 @@ impl TheBottomLine for GameState {
         self.characters.draw_idx < self.players.len() - 1
     }
 
+    fn selectable_characters(&mut self, player_idx: usize) -> Option<PickableCharacters> {
+        if self.is_selecting_characters() && player_idx == self.characters.applies_to_player() {
+            if let Some(_) = self.players.get(player_idx) {
+                return self.characters.next();
+            }
+        }
+
+        None
+    }
+
     fn next_player_select_character(
         &mut self,
         player_idx: usize,
         character: Character,
-    ) -> Option<PickableCharacters<'_>> {
+    ) -> Option<PickableCharacters> {
         if self.is_selecting_characters() && player_idx == self.characters.applies_to_player() {
             if let Some(player) = self.players.get_mut(player_idx) {
                 player.character = Some(character);
@@ -616,10 +645,10 @@ impl TheBottomLine for GameState {
         None
     }
 
-    fn get_selectable_characters(&self, player_idx: usize) -> Option<Vec<Character>> {
+    fn get_selectable_characters(&self, player_idx: usize) -> Option<PickableCharacters> {
         if self.is_selecting_characters() && player_idx == self.characters.applies_to_player() {
             //missing check for if its the requesting player's turn
-            return Some(self.characters.available_characters.deck.to_vec());
+            return self.characters.peek();
         }
         None
     }
@@ -649,6 +678,10 @@ impl TheBottomLine for GameState {
 
     fn player_from_character(&self, character: Character) -> Option<&Player> {
         self.players.iter().find(|p| p.character == Some(character))
+    }
+
+    fn chairman(&self) -> &Player {
+        &self.players[self.chairman.0]
     }
 
     fn player_play_card(&mut self, idx: usize, card_idx: usize) -> Option<PlayerPlayedCard> {
@@ -719,11 +752,12 @@ impl TheBottomLine for GameState {
         return (None, card_type);
     }
 
-    fn end_player_turn(&mut self, player_idx: usize) {
+    fn end_player_turn(&mut self, player_idx: usize) -> Option<TurnEnded> {
         if let Some(player) = self.players.get(player_idx) {
             if self.current_player == Some(player.id) {
-                if let Some(player) = self.next_player() {
+                return if let Some(player) = self.next_player() {
                     self.current_player = Some(player.id);
+                    Some(TurnEnded::new(self.current_player))
                 } else {
                     let maybe_ceo = self.player_from_character(Character::CEO);
                     let chairman_id = match maybe_ceo.map(|p| p.id) {
@@ -735,9 +769,11 @@ impl TheBottomLine for GameState {
                         p.character = None;
                     });
                     self.characters = ObtainingCharacters::new(self.players.len(), chairman_id);
-                }
+                    Some(TurnEnded::new(None))
+                };
             }
         }
+        None
     }
 }
 

@@ -5,6 +5,7 @@ pub mod serde_asset_liability {
     use crate::game::{Asset, Liability};
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(tag = "card_type")]
     pub enum EitherAssetLiability {
         #[serde(rename = "asset")]
         Left(Asset),
@@ -33,14 +34,14 @@ pub mod serde_asset_liability {
     pub mod value {
         use super::*;
 
-        fn serialize<S>(value: &Either<Asset, Liability>, serializer: S) -> Result<S::Ok, S::Error>
+        pub fn serialize<S>(value: &Either<Asset, Liability>, serializer: S) -> Result<S::Ok, S::Error>
         where
             S: Serializer,
         {
             EitherAssetLiability::from(value).serialize(serializer)
         }
 
-        fn deserialize<'de, D>(deserializer: D) -> Result<Either<Asset, Liability>, D::Error>
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Either<Asset, Liability>, D::Error>
         where
             D: Deserializer<'de>,
         {

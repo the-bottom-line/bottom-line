@@ -4,6 +4,7 @@ use crate::{
     cards::GameData,
     game::*,
     server::{AppState, Game, RoomState},
+    utility::serde_asset_liability
 };
 use either::Either;
 use serde::{Deserialize, Serialize};
@@ -42,9 +43,11 @@ pub enum PrivateSendJson {
     GameStartedOk,
     StartGame {
         cash: u8,
+        #[serde(with = "serde_asset_liability::vec")]
         hand: Vec<Either<Asset, Liability>>,
     },
     DrawnCard {
+        #[serde(with = "serde_asset_liability::value")]
         card: Either<Asset, Liability>,
     },
     PutBackCard {

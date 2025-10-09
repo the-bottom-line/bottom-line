@@ -434,6 +434,7 @@ pub struct MarketChange {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerPlayedCard {
     pub market: Option<MarketChange>,
+    #[serde(with = "serde_asset_liability::value")]
     pub used_card: Either<Asset, Liability>,
 }
 
@@ -757,6 +758,7 @@ mod tests {
             data,
         );
 
-        println!("{game:#?}");
+        let json = serde_json::to_string(&game).unwrap();
+        println!("{json}");
     }
 }

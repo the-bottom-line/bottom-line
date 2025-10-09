@@ -40,6 +40,8 @@ impl From<PrivateSendJson> for SendJson {
 #[serde(tag = "action", content = "data")]
 pub enum PrivateSendJson {
     ActionNotAllowed,
+    UsernameAlreadyTaken,
+    InvalidUsername,
     GameStartedOk,
     PlayersInLobby {
         usernames: HashSet<String>,
@@ -74,7 +76,6 @@ pub enum PublicSendJson {
     PlayerLeft {
         username: String,
     },
-    UsernameAlreadyTaken,
     GameStarted,
     DrawnCard {
         player_id: PlayerId,

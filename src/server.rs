@@ -1,7 +1,8 @@
 use crate::{
     game::GameState,
     request_handler::{
-        PublicSendJson, ReceiveJson, SendJson, handle_public_request, handle_request,
+        PrivateSendJson, PublicSendJson, ReceiveJson, SendJson, handle_public_request,
+        handle_request,
     },
 };
 
@@ -9,7 +10,7 @@ use axum::{
     Json, Router,
     extract::{
         State,
-        ws::{Message, Utf8Bytes, WebSocket, WebSocketUpgrade},
+        ws::{Message, WebSocket, WebSocketUpgrade},
     },
     response::IntoResponse,
     routing::get,
@@ -107,7 +108,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     Err(error) => {
                         tracing::error!(%error);
                         let msg =
-                            serde_json::to_string(&PublicSendJson::UsernameAlreadyTaken).unwrap();
+                            serde_json::to_string(&PrivateSendJson::UsernameAlreadyTaken).unwrap();
                         let mut s = sender.lock().await;
                         let _ = s.send(Message::Text(msg.into())).await;
                         break;
@@ -137,12 +138,9 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     break;
                 } else {
                     // Only send our client that username is taken.
+                    let msg = serde_json::to_string(&PrivateSendJson::InvalidUsername).unwrap();
                     let mut s = sender.lock().await;
-                    let _ = s
-                        .send(Message::Text(Utf8Bytes::from_static(
-                            "Username already taken.",
-                        )))
-                        .await;
+                    let _ = s.send(Message::Text(msg.into())).await;
                     return;
                 }
             }

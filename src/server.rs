@@ -84,6 +84,15 @@ pub async fn setupsocket() {
     axum::serve(listener, app).await.unwrap();
 }
 
+async fn send_external(
+    msg: ExternalResponse,
+    sender: Arc<TokioMutex<SplitSink<WebSocket, Message>>>,
+) -> Result<(), axum::Error> {
+    let msg = serde_json::to_string(&msg).unwrap();
+    let mut s = sender.lock().await;
+    s.send(Message::Text(msg.into())).await
+}
+
 async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     // split sink + stream
     let (sender, mut receiver) = stream.split();
@@ -95,22 +104,20 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let mut channel = String::new();
 
     while let Some(Ok(message)) = receiver.next().await {
-        #[derive(Deserialize)]
-        struct Connect {
-            username: String,
-            channel: String,
-        }
-
         match message {
             Message::Text(text) => {
-                let connect: Connect = match serde_json::from_str(&text) {
-                    Ok(connect) => connect,
+                let (connect_username, connect_channel) = match serde_json::from_str(&text) {
+                    Ok(ReceiveData::Connect { username, channel }) => (username, channel),
                     Err(error) => {
                         tracing::error!(%error);
-                        let msg =
-                            serde_json::to_string(&ExternalResponse::UsernameAlreadyTaken).unwrap();
-                        let mut s = sender.lock().await;
-                        let _ = s.send(Message::Text(msg.into())).await;
+                        let _ =
+                            send_external(ExternalResponse::UsernameAlreadyTaken, sender.clone())
+                                .await;
+                        break;
+                    }
+                    _ => {
+                        let _ =
+                            send_external(ExternalResponse::ActionNotAllowed, sender.clone()).await;
                         break;
                     }
                 };
@@ -119,22 +126,22 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     // If username that is sent by client is not taken, fill username string.
                     let mut rooms = state.rooms.lock().unwrap();
 
-                    channel = connect.channel.clone();
+                    channel = connect_channel.clone();
                     let room = rooms
-                        .entry(connect.channel)
+                        .entry(connect_channel)
                         .or_insert_with(|| Arc::new(RoomState::new()));
 
                     if let Ok(mut mutex) = room.game.lock() {
                         if let Game::InLobby { user_set } = &mut *mutex {
-                            if !user_set.contains(&connect.username) {
-                                user_set.insert(connect.username.to_owned());
-                                username = connect.username.clone();
+                            if !user_set.contains(&connect_username) {
+                                user_set.insert(connect_username.to_owned());
+                                username = connect_username.clone();
                             }
                         }
                     }
                 }
 
-                if !username.is_empty() {
+                if !connect_username.is_empty() {
                     break;
                 } else {
                     // Only send our client that username is taken.

@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "action", content = "data")]
 pub enum ReceiveData {
+    Connect { username: String, channel: String },
     StartGame,
     DrawCard { card_type: CardType },
     PutBackCard { card_idx: usize },
@@ -152,6 +153,7 @@ pub fn handle_request(msg: ReceiveData, room_state: Arc<RoomState>, player_name:
         crate::server::Game::GameStarted { state } => {
             let playerid = state.player_by_name(player_name).unwrap().id.into();
             match msg {
+                ReceiveData::Connect { .. } => ExternalResponse::ActionNotAllowed.into(),
                 ReceiveData::StartGame => ExternalResponse::ActionNotAllowed.into(),
                 ReceiveData::DrawCard { card_type } => draw_card(state, card_type, playerid),
                 ReceiveData::PutBackCard { card_idx } => put_back_card(state, card_idx, playerid),

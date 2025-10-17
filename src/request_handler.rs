@@ -136,8 +136,7 @@ pub fn handle_public_request(
             }
         }
         Game::InLobby { user_set } => match msg {
-            InternalResponse::PlayerJoined { username: _ }
-            | InternalResponse::PlayerLeft { username: _ } => {
+            InternalResponse::PlayerJoined { .. } | InternalResponse::PlayerLeft { .. } => {
                 Some(ExternalResponse::PlayersInLobby {
                     usernames: user_set.clone(),
                 })

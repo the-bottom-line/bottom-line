@@ -15,7 +15,10 @@ use axum::{
     response::IntoResponse,
     routing::get,
 };
-use futures_util::{sink::SinkExt, stream::StreamExt};
+use futures_util::{
+    sink::SinkExt,
+    stream::{SplitSink, StreamExt},
+};
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, Mutex}, // std Mutex used only for the username set
@@ -23,8 +26,6 @@ use std::{
 use tokio::sync::{Mutex as TokioMutex, broadcast}; // async mutex for shared sink
 
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
-use serde::{Deserialize, Serialize};
 
 pub enum Game {
     InLobby { user_set: HashSet<String> },
@@ -145,9 +146,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     break;
                 } else {
                     // Only send our client that username is taken.
-                    let msg = serde_json::to_string(&ExternalResponse::InvalidUsername).unwrap();
-                    let mut s = sender.lock().await;
-                    let _ = s.send(Message::Text(msg.into())).await;
+                    let _ = send_external(ExternalResponse::InvalidUsername, sender.clone()).await;
                     return;
                 }
             }
@@ -186,10 +185,8 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 match rx.recv().await {
                     Ok(Json(json)) => {
                         tracing::debug!("public recv: {json:?}");
-                        if let Some(private) = handle_public_request(json, room.clone(), &name) {
-                            let msg = serde_json::to_string(&private).unwrap();
-                            let mut s = sender.lock().await;
-                            if s.send(Message::Text(msg.into())).await.is_err() {
+                        if let Some(external) = handle_public_request(json, room.clone(), &name) {
+                            if send_external(external, sender.clone()).await.is_err() {
                                 break;
                             }
                         }
@@ -216,7 +213,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     Message::Text(text) => {
                         if let Ok(json) = serde_json::from_str::<ReceiveData>(&text) {
                             tracing::debug!("incoming json: {json:?}");
-                            let Response(public, private) =
+                            let Response(public, external) =
                                 handle_request(json, room.clone(), &name);
 
                             // // broadcast to everyone (including sender)
@@ -224,13 +221,8 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                             tracing::debug!("public send: {public:?}");
                             let _ = tx.send(public.into());
 
-                            // send a different message only to the sender
-                            let private_ser = serde_json::to_string(&private).unwrap();
-                            {
-                                let mut s = sender.lock().await;
-                                if s.send(private_ser.into()).await.is_err() {
-                                    break;
-                                }
+                            if send_external(external, sender.clone()).await.is_err() {
+                                break;
                             }
                         }
                     }

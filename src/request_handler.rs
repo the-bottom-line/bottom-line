@@ -136,9 +136,11 @@ pub fn handle_public_request(
         }
         Game::InLobby { user_set } => match msg {
             InternalResponse::PlayerJoined { username: _ }
-            | InternalResponse::PlayerLeft { username: _ } => Some(ExternalResponse::PlayersInLobby {
-                usernames: user_set.clone(),
-            }),
+            | InternalResponse::PlayerLeft { username: _ } => {
+                Some(ExternalResponse::PlayersInLobby {
+                    usernames: user_set.clone(),
+                })
+            }
             _ => None,
         },
     }
@@ -171,7 +173,10 @@ pub fn handle_request(msg: ReceiveData, room_state: Arc<RoomState>, player_name:
                 let state = GameState::new(&names, data);
                 *game = Game::GameStarted { state };
                 tracing::debug!("{msg:?}");
-                Response(InternalResponse::GameStarted, ExternalResponse::GameStartedOk)
+                Response(
+                    InternalResponse::GameStarted,
+                    ExternalResponse::GameStartedOk,
+                )
             }
             _ => ExternalResponse::ActionNotAllowed.into(),
         },
@@ -239,8 +244,7 @@ fn play_card(state: &mut GameState, card_idx: usize, player_idx: usize) -> Respo
 }
 
 fn select_character(state: &mut GameState, character: Character, player_idx: usize) -> Response {
-    let cs = state.next_player_select_character(player_idx, character);
-    if let Some(c) = cs {
+    if let Some(_) = state.next_player_select_character(player_idx, character) {
         return Response::new(
             InternalResponse::SelectedCharacter {
                 player_id: player_idx.into(),
@@ -253,12 +257,11 @@ fn select_character(state: &mut GameState, character: Character, player_idx: usi
 }
 
 fn get_selectable_characters(state: &mut GameState, player_idx: usize) -> Response {
-    let cs = state.get_selectable_characters(player_idx);
-    if let Some(c) = cs {
+    if let Some(pickable_characters) = state.get_selectable_characters(player_idx) {
         return Response::new(
             InternalResponse::ActionPerformed,
             ExternalResponse::SelectableCharacters {
-                pickable_characters: c,
+                pickable_characters,
             },
         );
     } else {

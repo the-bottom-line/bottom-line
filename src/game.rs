@@ -273,8 +273,10 @@ impl Player {
         }
     }
 
-    pub fn assign_character(&mut self, character: Character) {
+    pub fn select_character(&mut self, character: Character) {
         use Character::*;
+        
+        self.character = Some(character);
 
         match character {
             Shareholder => {}
@@ -623,7 +625,7 @@ impl TheBottomLine for GameState {
     ) -> Option<PickableCharacters> {
         if self.is_selecting_characters() && player_idx == self.characters.applies_to_player() {
             if let Some(player) = self.players.get_mut(player_idx) {
-                player.character = Some(character);
+                player.select_character(character);
                 dbg!(player);
                 return self.characters.next();
             }

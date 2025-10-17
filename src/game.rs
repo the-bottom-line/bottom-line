@@ -634,7 +634,6 @@ impl TheBottomLine for GameState {
 
     fn player_get_selectable_characters(&self, player_idx: usize) -> Option<PickableCharacters> {
         if self.is_selecting_characters() && player_idx == self.characters.applies_to_player() {
-            //missing check for if its the requesting player's turn
             return self.characters.peek();
         }
         None

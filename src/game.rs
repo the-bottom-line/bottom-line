@@ -502,6 +502,7 @@ pub trait TheBottomLine {
         card_idx: usize,
     ) -> (Option<usize>, CardType);
 
+    /// Ends player's turn
     fn end_player_turn(&mut self, player_idx: usize) -> Option<TurnEnded>;
 }
 
@@ -715,7 +716,6 @@ impl TheBottomLine for GameState {
         None
     }
 
-    /// When the player grabs 3 cards, the player should give back one.
     fn player_give_back_card(
         &mut self,
         player_idx: usize,

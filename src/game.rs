@@ -705,8 +705,7 @@ impl TheBottomLine for GameState {
                     CardType::Asset => Either::Left(self.assets.draw()),
                     CardType::Liability => Either::Right(self.liabilities.draw()),
                 };
-                player.cards_drawn.push(player.hand.len());
-                player.hand.push(card);
+                player.draw_card(card);
                 return player.hand.last().map(|c| c.as_ref());
             }
         }

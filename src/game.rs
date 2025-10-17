@@ -184,6 +184,38 @@ pub enum CardType {
     Liability,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct PlayerInfo<'a> {
+    pub name: &'a str,
+    pub hand: Vec<CardType>,
+    pub assets: &'a [Asset],
+    pub liabilities: &'a [Liability],
+    pub cash: u8,
+    pub character: Option<Character>,
+}
+
+impl<'a> From<&'a Player> for PlayerInfo<'a> {
+    fn from(player: &'a Player) -> Self {
+        let hand = player
+            .hand
+            .iter()
+            .map(|e| match e {
+                Either::Left(_) => CardType::Asset,
+                Either::Right(_) => CardType::Liability,
+            })
+            .collect();
+
+        Self {
+            hand,
+            name: &player.name,
+            assets: &player.assets,
+            liabilities: &player.liabilities,
+            cash: player.cash,
+            character: player.character,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Player {
     pub id: PlayerId,
@@ -235,6 +267,10 @@ impl Player {
         self.assets.iter().map(|a| a.silver_value).sum()
     }
 
+    pub fn info(&self) -> PlayerInfo<'_> {
+        self.into()
+    }
+
     /// Plays card in players hand with index `idx`. If that index is valid, the card is played
     /// if
     pub fn play_card(&mut self, idx: usize) -> Option<Either<Asset, Liability>> {
@@ -275,7 +311,7 @@ impl Player {
 
     pub fn select_character(&mut self, character: Character) {
         use Character::*;
-        
+
         self.character = Some(character);
 
         match character {
@@ -504,6 +540,9 @@ pub trait TheBottomLine {
 
     /// Ends player's turn
     fn end_player_turn(&mut self, player_idx: usize) -> Option<TurnEnded>;
+
+    /// Gets a list of players with publicly available information, besides the main player
+    fn player_info(&self, player_idx: usize) -> Vec<PlayerInfo<'_>>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -761,6 +800,13 @@ impl TheBottomLine for GameState {
             }
         }
         None
+    }
+
+    fn player_info(&self, player_idx: usize) -> Vec<PlayerInfo<'_>> {
+        self.players
+            .iter()
+            .flat_map(|p| p.id.0.eq(&player_idx).then_some(p.info()))
+            .collect()
     }
 }
 

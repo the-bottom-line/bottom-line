@@ -457,9 +457,6 @@ pub trait TheBottomLine {
     /// starts.
     fn is_selecting_characters(&self) -> bool;
 
-    /// Get selectable characters if player_idx is allowed to pick them
-    fn selectable_characters(&mut self, player_idx: usize) -> Option<PickableCharacters>;
-
     /// Gets the character of the current turn.
     fn current_player(&self) -> Option<&Player>;
 
@@ -617,16 +614,6 @@ impl GameState {
 impl TheBottomLine for GameState {
     fn is_selecting_characters(&self) -> bool {
         self.characters.draw_idx < self.players.len() - 1
-    }
-
-    fn selectable_characters(&mut self, player_idx: usize) -> Option<PickableCharacters> {
-        if self.is_selecting_characters() && player_idx == self.characters.applies_to_player() {
-            if let Some(_) = self.players.get(player_idx) {
-                return self.characters.next();
-            }
-        }
-
-        None
     }
 
     fn player_select_character(

@@ -1,7 +1,7 @@
 use crate::{
     game::GameState,
     request_handler::{
-        PrivateSendJson, PublicSendJson, ReceiveJson, SendJson, handle_public_request,
+        ExternalResponse, InternalResponse, ReceiveData, Response, handle_public_request,
         handle_request,
     },
 };
@@ -38,7 +38,7 @@ pub struct AppState {
 
 pub struct RoomState {
     /// Previously created in main.
-    tx: broadcast::Sender<Json<PublicSendJson>>,
+    tx: broadcast::Sender<Json<InternalResponse>>,
     pub game: Mutex<Game>,
 }
 
@@ -108,7 +108,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     Err(error) => {
                         tracing::error!(%error);
                         let msg =
-                            serde_json::to_string(&PrivateSendJson::UsernameAlreadyTaken).unwrap();
+                            serde_json::to_string(&ExternalResponse::UsernameAlreadyTaken).unwrap();
                         let mut s = sender.lock().await;
                         let _ = s.send(Message::Text(msg.into())).await;
                         break;
@@ -138,7 +138,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     break;
                 } else {
                     // Only send our client that username is taken.
-                    let msg = serde_json::to_string(&PrivateSendJson::InvalidUsername).unwrap();
+                    let msg = serde_json::to_string(&ExternalResponse::InvalidUsername).unwrap();
                     let mut s = sender.lock().await;
                     let _ = s.send(Message::Text(msg.into())).await;
                     return;
@@ -162,7 +162,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let mut rx = tx.subscribe();
 
     // announce join to everyone
-    let msg = PublicSendJson::PlayerJoined {
+    let msg = InternalResponse::PlayerJoined {
         username: username.clone(),
     };
     tracing::debug!("{msg:?}");
@@ -207,9 +207,9 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             while let Some(Ok(message)) = receiver.next().await {
                 match message {
                     Message::Text(text) => {
-                        if let Ok(json) = serde_json::from_str::<ReceiveJson>(&text) {
+                        if let Ok(json) = serde_json::from_str::<ReceiveData>(&text) {
                             tracing::debug!("incoming json: {json:?}");
-                            let SendJson(public, private) =
+                            let Response(public, private) =
                                 handle_request(json, room.clone(), &name);
 
                             // // broadcast to everyone (including sender)
@@ -241,7 +241,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     };
 
     // announce leave
-    let msg = PublicSendJson::PlayerLeft {
+    let msg = InternalResponse::PlayerLeft {
         username: username.clone(),
     };
     tracing::debug!("{msg:?}");

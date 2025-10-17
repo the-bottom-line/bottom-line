@@ -475,11 +475,11 @@ pub trait TheBottomLine {
     fn chairman(&self) -> &Player;
 
     /// Gets list of selectable caracters if its the players turn
-    fn get_selectable_characters(&self, player_idx: usize) -> Option<PickableCharacters>;
+    fn player_get_selectable_characters(&self, player_idx: usize) -> Option<PickableCharacters>;
 
     /// Assigns a character role to a specific player. Returns a set of pickable characters for the
     /// next player to choose from
-    fn next_player_select_character(
+    fn player_select_character(
         &mut self,
         player_idx: usize,
         character: Character,
@@ -629,7 +629,7 @@ impl TheBottomLine for GameState {
         None
     }
 
-    fn next_player_select_character(
+    fn player_select_character(
         &mut self,
         player_idx: usize,
         character: Character,
@@ -645,7 +645,7 @@ impl TheBottomLine for GameState {
         None
     }
 
-    fn get_selectable_characters(&self, player_idx: usize) -> Option<PickableCharacters> {
+    fn player_get_selectable_characters(&self, player_idx: usize) -> Option<PickableCharacters> {
         if self.is_selecting_characters() && player_idx == self.characters.applies_to_player() {
             //missing check for if its the requesting player's turn
             return self.characters.peek();

@@ -580,6 +580,7 @@ impl GameState {
 
         let characters =
             ObtainingCharacters::new(player_names.len(), players.first().unwrap().id.into());
+
         GameState {
             players,
             characters,
@@ -754,7 +755,7 @@ impl TheBottomLine for GameState {
                     CardType::Liability => Either::Right(self.liabilities.draw()),
                 };
                 player.draw_card(card);
-                return player.hand.last().map(|c| c.as_ref());
+                return player.hand.last().map(Either::as_ref);
             }
         }
 

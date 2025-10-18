@@ -456,17 +456,17 @@ impl ObtainingCharacters {
         }
     }
 
-    pub fn peek(&self) -> Option<PickableCharacters> {
+    pub fn peek(&self) -> Result<PickableCharacters, SelectableCharactersError> {
         match self.draw_idx {
-            0 => Some(PickableCharacters {
+            0 => Ok(PickableCharacters {
                 characters: self.available_characters.deck.iter().cloned().collect(),
                 closed_character: Some(self.closed_character),
             }),
-            n if n < self.player_count - 1 => Some(PickableCharacters {
+            n if n < self.player_count - 1 => Ok(PickableCharacters {
                 characters: self.available_characters.deck.iter().cloned().collect(),
                 closed_character: None,
             }),
-            n if n == self.player_count - 1 => Some(PickableCharacters {
+            n if n == self.player_count - 1 => Ok(PickableCharacters {
                 characters: self
                     .available_characters
                     .deck
@@ -476,11 +476,11 @@ impl ObtainingCharacters {
                     .collect(),
                 closed_character: None,
             }),
-            _ => None,
+            _ => Err(SelectableCharactersError::NotPickingCharacters),
         }
     }
 
-    pub fn next(&mut self) -> Option<PickableCharacters> {
+    pub fn next(&mut self) -> Result<PickableCharacters, SelectableCharactersError> {
         self.draw_idx += 1;
 
         self.peek()
@@ -537,7 +537,7 @@ pub trait TheBottomLine {
     fn player_get_selectable_characters(
         &self,
         player_idx: usize,
-    ) -> Result<Option<PickableCharacters>, GameError>;
+    ) -> Result<PickableCharacters, GameError>;
 
     /// Assigns a character role to a specific player. Returns a set of pickable characters for the
     /// next player to choose from
@@ -721,14 +721,14 @@ impl TheBottomLine for GameState {
     fn player_get_selectable_characters(
         &self,
         player_idx: usize,
-    ) -> Result<Option<PickableCharacters>, GameError> {
+    ) -> Result<PickableCharacters, GameError> {
         match (
             self.is_selecting_characters(),
             player_idx == self.characters.applies_to_player(),
         ) {
             (true, true) => {
                 if let Some(_) = self.players.get(player_idx) {
-                    Ok(self.characters.peek())
+                    self.characters.peek().map_err(Into::into)
                 } else {
                     Err(GameError::InvalidPlayerIndex(player_idx as u8))
                 }

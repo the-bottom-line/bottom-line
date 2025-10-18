@@ -126,7 +126,7 @@ pub fn handle_public_request(
                     let hand = player.hand.clone();
                     let cash = player.cash;
                     let pickable_characters =
-                        state.player_get_selectable_characters(player.id.into());
+                        state.player_get_selectable_characters(player.id.into()).ok().flatten();
                     Some(ExternalResponse::StartGame {
                         hand,
                         cash,
@@ -186,7 +186,7 @@ pub fn handle_request(msg: ReceiveData, room_state: Arc<RoomState>, player_name:
 }
 
 fn draw_card(state: &mut GameState, t: CardType, player_idx: usize) -> Response {
-    if let Some(card) = state.player_draw_card(player_idx, t) {
+    if let Some(card) = state.player_draw_card(player_idx, t).ok() {
         return Response::new(
             InternalResponse::DrawnCard {
                 player_id: player_idx.into(),
@@ -202,7 +202,7 @@ fn draw_card(state: &mut GameState, t: CardType, player_idx: usize) -> Response 
 }
 
 fn put_back_card(state: &mut GameState, card_idx: usize, player_idx: usize) -> Response {
-    if let Some(card_type) = state.player_give_back_card(player_idx, card_idx) {
+    if let Some(card_type) = state.player_give_back_card(player_idx, card_idx).ok() {
         return Response::new(
             InternalResponse::PutBackCard {
                 player_id: player_idx.into(),
@@ -218,7 +218,7 @@ fn put_back_card(state: &mut GameState, card_idx: usize, player_idx: usize) -> R
 }
 
 fn play_card(state: &mut GameState, card_idx: usize, player_idx: usize) -> Response {
-    if let Some(played_card) = state.player_play_card(player_idx, card_idx) {
+    if let Some(played_card) = state.player_play_card(player_idx, card_idx).ok() {
         match played_card.used_card {
             Either::Left(asset) => {
                 return Response::new(
@@ -245,7 +245,7 @@ fn play_card(state: &mut GameState, card_idx: usize, player_idx: usize) -> Respo
 }
 
 fn select_character(state: &mut GameState, character: Character, player_idx: usize) -> Response {
-    if let Some(_) = state.player_select_character(player_idx, character) {
+    if let Some(_) = state.player_select_character(player_idx, character).ok() {
         return Response::new(
             InternalResponse::SelectedCharacter {
                 player_id: player_idx.into(),
@@ -258,7 +258,7 @@ fn select_character(state: &mut GameState, character: Character, player_idx: usi
 }
 
 fn get_selectable_characters(state: &mut GameState, player_idx: usize) -> Response {
-    if let Some(pickable_characters) = state.player_get_selectable_characters(player_idx) {
+    if let Some(pickable_characters) = state.player_get_selectable_characters(player_idx).ok().flatten() {
         return Response::new(
             InternalResponse::ActionPerformed,
             ExternalResponse::SelectableCharacters {

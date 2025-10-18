@@ -4,7 +4,7 @@ use either::Either;
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
-use crate::{cards::GameData, utility::serde_asset_liability, game_errors::GameError};
+use crate::{cards::GameData, game_errors::*, utility::serde_asset_liability};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PlayerId(usize);
@@ -271,28 +271,35 @@ impl Player {
         self.into()
     }
 
-    /// Plays card in players hand with index `idx`. If that index is valid, the card is played
+    /// Plays card in players hand with index `card_idx`. If that index is valid, the card is played
     /// if
-    pub fn play_card(&mut self, idx: usize) -> Option<Either<Asset, Liability>> {
-        if let Some(card) = self.hand.get(idx) {
+    pub fn play_card(&mut self, card_idx: usize) -> Result<Either<Asset, Liability>, PlayCardError> {
+        use PlayCardError::*;
+        
+        if let Some(card) = self.hand.get(card_idx) {
             match card {
                 Either::Left(a) if self.assets_to_play > 0 && self.cash >= a.gold_value => {
-                    let asset = self.hand.remove(idx).left().unwrap();
+                    let asset = self.hand.remove(card_idx).left().unwrap();
                     self.cash -= asset.gold_value;
                     self.assets_to_play -= 1;
                     self.assets.push(asset.clone());
-                    Some(Either::Left(asset))
+                    Ok(Either::Left(asset))
                 }
+                Either::Left(_) if self.assets_to_play == 0 => Err(ExceedsMaximumAssets),
+                Either::Left(a) if self.cash < a.gold_value => {
+                    Err(CannotAffordAsset { cash: self.cash, cost: a.gold_value })
+                },
                 Either::Right(_) if self.liabilities_to_play > 0 => {
-                    let liability = self.hand.remove(idx).right().unwrap();
+                    let liability = self.hand.remove(card_idx).right().unwrap();
                     self.liabilities_to_play -= 1;
                     self.liabilities.push(liability.clone());
-                    Some(Either::Right(liability))
-                }
-                _ => None,
+                    Ok(Either::Right(liability))
+                },
+                Either::Right(_) if self.liabilities_to_play == 0 => Err(ExceedsMaximumLiabilities),
+                _ => unreachable!()
             }
         } else {
-            None
+            Err(InvalidCardIndex(card_idx as u8))
         }
     }
 
@@ -301,11 +308,11 @@ impl Player {
         self.hand.push(card);
     }
 
-    pub fn give_back_card(&mut self, card_idx: usize) -> Option<Either<Asset, Liability>> {
+    pub fn give_back_card(&mut self, card_idx: usize) -> Result<Either<Asset, Liability>, GiveBackCardError> {
         if let Some(_) = self.hand.get(card_idx) {
-            Some(self.hand.remove(card_idx))
+            Ok(self.hand.remove(card_idx))
         } else {
-            None
+            Err(GiveBackCardError::InvalidCardIndex(card_idx as u8))
         }
     }
 
@@ -520,7 +527,7 @@ pub trait TheBottomLine {
     fn chairman(&self) -> &Player;
 
     /// Gets list of selectable caracters if its the players turn
-    fn player_get_selectable_characters(&self, player_idx: usize) -> Option<PickableCharacters>;
+    fn player_get_selectable_characters(&self, player_idx: usize) -> Result<Option<PickableCharacters>, GameError>;
 
     /// Assigns a character role to a specific player. Returns a set of pickable characters for the
     /// next player to choose from
@@ -528,21 +535,21 @@ pub trait TheBottomLine {
         &mut self,
         player_idx: usize,
         character: Character,
-    ) -> Option<PickableCharacters>;
+    ) -> Result<(), GameError>;
 
     /// Attempts to play a card (either an asset or liability) for player with `player_idx`. If
     /// playing this card triggers a market change, returns an object with a list of events and
     /// a new market.
-    fn player_play_card(&mut self, player_idx: usize, card_idx: usize) -> Option<PlayerPlayedCard>;
+    fn player_play_card(&mut self, player_idx: usize, card_idx: usize) -> Result<PlayerPlayedCard, GameError>;
 
     fn player_draw_card(
         &mut self,
         player_idx: usize,
         card_type: CardType,
-    ) -> Option<Either<&Asset, &Liability>>;
+    ) -> Result<Either<&Asset, &Liability>, GameError>;
 
     /// When the player grabs 3 cards, the player should give back one.
-    fn player_give_back_card(&mut self, player_idx: usize, card_idx: usize) -> Option<CardType>;
+    fn player_give_back_card(&mut self, player_idx: usize, card_idx: usize) -> Result<CardType, GameError>;
 
     /// Ends player's turn
     fn end_player_turn(&mut self, player_idx: usize) -> Option<TurnEnded>;
@@ -669,23 +676,37 @@ impl TheBottomLine for GameState {
         &mut self,
         player_idx: usize,
         character: Character,
-    ) -> Option<PickableCharacters> {
-        if self.is_selecting_characters() && player_idx == self.characters.applies_to_player() {
-            if let Some(player) = self.players.get_mut(player_idx) {
-                player.select_character(character);
-                dbg!(player);
-                return self.characters.next();
+    ) -> Result<(), GameError> {
+        use SelectableCharactersError::*;
+        
+        if let Some(_) = self.players.get(player_idx) {
+            match (
+                self.is_selecting_characters(),
+                player_idx == self.characters.applies_to_player()
+            ) {
+                (true, true) => {
+                    self.players.get_mut(player_idx).unwrap().select_character(character);
+                    self.characters.next();
+                    Ok(())
+                },
+                (true, false) => Err(GameError::NotPlayersTurn.into()),
+                _ => Err(NotPickingCharacters.into()),
             }
+        } else {
+            Err(GameError::InvalidPlayerIndex(player_idx as u8).into())
         }
-
-        None
     }
 
-    fn player_get_selectable_characters(&self, player_idx: usize) -> Option<PickableCharacters> {
-        if self.is_selecting_characters() && player_idx == self.characters.applies_to_player() {
-            return self.characters.peek();
+    fn player_get_selectable_characters(&self, player_idx: usize) -> Result<Option<PickableCharacters>, GameError> {
+        match (self.is_selecting_characters(), player_idx == self.characters.applies_to_player()) {
+            (true, true) => if let Some(_) = self.players.get(player_idx) {
+                Ok(self.characters.peek())
+            } else {
+                Err(GameError::InvalidPlayerIndex(player_idx as u8))
+            },
+            (true, false) => Err(GameError::NotPlayersTurn),
+            _ => Err(SelectableCharactersError::NotPickingCharacters.into()),
         }
-        None
     }
 
     fn current_player(&self) -> Option<&Player> {
@@ -719,75 +740,90 @@ impl TheBottomLine for GameState {
         &self.players[self.chairman.0]
     }
 
-    fn player_play_card(&mut self, idx: usize, card_idx: usize) -> Option<PlayerPlayedCard> {
+    fn player_play_card(&mut self, idx: usize, card_idx: usize) -> Result<PlayerPlayedCard, GameError> {
         let current_character = self.current_player().unwrap().character;
 
         if let Some(player) = self.players.get_mut(idx) {
             if player.character == current_character {
-                match player.play_card(card_idx) {
-                    Some(Either::Left(asset)) if self.check_new_market() => {
-                        let market = Some(self.new_market());
+                match player.play_card(card_idx)? {
+                    Either::Left(asset) => {
+                        let market = match self.check_new_market() {
+                            true => Some(self.new_market()),
+                            false => None,
+                        };
                         let used_card = Either::Left(asset.clone());
-                        return Some(PlayerPlayedCard { market, used_card });
-                    }
-                    Some(Either::Right(liability)) => {
+                        Ok(PlayerPlayedCard { market, used_card })
+                    },
+                    Either::Right(liability) => {
                         let market = None;
                         let used_card = Either::Right(liability);
-                        return Some(PlayerPlayedCard { market, used_card });
+                        Ok(PlayerPlayedCard { market, used_card })
                     }
-                    _ => {}
                 }
+            } else {
+                Err(GameError::NotPlayersTurn.into())
             }
+        } else {
+            Err(GameError::InvalidPlayerIndex(idx as u8).into())
         }
-
-        None
     }
 
     fn player_draw_card(
         &mut self,
         idx: usize,
         card_type: CardType,
-    ) -> Option<Either<&Asset, &Liability>> {
+    ) -> Result<Either<&Asset, &Liability>, GameError> {
         if let Some(player) = self.players.get_mut(idx) {
-            if self.current_player == Some(player.id) && player.cards_drawn.len() < 3 {
-                let card = match card_type {
-                    CardType::Asset => Either::Left(self.assets.draw()),
-                    CardType::Liability => Either::Right(self.liabilities.draw()),
-                };
-                player.draw_card(card);
-                return player.hand.last().map(Either::as_ref);
+            if self.current_player == Some(player.id) {
+                if player.cards_drawn.len() < 3 {
+                    let card = match card_type {
+                        CardType::Asset => Either::Left(self.assets.draw()),
+                        CardType::Liability => Either::Right(self.liabilities.draw()),
+                    };
+                    player.draw_card(card);
+                    Ok(player.hand.last().unwrap().as_ref())
+                } else {
+                    Err(DrawCardError::MaximumCardsDrawn(player.cards_drawn.len() as u8).into())
+                }
+            } else {
+                Err(GameError::NotPlayersTurn)
             }
+        } else {
+            Err(GameError::InvalidPlayerIndex(idx as u8))
         }
-
-        None
     }
 
-    fn player_give_back_card(&mut self, player_idx: usize, card_idx: usize) -> Option<CardType> {
+    fn player_give_back_card(&mut self, player_idx: usize, card_idx: usize) -> Result<CardType, GameError> {
         if let Some(player) = self.players.get_mut(player_idx) {
-            if self.current_player == Some(player.id) && player.should_give_back_card() {
-                return match player.give_back_card(card_idx) {
-                    Some(Either::Left(asset)) => {
-                        self.assets.deck.insert(0, asset);
-                        Some(CardType::Asset)
-                    }
-                    Some(Either::Right(liability)) => {
-                        self.liabilities.deck.insert(0, liability);
-                        Some(CardType::Liability)
-                    }
-                    None => None,
-                };
+            if self.current_player == Some(player.id) {
+                if player.should_give_back_card() {
+                    match player.give_back_card(card_idx)? {
+                        Either::Left(asset) => {
+                            self.assets.deck.insert(0, asset);
+                            Ok(CardType::Asset)
+                        }
+                        Either::Right(liability) => {
+                            self.liabilities.deck.insert(0, liability);
+                            Ok(CardType::Liability)
+                        }
+                    } 
+                } else {
+                    Err(GiveBackCardError::Unnecessary.into())
+                }
+            } else {
+                Err(GameError::NotPlayersTurn)
             }
+        } else {
+            Err(GameError::InvalidPlayerIndex(player_idx as u8))
         }
-
-        None
     }
 
-    fn end_player_turn(&mut self, player_idx: usize) -> Option<TurnEnded> {
+    fn end_player_turn(&mut self, player_idx: usize) -> Result<TurnEnded, GameError> {
         if let Some(player) = self.players.get(player_idx) {
             if self.current_player == Some(player.id) && !player.should_give_back_card() {
-                return if let Some(player) = self.next_player() {
+                if let Some(player) = self.next_player() {
                     self.current_player = Some(player.id);
-                    Some(TurnEnded::new(self.current_player))
+                    Ok(TurnEnded::new(self.current_player))
                 } else {
                     let maybe_ceo = self.player_from_character(Character::CEO);
                     let chairman_id = match maybe_ceo.map(|p| p.id) {
@@ -799,11 +835,14 @@ impl TheBottomLine for GameState {
                         p.character = None;
                     });
                     self.characters = ObtainingCharacters::new(self.players.len(), chairman_id);
-                    Some(TurnEnded::new(None))
-                };
+                    Ok(TurnEnded::new(None))
+                }
+            } else {
+                Err(GameError::PlayerShouldGiveBackCard)
             }
+        } else {
+            Err(GameError::InvalidPlayerIndex(player_idx as u8))
         }
-        None
     }
 
     fn player_info(&self, player_idx: usize) -> Vec<PlayerInfo<'_>> {

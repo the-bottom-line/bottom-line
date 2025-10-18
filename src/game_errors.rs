@@ -19,13 +19,8 @@ pub enum GameError {
     PlayerShouldGiveBackCard,
 }
 
-#[derive(Debug, PartialEq, Error, serde::Serialize, serde::Deserialize)]
-pub enum CoreError {}
-
 #[derive(Debug, PartialEq, Error)]
 pub enum PlayCardError {
-    // #[error(transparent)]
-    // Core(#[from] CoreError),
     #[error("Card index {0} is invalid")]
     InvalidCardIndex(u8),
     #[error("Already played the maximum allowed number of assets")]
@@ -38,8 +33,6 @@ pub enum PlayCardError {
 
 #[derive(Debug, PartialEq, Error, serde::Serialize)]
 pub enum GiveBackCardError {
-    // #[error(transparent)]
-    // Core(#[from] CoreError),
     #[error("Card index {0} is invalid")]
     InvalidCardIndex(u8),
     #[error("Player does not have to give back card")]

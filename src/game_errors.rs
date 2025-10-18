@@ -1,7 +1,8 @@
+use serde::Serialize;
 use thiserror::Error;
 
 /// The main error struct of the game logic
-#[derive(Debug, PartialEq, Error)]
+#[derive(Debug, PartialEq, Error, Serialize)]
 pub enum GameError {
     #[error(transparent)]
     PlayCard(#[from] PlayCardError),
@@ -19,7 +20,7 @@ pub enum GameError {
     PlayerShouldGiveBackCard,
 }
 
-#[derive(Debug, PartialEq, Error)]
+#[derive(Debug, PartialEq, Error, Serialize)]
 pub enum PlayCardError {
     #[error("Card index {0} is invalid")]
     InvalidCardIndex(u8),
@@ -31,7 +32,7 @@ pub enum PlayCardError {
     CannotAffordAsset { cash: u8, cost: u8 },
 }
 
-#[derive(Debug, PartialEq, Error, serde::Serialize)]
+#[derive(Debug, PartialEq, Error, Serialize)]
 pub enum GiveBackCardError {
     #[error("Card index {0} is invalid")]
     InvalidCardIndex(u8),
@@ -39,13 +40,13 @@ pub enum GiveBackCardError {
     Unnecessary,
 }
 
-#[derive(Debug, PartialEq, Error)]
+#[derive(Debug, PartialEq, Error, Serialize)]
 pub enum DrawCardError {
     #[error("Already drew {0} cards, which is the maximum for this character")]
     MaximumCardsDrawn(u8),
 }
 
-#[derive(Debug, PartialEq, Error)]
+#[derive(Debug, PartialEq, Error, Serialize)]
 pub enum SelectableCharactersError {
     #[error("Game is not in a state where characters are being picked")]
     NotPickingCharacters,

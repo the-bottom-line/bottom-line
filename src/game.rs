@@ -552,7 +552,7 @@ pub trait TheBottomLine {
     fn player_give_back_card(&mut self, player_idx: usize, card_idx: usize) -> Result<CardType, GameError>;
 
     /// Ends player's turn
-    fn end_player_turn(&mut self, player_idx: usize) -> Option<TurnEnded>;
+    fn end_player_turn(&mut self, player_idx: usize) -> Result<TurnEnded, GameError>;
 
     /// Gets a list of players with publicly available information, besides the main player
     fn player_info(&self, player_idx: usize) -> Vec<PlayerInfo<'_>>;

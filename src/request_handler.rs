@@ -271,7 +271,7 @@ fn get_selectable_characters(state: &mut GameState, player_idx: usize) -> Respon
 }
 
 fn end_turn(state: &mut GameState, player_idx: usize) -> Response {
-    match state.end_player_turn(player_idx) {
+    match state.end_player_turn(player_idx).ok() {
         Some(TurnEnded {
             next_player: Some(player_id),
         }) => Response(

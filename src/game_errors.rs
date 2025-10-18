@@ -16,12 +16,11 @@ pub enum GameError {
     #[error("Not player's turn")]
     NotPlayersTurn,
     #[error("Player should still give back at least one card")]
-    PlayerShouldGiveBackCard
+    PlayerShouldGiveBackCard,
 }
 
 #[derive(Debug, PartialEq, Error, serde::Serialize, serde::Deserialize)]
-pub enum CoreError {
-}
+pub enum CoreError {}
 
 #[derive(Debug, PartialEq, Error)]
 pub enum PlayCardError {
@@ -50,7 +49,7 @@ pub enum GiveBackCardError {
 #[derive(Debug, PartialEq, Error)]
 pub enum DrawCardError {
     #[error("Already drew {0} cards, which is the maximum for this character")]
-    MaximumCardsDrawn(u8)
+    MaximumCardsDrawn(u8),
 }
 
 #[derive(Debug, PartialEq, Error)]

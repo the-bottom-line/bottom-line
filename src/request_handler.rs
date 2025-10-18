@@ -125,8 +125,10 @@ pub fn handle_public_request(
                 InternalResponse::GameStarted => {
                     let hand = player.hand.clone();
                     let cash = player.cash;
-                    let pickable_characters =
-                        state.player_get_selectable_characters(player.id.into()).ok().flatten();
+                    let pickable_characters = state
+                        .player_get_selectable_characters(player.id.into())
+                        .ok()
+                        .flatten();
                     Some(ExternalResponse::StartGame {
                         hand,
                         cash,
@@ -258,7 +260,11 @@ fn select_character(state: &mut GameState, character: Character, player_idx: usi
 }
 
 fn get_selectable_characters(state: &mut GameState, player_idx: usize) -> Response {
-    if let Some(pickable_characters) = state.player_get_selectable_characters(player_idx).ok().flatten() {
+    if let Some(pickable_characters) = state
+        .player_get_selectable_characters(player_idx)
+        .ok()
+        .flatten()
+    {
         return Response::new(
             InternalResponse::ActionPerformed,
             ExternalResponse::SelectableCharacters {

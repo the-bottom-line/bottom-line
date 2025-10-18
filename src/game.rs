@@ -309,6 +309,16 @@ impl Player {
         }
     }
 
+    pub fn should_give_back_card(&self) -> bool {
+        let limit = match self.character {
+            Some(Character::HeadRnD) => 4,
+            Some(_) => 2,
+            _ => 0,
+        };
+
+        self.cards_drawn.len() > limit
+    }
+
     pub fn select_character(&mut self, character: Character) {
         use Character::*;
 
@@ -780,7 +790,7 @@ impl TheBottomLine for GameState {
 
     fn end_player_turn(&mut self, player_idx: usize) -> Option<TurnEnded> {
         if let Some(player) = self.players.get(player_idx) {
-            if self.current_player == Some(player.id) {
+            if self.current_player == Some(player.id) && !player.should_give_back_card() {
                 return if let Some(player) = self.next_player() {
                     self.current_player = Some(player.id);
                     Some(TurnEnded::new(self.current_player))

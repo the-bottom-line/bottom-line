@@ -202,15 +202,14 @@ fn draw_card(state: &mut GameState, t: CardType, player_idx: usize) -> Response 
 }
 
 fn put_back_card(state: &mut GameState, card_idx: usize, player_idx: usize) -> Response {
-    let t = state.player_give_back_card(player_idx, card_idx);
-    if let Some(idx) = t.0 {
+    if let Some(card_type) = state.player_give_back_card(player_idx, card_idx) {
         return Response::new(
             InternalResponse::PutBackCard {
                 player_id: player_idx.into(),
-                card_type: t.1,
+                card_type,
             },
             ExternalResponse::PutBackCard {
-                remove_idx: Some(idx),
+                remove_idx: Some(card_idx),
             },
         );
     } else {

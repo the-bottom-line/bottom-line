@@ -1,7 +1,7 @@
 use crate::{
     game::GameState,
     request_handler::{
-        handle_public_request, handle_request, ExternalResponse, InternalResponse, ReceiveData, Response, ResponseError
+        handle_public_request, handle_request, TargetedResponse, InternalResponse, ReceiveData, Response, ResponseError
     },
 };
 
@@ -85,7 +85,7 @@ pub async fn setupsocket() {
 }
 
 async fn send_external(
-    msg: ExternalResponse,
+    msg: TargetedResponse,
     sender: Arc<TokioMutex<SplitSink<WebSocket, Message>>>,
 ) -> Result<(), axum::Error> {
     let msg = serde_json::to_string(&msg).unwrap();

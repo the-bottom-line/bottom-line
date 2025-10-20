@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::{HashMap, HashSet}, sync::Arc};
 
 use crate::{
     cards::GameData, game::*, game_errors::GameError, server::{Game, RoomState}, utility::serde_asset_liability
@@ -22,31 +22,44 @@ pub enum ReceiveData {
 }
 
 #[derive(Debug, Serialize)]
-pub struct Response(pub InternalResponse, pub ExternalResponse);
+pub struct Response(pub InternalResponse, pub TargetedResponse);
 
 impl Response {
-    pub fn new(internal: InternalResponse, external: ExternalResponse) -> Self {
+    pub fn new(internal: InternalResponse, external: TargetedResponse) -> Self {
         Self(internal, external)
     }
 }
 
-impl From<ExternalResponse> for Response {
-    fn from(external: ExternalResponse) -> Self {
+impl From<TargetedResponse> for Response {
+    fn from(external: TargetedResponse) -> Self {
         Self::new(InternalResponse::ActionPerformed, external)
     }
 }
 
 impl From<GameError> for Response {
     fn from(error: GameError) -> Self {
-        Self::new(InternalResponse::ActionPerformed, ExternalResponse::Error(error.into()))
+        Self::new(InternalResponse::ActionPerformed, TargetedResponse::Error(error.into()))
     }
 }
 
 #[derive(Debug, Serialize)]
 #[serde(tag = "action", content = "data")]
-pub enum ExternalResponse {
+pub enum PersonalResponse {
     Error(ResponseError),
     GameStartedOk,
+    SelectCharacterOk,
+    DrawCardOk,
+    PutBackCardOk,
+    BuyAssetOk,
+    IssuedLiabilityOk,
+    EndedTurnOk,
+}
+
+
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "action", content = "data")]
+pub enum TargetedResponse {
     PlayersInLobby {
         usernames: HashSet<String>,
     },
@@ -56,6 +69,7 @@ pub enum ExternalResponse {
         hand: Vec<Either<Asset, Liability>>,
         pickable_characters: Option<PickableCharacters>,
         player_info: Vec<PlayerInfo>,
+        turn_order: Vec<PlayerId>,
     },
     DrawnCard {
         #[serde(with = "serde_asset_liability::value")]
@@ -64,17 +78,14 @@ pub enum ExternalResponse {
     PutBackCard {
         remove_idx: Option<usize>,
     },
-    BuyAssetOk,
-    IssuedLiabilityOk,
-    SelectableCharacters {
-        pickable_characters: PickableCharacters,
-    },
-    SelectCharacterOk,
-    EndedTurnOk,
+    
+    // SelectableCharacters {
+    //     pickable_characters: PickableCharacters,
+    // },
+    
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "action", content = "data")]
+#[derive(Clone, Debug)]
 pub enum InternalResponse {
     ActionPerformed, // all-round placeholder
     PlayerJoined {
@@ -83,7 +94,9 @@ pub enum InternalResponse {
     PlayerLeft {
         username: String,
     },
-    GameStarted,
+    GameStarted {
+        hands: HashMap<PlayerId, StartGame>,
+    },
     DrawnCard {
         // #[serde(flatten)]
         player_id: PlayerId,
@@ -132,9 +145,9 @@ pub enum ResponseError {
     InvalidData,
 }
 
-impl From<ResponseError> for ExternalResponse {
+impl From<ResponseError> for TargetedResponse {
     fn from(error: ResponseError) -> Self {
-        ExternalResponse::Error(error)
+        TargetedResponse::Error(error)
     }
 }
 
@@ -142,7 +155,7 @@ pub fn handle_public_request(
     msg: InternalResponse,
     room_state: Arc<RoomState>,
     player_name: &str,
-) -> Option<ExternalResponse> {
+) -> Option<TargetedResponse> {
     match &*room_state.game.lock().unwrap() {
         Game::GameStarted { state } => {
             let player = state.player_by_name(&player_name).unwrap();
@@ -152,7 +165,7 @@ pub fn handle_public_request(
                     let cash = player.cash;
                     let pickable_characters = state
                         .player_get_selectable_characters(player.id.into()).ok();
-                    Some(ExternalResponse::StartGame {
+                    Some(TargetedResponse::StartGame {
                         hand,
                         cash,
                         pickable_characters,
@@ -164,7 +177,7 @@ pub fn handle_public_request(
         }
         Game::InLobby { user_set } => match msg {
             InternalResponse::PlayerJoined { .. } | InternalResponse::PlayerLeft { .. } => {
-                Some(ExternalResponse::PlayersInLobby {
+                Some(TargetedResponse::PlayersInLobby {
                     usernames: user_set.clone(),
                 })
             }
@@ -179,8 +192,8 @@ pub fn handle_request(msg: ReceiveData, room_state: Arc<RoomState>, player_name:
         crate::server::Game::GameStarted { state } => {
             let playerid = state.player_by_name(player_name).unwrap().id.into();
             match msg {
-                ReceiveData::Connect { .. } => ExternalResponse::Error(ResponseError::GameAlreadyStarted).into(),
-                ReceiveData::StartGame => ExternalResponse::Error(ResponseError::GameAlreadyStarted).into(),
+                ReceiveData::Connect { .. } => TargetedResponse::Error(ResponseError::GameAlreadyStarted).into(),
+                ReceiveData::StartGame => TargetedResponse::Error(ResponseError::GameAlreadyStarted).into(),
                 ReceiveData::DrawCard { card_type } => draw_card(state, card_type, playerid),
                 ReceiveData::PutBackCard { card_idx } => put_back_card(state, card_idx, playerid),
                 ReceiveData::BuyAsset { card_idx: asset_idx } => play_card(state, asset_idx, playerid),
@@ -203,10 +216,10 @@ pub fn handle_request(msg: ReceiveData, room_state: Arc<RoomState>, player_name:
                 tracing::debug!("{msg:?}");
                 Response(
                     InternalResponse::GameStarted,
-                    ExternalResponse::GameStartedOk,
+                    TargetedResponse::GameStartedOk,
                 )
             }
-            _ => ExternalResponse::Error(ResponseError::GameNotYetStarted).into(),
+            _ => TargetedResponse::Error(ResponseError::GameNotYetStarted).into(),
         },
     }
 }
@@ -218,7 +231,7 @@ fn draw_card(state: &mut GameState, t: CardType, player_idx: usize) -> Response 
                 player_id: player_idx.into(),
                 card_type: t,
             },
-            ExternalResponse::DrawnCard {
+            TargetedResponse::DrawnCard {
                 card: card.cloned(),
             },
         ),
@@ -233,7 +246,7 @@ fn put_back_card(state: &mut GameState, card_idx: usize, player_idx: usize) -> R
                 player_id: player_idx.into(),
                 card_type,
             },
-            ExternalResponse::PutBackCard {
+            TargetedResponse::PutBackCard {
                 remove_idx: Some(card_idx),
             },
         ),
@@ -250,7 +263,7 @@ fn play_card(state: &mut GameState, card_idx: usize, player_idx: usize) -> Respo
                         player_id: player_idx.into(),
                         asset: asset,
                     },
-                    ExternalResponse::BuyAssetOk,
+                    TargetedResponse::BuyAssetOk,
                 );
             }
             Either::Right(liability) => {
@@ -259,7 +272,7 @@ fn play_card(state: &mut GameState, card_idx: usize, player_idx: usize) -> Respo
                         player_id: player_idx.into(),
                         liability: liability,
                     },
-                    ExternalResponse::IssuedLiabilityOk,
+                    TargetedResponse::IssuedLiabilityOk,
                 );
             }
         },
@@ -273,7 +286,7 @@ fn select_character(state: &mut GameState, character: Character, player_idx: usi
             InternalResponse::SelectedCharacter {
                 player_id: player_idx.into(),
             },
-            ExternalResponse::SelectCharacterOk,
+            TargetedResponse::SelectCharacterOk,
         ),
         Err(e) => e.into(),
     }
@@ -284,7 +297,7 @@ fn get_selectable_characters(state: &mut GameState, player_idx: usize) -> Respon
     {
         Ok(pickable_characters) => Response::new(
             InternalResponse::ActionPerformed,
-            ExternalResponse::SelectableCharacters {
+            TargetedResponse::SelectableCharacters {
                 pickable_characters,
             },
         ),
@@ -298,13 +311,13 @@ fn end_turn(state: &mut GameState, player_idx: usize) -> Response {
             next_player: Some(player_id),
         }) => Response(
             InternalResponse::EndedTurn { player_id },
-            ExternalResponse::EndedTurnOk,
+            TargetedResponse::EndedTurnOk,
         ),
         Ok(_) => {
             let player_id = state.chairman().id;
             Response(
                 InternalResponse::NewChairman { player_id },
-                ExternalResponse::EndedTurnOk,
+                TargetedResponse::EndedTurnOk,
             )
         }
         Err(e) => e.into(),
@@ -329,7 +342,7 @@ mod tests {
         println!("json: {json}");
         println!("json2: {json2}");
 
-        let send = ExternalResponse::PutBackCard { remove_idx: None };
+        let send = TargetedResponse::PutBackCard { remove_idx: None };
 
         let sjson = serde_json::to_string(&send).unwrap();
 

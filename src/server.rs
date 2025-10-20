@@ -1,8 +1,7 @@
 use crate::{
     game::GameState,
     request_handler::{
-        ExternalResponse, InternalResponse, ReceiveData, Response, handle_public_request,
-        handle_request,
+        handle_public_request, handle_request, ExternalResponse, InternalResponse, ReceiveData, Response, ResponseError
     },
 };
 
@@ -112,13 +111,13 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     Err(error) => {
                         tracing::error!(%error);
                         let _ =
-                            send_external(ExternalResponse::UsernameAlreadyTaken, sender.clone())
+                            send_external(ResponseError::UsernameAlreadyTaken.into(), sender.clone())
                                 .await;
                         break;
                     }
                     _ => {
                         let _ =
-                            send_external(ExternalResponse::ActionNotAllowed, sender.clone()).await;
+                            send_external(ResponseError::InvalidData.into(), sender.clone()).await;
                         break;
                     }
                 };
@@ -146,7 +145,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     break;
                 } else {
                     // Only send our client that username is taken.
-                    let _ = send_external(ExternalResponse::InvalidUsername, sender.clone()).await;
+                    let _ = send_external(ResponseError::InvalidUsername.into(), sender.clone()).await;
                     return;
                 }
             }

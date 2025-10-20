@@ -127,6 +127,14 @@ pub enum ResponseError {
     UsernameAlreadyTaken,
     #[error("Username is invalid")]
     InvalidUsername,
+    #[error("Data is not valid for this state")]
+    InvalidData,
+}
+
+impl From<ResponseError> for ExternalResponse {
+    fn from(error: ResponseError) -> Self {
+        ExternalResponse::Error(error)
+    }
 }
 
 pub fn handle_public_request(

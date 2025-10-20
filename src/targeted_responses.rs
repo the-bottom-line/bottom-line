@@ -11,3 +11,8 @@ pub struct StartGame {
     player_info: Vec<PlayerInfo>,
     turn_order: Vec<PlayerId>,
 }
+
+pub struct SelectedCharacter;
+pub struct DrawCard;
+pub struct BuyAsset;
+pub struct IssueLiability;

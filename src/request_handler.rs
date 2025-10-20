@@ -1,7 +1,7 @@
 use std::{collections::{HashMap, HashSet}, sync::Arc};
 
 use crate::{
-    cards::GameData, game::*, game_errors::GameError, server::{Game, RoomState}, utility::serde_asset_liability
+    cards::GameData, game::*, game_errors::GameError, server::{Game, RoomState}, utility::serde_asset_liability, targeted_responses::*,
 };
 use either::Either;
 use serde::{Deserialize, Serialize};
@@ -63,14 +63,7 @@ pub enum TargetedResponse {
     PlayersInLobby {
         usernames: HashSet<String>,
     },
-    StartGame {
-        cash: u8,
-        #[serde(with = "serde_asset_liability::vec")]
-        hand: Vec<Either<Asset, Liability>>,
-        pickable_characters: Option<PickableCharacters>,
-        player_info: Vec<PlayerInfo>,
-        turn_order: Vec<PlayerId>,
-    },
+    StartGame(StartGame),
     DrawnCard {
         #[serde(with = "serde_asset_liability::value")]
         card: Either<Asset, Liability>,
@@ -94,9 +87,7 @@ pub enum InternalResponse {
     PlayerLeft {
         username: String,
     },
-    GameStarted {
-        hands: HashMap<PlayerId, StartGame>,
-    },
+    GameStarted,
     DrawnCard {
         // #[serde(flatten)]
         player_id: PlayerId,

@@ -707,7 +707,7 @@ impl TheBottomLine for GameState {
                         .get_mut(player_idx)
                         .unwrap()
                         .select_character(character);
-                    self.characters.next();
+                    self.characters.next()?;
                     Ok(())
                 }
                 (true, false) => Err(GameError::NotPlayersTurn.into()),

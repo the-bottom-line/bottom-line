@@ -12,12 +12,12 @@ use thiserror::Error;
 pub enum ReceiveData {
     Connect { username: String, channel: String },
     StartGame,
+    SelectCharacter { character: Character },
     DrawCard { card_type: CardType },
     PutBackCard { card_idx: usize },
-    BuyAsset { asset_idx: usize },
-    IssueLiability { liability_idx: usize },
-    GetSelectableCharacters,
-    SelectCharacter { character: Character },
+    BuyAsset { card_idx: usize },
+    IssueLiability { card_idx: usize },
+    // GetSelectableCharacters,
     EndTurn,
 }
 
@@ -183,11 +183,11 @@ pub fn handle_request(msg: ReceiveData, room_state: Arc<RoomState>, player_name:
                 ReceiveData::StartGame => ExternalResponse::Error(ResponseError::GameAlreadyStarted).into(),
                 ReceiveData::DrawCard { card_type } => draw_card(state, card_type, playerid),
                 ReceiveData::PutBackCard { card_idx } => put_back_card(state, card_idx, playerid),
-                ReceiveData::BuyAsset { asset_idx } => play_card(state, asset_idx, playerid),
-                ReceiveData::IssueLiability { liability_idx } => {
+                ReceiveData::BuyAsset { card_idx: asset_idx } => play_card(state, asset_idx, playerid),
+                ReceiveData::IssueLiability { card_idx: liability_idx } => {
                     play_card(state, liability_idx, playerid)
                 }
-                ReceiveData::GetSelectableCharacters => get_selectable_characters(state, playerid),
+                // ReceiveData::GetSelectableCharacters => get_selectable_characters(state, playerid),
                 ReceiveData::SelectCharacter { character } => {
                     select_character(state, character, playerid)
                 }

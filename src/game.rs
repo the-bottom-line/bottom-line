@@ -185,17 +185,17 @@ pub enum CardType {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct PlayerInfo<'a> {
-    pub name: &'a str,
+pub struct PlayerInfo {
+    pub name: String,
     pub hand: Vec<CardType>,
-    pub assets: &'a [Asset],
-    pub liabilities: &'a [Liability],
+    pub assets: Vec<Asset>,
+    pub liabilities: Vec<Liability>,
     pub cash: u8,
     pub character: Option<Character>,
 }
 
-impl<'a> From<&'a Player> for PlayerInfo<'a> {
-    fn from(player: &'a Player) -> Self {
+impl From<&Player> for PlayerInfo {
+    fn from(player: &Player) -> Self {
         let hand = player
             .hand
             .iter()
@@ -207,9 +207,9 @@ impl<'a> From<&'a Player> for PlayerInfo<'a> {
 
         Self {
             hand,
-            name: &player.name,
-            assets: &player.assets,
-            liabilities: &player.liabilities,
+            name: player.name.clone(),
+            assets: player.assets.clone(),
+            liabilities: player.liabilities.clone(),
             cash: player.cash,
             character: player.character,
         }
@@ -267,7 +267,7 @@ impl Player {
         self.assets.iter().map(|a| a.silver_value).sum()
     }
 
-    pub fn info(&self) -> PlayerInfo<'_> {
+    pub fn info(&self) -> PlayerInfo {
         self.into()
     }
 
@@ -573,7 +573,7 @@ pub trait TheBottomLine {
     fn end_player_turn(&mut self, player_idx: usize) -> Result<TurnEnded, GameError>;
 
     /// Gets a list of players with publicly available information, besides the main player
-    fn player_info(&self, player_idx: usize) -> Vec<PlayerInfo<'_>>;
+    fn player_info(&self, player_idx: usize) -> Vec<PlayerInfo>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -882,7 +882,7 @@ impl TheBottomLine for GameState {
         }
     }
 
-    fn player_info(&self, player_idx: usize) -> Vec<PlayerInfo<'_>> {
+    fn player_info(&self, player_idx: usize) -> Vec<PlayerInfo> {
         self.players
             .iter()
             .flat_map(|p| p.id.0.eq(&player_idx).then_some(p.info()))

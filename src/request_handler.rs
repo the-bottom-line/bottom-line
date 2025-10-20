@@ -55,6 +55,7 @@ pub enum ExternalResponse {
         #[serde(with = "serde_asset_liability::vec")]
         hand: Vec<Either<Asset, Liability>>,
         pickable_characters: Option<PickableCharacters>,
+        player_info: Vec<PlayerInfo>,
     },
     DrawnCard {
         #[serde(with = "serde_asset_liability::value")]
@@ -155,6 +156,7 @@ pub fn handle_public_request(
                         hand,
                         cash,
                         pickable_characters,
+                        player_info: vec![]
                     })
                 }
                 _ => None,

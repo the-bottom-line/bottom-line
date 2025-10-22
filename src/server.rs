@@ -1,9 +1,9 @@
 use crate::{
     game::GameState,
     request_handler::{
-        InternalResponse, PersonalResponse, ReceiveData, Response, ResponseError, TargetedResponse,
         handle_public_request, handle_request,
     },
+    responses::{InternalResponse, ResponseError, ReceiveData, PersonalResponse, Response}
 };
 
 use axum::{

@@ -1,6 +1,6 @@
+use crate::{game::*, utility::serde_asset_liability};
 use either::Either;
 use serde::Serialize;
-use crate::{game::*, utility::serde_asset_liability};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct StartGame {
@@ -12,7 +12,15 @@ pub struct StartGame {
     turn_order: Vec<PlayerId>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct PlayersInLobby {
+    players: Vec<String>,
+}
+#[derive(Debug, Clone, Serialize)]
 pub struct SelectedCharacter;
+#[derive(Debug, Clone, Serialize)]
 pub struct DrawCard;
+#[derive(Debug, Clone, Serialize)]
 pub struct BuyAsset;
+#[derive(Debug, Clone, Serialize)]
 pub struct IssueLiability;

@@ -1,7 +1,8 @@
 use crate::{
     game::GameState,
     request_handler::{
-        handle_public_request, handle_request, TargetedResponse, InternalResponse, ReceiveData, Response, ResponseError
+        InternalResponse, PersonalResponse, ReceiveData, Response, ResponseError, TargetedResponse,
+        handle_public_request, handle_request,
     },
 };
 
@@ -18,6 +19,7 @@ use futures_util::{
     sink::SinkExt,
     stream::{SplitSink, StreamExt},
 };
+use serde::Serialize;
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, Mutex}, // std Mutex used only for the username set
@@ -85,7 +87,7 @@ pub async fn setupsocket() {
 }
 
 async fn send_external(
-    msg: TargetedResponse,
+    msg: impl Serialize,
     sender: Arc<TokioMutex<SplitSink<WebSocket, Message>>>,
 ) -> Result<(), axum::Error> {
     let msg = serde_json::to_string(&msg).unwrap();
@@ -110,14 +112,19 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     Ok(ReceiveData::Connect { username, channel }) => (username, channel),
                     Err(error) => {
                         tracing::error!(%error);
-                        let _ =
-                            send_external(ResponseError::UsernameAlreadyTaken.into(), sender.clone())
-                                .await;
+                        let _ = send_external(
+                            PersonalResponse::Error(ResponseError::UsernameAlreadyTaken),
+                            sender.clone(),
+                        )
+                        .await;
                         break;
                     }
                     _ => {
-                        let _ =
-                            send_external(ResponseError::InvalidData.into(), sender.clone()).await;
+                        let _ = send_external(
+                            PersonalResponse::Error(ResponseError::InvalidData),
+                            sender.clone(),
+                        )
+                        .await;
                         break;
                     }
                 };
@@ -145,7 +152,11 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     break;
                 } else {
                     // Only send our client that username is taken.
-                    let _ = send_external(ResponseError::InvalidUsername.into(), sender.clone()).await;
+                    let _ = send_external(
+                        PersonalResponse::Error(ResponseError::InvalidUsername),
+                        sender.clone(),
+                    )
+                    .await;
                     return;
                 }
             }
@@ -218,10 +229,12 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                             // // broadcast to everyone (including sender)
                             // let public_ser = serde_json::to_string(&public).unwrap();
                             tracing::debug!("public send: {public:?}");
-                            let _ = tx.send(public.into());
+                            if let Some(public) = public {
+                                let _ = tx.send(public.into());
 
-                            if send_external(external, sender.clone()).await.is_err() {
-                                break;
+                                if send_external(external, sender.clone()).await.is_err() {
+                                    break;
+                                }
                             }
                         }
                     }

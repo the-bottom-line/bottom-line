@@ -7,17 +7,17 @@ use serde::{Deserialize, Serialize};
 use crate::{cards::GameData, game_errors::*, utility::serde_asset_liability};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct PlayerId(usize);
+pub struct PlayerId(u8);
 
-impl From<usize> for PlayerId {
-    fn from(value: usize) -> Self {
-        Self(value)
+impl<I: Into<u8>> From<I> for PlayerId {
+    fn from(value: I) -> Self {
+        Self(value.into())
     }
 }
 
 impl From<PlayerId> for usize {
     fn from(value: PlayerId) -> Self {
-        value.0
+        value.0 as usize
     }
 }
 
@@ -187,6 +187,7 @@ pub enum CardType {
 #[derive(Debug, Clone, Serialize)]
 pub struct PlayerInfo {
     pub name: String,
+    pub id: PlayerId,
     pub hand: Vec<CardType>,
     pub assets: Vec<Asset>,
     pub liabilities: Vec<Liability>,
@@ -210,6 +211,7 @@ impl From<&Player> for PlayerInfo {
             name: player.name.clone(),
             assets: player.assets.clone(),
             liabilities: player.liabilities.clone(),
+            id: player.id,
             cash: player.cash,
             character: player.character,
         }
@@ -234,7 +236,7 @@ pub struct Player {
 impl Player {
     pub fn new(
         name: &str,
-        id: usize,
+        id: u8,
         assets: [Asset; 2],
         liabilities: [Liability; 2],
         cash: u8,
@@ -427,7 +429,7 @@ pub struct PickableCharacters {
 pub struct ObtainingCharacters {
     player_count: usize,
     draw_idx: usize,
-    chairman_id: PlayerId,
+    chairman_id: usize,
     available_characters: Deck<Character>,
     open_characters: Vec<Character>,
     closed_character: Character,
@@ -449,7 +451,7 @@ impl ObtainingCharacters {
         ObtainingCharacters {
             player_count,
             draw_idx: 0,
-            chairman_id,
+            chairman_id: chairman_id.into(),
             available_characters,
             open_characters,
             closed_character,
@@ -486,7 +488,7 @@ impl ObtainingCharacters {
         self.peek()
     }
     pub fn applies_to_player(&self) -> usize {
-        (self.draw_idx + self.chairman_id.0) % self.player_count
+        (self.draw_idx + self.chairman_id) % self.player_count
     }
 }
 
@@ -574,6 +576,9 @@ pub trait TheBottomLine {
 
     /// Gets a list of players with publicly available information, besides the main player
     fn player_info(&self, player_idx: usize) -> Vec<PlayerInfo>;
+
+    /// Gets a list of `PlayerId`s in the order of their respective turns.
+    fn turn_order(&self) -> Vec<PlayerId>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -646,8 +651,8 @@ impl GameState {
 
         player_names
             .into_iter()
-            .enumerate()
-            .map(|(i, name)| {
+            .zip(0u8..)
+            .map(|(name, i)| {
                 let assets = [assets.draw(), assets.draw()];
                 let liabilities = [liabilites.draw(), liabilites.draw()];
                 Player::new(&name, i, assets, liabilities, 1)
@@ -766,7 +771,7 @@ impl TheBottomLine for GameState {
     }
 
     fn chairman(&self) -> &Player {
-        &self.players[self.chairman.0]
+        &self.players[usize::from(self.chairman)]
     }
 
     fn player_play_card(
@@ -803,10 +808,10 @@ impl TheBottomLine for GameState {
 
     fn player_draw_card(
         &mut self,
-        idx: usize,
+        player_idx: usize,
         card_type: CardType,
     ) -> Result<Either<&Asset, &Liability>, GameError> {
-        if let Some(player) = self.players.get_mut(idx) {
+        if let Some(player) = self.players.get_mut(player_idx) {
             if self.current_player == Some(player.id) {
                 if player.cards_drawn.len() < 3 {
                     let card = match card_type {
@@ -822,7 +827,7 @@ impl TheBottomLine for GameState {
                 Err(GameError::NotPlayersTurn)
             }
         } else {
-            Err(GameError::InvalidPlayerIndex(idx as u8))
+            Err(GameError::InvalidPlayerIndex(player_idx as u8))
         }
     }
 
@@ -885,7 +890,17 @@ impl TheBottomLine for GameState {
     fn player_info(&self, player_idx: usize) -> Vec<PlayerInfo> {
         self.players
             .iter()
-            .flat_map(|p| p.id.0.eq(&player_idx).then_some(p.info()))
+            .flat_map(|p| p.id.0.eq(&(player_idx as u8)).then_some(p.info()))
+            .collect()
+    }
+
+    fn turn_order(&self) -> Vec<PlayerId> {
+        let start = usize::from(self.chairman) as u8;
+        let limit = self.players.len() as u8;
+        (start..limit)
+            .into_iter()
+            .chain(0..start)
+            .map(Into::into)
             .collect()
     }
 }

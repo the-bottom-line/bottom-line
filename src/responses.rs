@@ -16,6 +16,7 @@ pub struct StartGame {
 pub struct PlayersInLobby {
     players: Vec<String>,
 }
+
 #[derive(Debug, Clone, Serialize)]
 pub struct SelectedCharacter;
 #[derive(Debug, Clone, Serialize)]

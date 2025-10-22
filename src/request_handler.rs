@@ -8,7 +8,7 @@ use crate::{
     game::*,
     game_errors::{GameError, SelectableCharactersError},
     server::{AppState, Game, RoomState},
-    targeted_responses::*,
+    responses::*,
     utility::serde_asset_liability::{self, vec},
 };
 use either::Either;

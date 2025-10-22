@@ -65,7 +65,7 @@ pub enum DirectResponse {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "action", content = "data")]
-pub enum TargetedResponse {
+pub enum UniqueResponse {
     PlayersInLobby {
         changed_player: String,
         usernames: HashSet<String>,

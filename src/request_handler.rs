@@ -12,7 +12,7 @@ pub fn handle_public_request(
     msg: InternalResponse,
     room_state: Arc<RoomState>,
     player_name: &str,
-) -> Option<Vec<TargetedResponse>> {
+) -> Option<Vec<UniqueResponse>> {
     match &*room_state.game.lock().unwrap() {
         Game::GameStarted { state } => {
             let player = state.player_by_name(&player_name).unwrap();
@@ -24,8 +24,8 @@ pub fn handle_public_request(
                         .player_get_selectable_characters(player.id.into())
                         .ok();
                     Some(vec![
-                        TargetedResponse::StartGame { hand, cash },
-                        TargetedResponse::SelectingCharacters {
+                        UniqueResponse::StartGame { hand, cash },
+                        UniqueResponse::SelectingCharacters {
                             chairman_id: state.chairman().id,
                             pickable_characters,
                             player_info: state.player_info(player.id.into()),
@@ -40,7 +40,7 @@ pub fn handle_public_request(
                     let pickable_characters = state
                         .player_get_selectable_characters(player.id.into())
                         .ok();
-                    let selected = TargetedResponse::SelectedCharacter {
+                    let selected = UniqueResponse::SelectedCharacter {
                         player_id,
                         character,
                         pickable_characters,
@@ -50,7 +50,7 @@ pub fn handle_public_request(
                         // starting round
                         Some(vec![
                             selected,
-                            TargetedResponse::TurnStarts {
+                            UniqueResponse::TurnStarts {
                                 player_turn: player.id,
                                 player_turn_cash: 1,
                                 player_character: player.character.unwrap(),
@@ -65,32 +65,32 @@ pub fn handle_public_request(
                 InternalResponse::DrawnCard {
                     player_id,
                     card_type,
-                } => Some(vec![TargetedResponse::DrawnCard {
+                } => Some(vec![UniqueResponse::DrawnCard {
                     player_id,
                     card_type,
                 }]),
                 InternalResponse::PutBackCard {
                     player_id,
                     card_type,
-                } => Some(vec![TargetedResponse::PutBackCard {
+                } => Some(vec![UniqueResponse::PutBackCard {
                     player_id,
                     card_type,
                 }]),
                 InternalResponse::BoughtAsset { player_id, asset } => {
-                    Some(vec![TargetedResponse::BoughtAsset { player_id, asset }])
+                    Some(vec![UniqueResponse::BoughtAsset { player_id, asset }])
                 }
                 InternalResponse::IssuedLiability {
                     player_id,
                     liability,
-                } => Some(vec![TargetedResponse::IssuedLiability {
+                } => Some(vec![UniqueResponse::IssuedLiability {
                     player_id,
                     liability,
                 }]),
                 InternalResponse::TurnEnded { player_id } => {
                     if let Some(player) = state.current_player() {
                         Some(vec![
-                            TargetedResponse::TurnEnded { player_id },
-                            TargetedResponse::TurnStarts {
+                            UniqueResponse::TurnEnded { player_id },
+                            UniqueResponse::TurnStarts {
                                 player_turn: player.id,
                                 player_turn_cash: 1,
                                 player_character: player.character.unwrap(),
@@ -102,7 +102,7 @@ pub fn handle_public_request(
                         let pickable_characters = state
                             .player_get_selectable_characters(player.id.into())
                             .ok();
-                        Some(vec![TargetedResponse::SelectingCharacters {
+                        Some(vec![UniqueResponse::SelectingCharacters {
                             chairman_id: state.chairman().id,
                             pickable_characters,
                             player_info: state.player_info(player.id.into()),
@@ -117,7 +117,7 @@ pub fn handle_public_request(
         Game::InLobby { user_set } => match msg {
             InternalResponse::PlayerJoined { username }
             | InternalResponse::PlayerLeft { username } => {
-                Some(vec![TargetedResponse::PlayersInLobby {
+                Some(vec![UniqueResponse::PlayersInLobby {
                     changed_player: username,
                     usernames: user_set.clone(),
                 }])

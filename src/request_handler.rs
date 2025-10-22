@@ -8,7 +8,7 @@ use crate::{
 };
 use either::Either;
 
-pub fn handle_public_request(
+pub fn handle_internal_request(
     msg: InternalResponse,
     room_state: Arc<RoomState>,
     player_name: &str,

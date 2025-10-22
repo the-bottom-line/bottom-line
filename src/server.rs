@@ -1,7 +1,7 @@
 use crate::{
     game::GameState,
     request_handler::{
-        handle_public_request, handle_request,
+        handle_internal_request, handle_request,
     },
     responses::{InternalResponse, ResponseError, ReceiveData, DirectResponse, Response}
 };
@@ -195,7 +195,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 match rx.recv().await {
                     Ok(Json(json)) => {
                         tracing::debug!("public recv: {json:?}");
-                        if let Some(external) = handle_public_request(json, room.clone(), &name) {
+                        if let Some(external) = handle_internal_request(json, room.clone(), &name) {
                             if send_external(external, sender.clone()).await.is_err() {
                                 break;
                             }

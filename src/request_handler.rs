@@ -180,10 +180,10 @@ pub fn handle_request(msg: ReceiveData, room_state: Arc<RoomState>, player_name:
 fn draw_card(state: &mut GameState, card_type: CardType, player_id: PlayerId) -> Response {
     match state.player_draw_card(player_id.into(), card_type) {
         Ok(card) => Response::new(
-            Some(InternalResponse::DrawnCard {
+            InternalResponse::DrawnCard {
                 player_id,
                 card_type,
-            }),
+            },
             PersonalResponse::DrawnCard {
                 card: card.cloned(),
             },
@@ -195,10 +195,10 @@ fn draw_card(state: &mut GameState, card_type: CardType, player_id: PlayerId) ->
 fn put_back_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) -> Response {
     match state.player_give_back_card(player_id.into(), card_idx) {
         Ok(card_type) => Response::new(
-            Some(InternalResponse::PutBackCard {
+            InternalResponse::PutBackCard {
                 player_id,
                 card_type,
-            }),
+            },
             PersonalResponse::PutBackCard { card_idx },
         ),
         Err(e) => e.into(),
@@ -210,19 +210,19 @@ fn play_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) -> Res
         Ok(played_card) => match played_card.used_card {
             Either::Left(asset) => {
                 return Response::new(
-                    Some(InternalResponse::BoughtAsset {
+                    InternalResponse::BoughtAsset {
                         player_id,
                         asset: asset.clone(),
-                    }),
+                    },
                     PersonalResponse::BoughtAsset { asset },
                 );
             }
             Either::Right(liability) => {
                 return Response::new(
-                    Some(InternalResponse::IssuedLiability {
+                    InternalResponse::IssuedLiability {
                         player_id,
                         liability: liability.clone(),
-                    }),
+                    },
                     PersonalResponse::IssuedLiability { liability },
                 );
             }
@@ -234,10 +234,10 @@ fn play_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) -> Res
 fn select_character(state: &mut GameState, character: Character, player_id: PlayerId) -> Response {
     match state.player_select_character(player_id.into(), character) {
         Ok(_) => Response::new(
-            Some(InternalResponse::SelectedCharacter {
+            InternalResponse::SelectedCharacter {
                 player_id,
                 character,
-            }),
+            },
             PersonalResponse::SelectedCharacter { character },
         ),
         Err(e) => e.into(),

@@ -39,7 +39,6 @@ pub enum ReceiveData {
     PutBackCard { card_idx: usize },
     BuyAsset { card_idx: usize },
     IssueLiability { card_idx: usize },
-    // GetSelectableCharacters,
     EndTurn,
 }
 
@@ -47,20 +46,20 @@ pub enum ReceiveData {
 pub struct Response(pub Option<InternalResponse>, pub PersonalResponse);
 
 impl Response {
-    pub fn new(internal: Option<InternalResponse>, external: PersonalResponse) -> Self {
-        Self(internal, external)
+    pub fn new(internal: InternalResponse, external: PersonalResponse) -> Self {
+        Self(Some(internal), external)
     }
 }
 
 impl From<PersonalResponse> for Response {
     fn from(external: PersonalResponse) -> Self {
-        Self::new(None, external)
+        Self(None, external)
     }
 }
 
 impl From<GameError> for Response {
     fn from(error: GameError) -> Self {
-        Self::new(None, PersonalResponse::Error(error.into()))
+        Self(None, PersonalResponse::Error(error.into()))
     }
 }
 

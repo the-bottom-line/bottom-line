@@ -3,7 +3,7 @@ use crate::{
     request_handler::{
         handle_public_request, handle_request,
     },
-    responses::{InternalResponse, ResponseError, ReceiveData, PersonalResponse, Response}
+    responses::{InternalResponse, ResponseError, ReceiveData, DirectResponse, Response}
 };
 
 use axum::{
@@ -113,7 +113,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     Err(error) => {
                         tracing::error!(%error);
                         let _ = send_external(
-                            PersonalResponse::Error(ResponseError::UsernameAlreadyTaken),
+                            DirectResponse::Error(ResponseError::UsernameAlreadyTaken),
                             sender.clone(),
                         )
                         .await;
@@ -121,7 +121,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     }
                     _ => {
                         let _ = send_external(
-                            PersonalResponse::Error(ResponseError::InvalidData),
+                            DirectResponse::Error(ResponseError::InvalidData),
                             sender.clone(),
                         )
                         .await;
@@ -153,7 +153,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 } else {
                     // Only send our client that username is taken.
                     let _ = send_external(
-                        PersonalResponse::Error(ResponseError::InvalidUsername),
+                        DirectResponse::Error(ResponseError::InvalidUsername),
                         sender.clone(),
                     )
                     .await;

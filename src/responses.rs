@@ -19,29 +19,29 @@ pub enum ReceiveData {
 }
 
 #[derive(Debug)]
-pub struct Response(pub Option<InternalResponse>, pub PersonalResponse);
+pub struct Response(pub Option<InternalResponse>, pub DirectResponse);
 
 impl Response {
-    pub fn new(internal: InternalResponse, external: PersonalResponse) -> Self {
+    pub fn new(internal: InternalResponse, external: DirectResponse) -> Self {
         Self(Some(internal), external)
     }
 }
 
-impl From<PersonalResponse> for Response {
-    fn from(external: PersonalResponse) -> Self {
+impl From<DirectResponse> for Response {
+    fn from(external: DirectResponse) -> Self {
         Self(None, external)
     }
 }
 
 impl From<GameError> for Response {
     fn from(error: GameError) -> Self {
-        Self(None, PersonalResponse::Error(error.into()))
+        Self(None, DirectResponse::Error(error.into()))
     }
 }
 
 #[derive(Debug, Serialize)]
 #[serde(tag = "action", content = "data")]
-pub enum PersonalResponse {
+pub enum DirectResponse {
     Error(ResponseError),
     GameStarted,
     SelectedCharacter {
@@ -169,8 +169,8 @@ pub enum ResponseError {
     InvalidData,
 }
 
-impl<I: Into<ResponseError>> From<I> for PersonalResponse {
+impl<I: Into<ResponseError>> From<I> for DirectResponse {
     fn from(error: I) -> Self {
-        PersonalResponse::Error(error.into())
+        DirectResponse::Error(error.into())
     }
 }

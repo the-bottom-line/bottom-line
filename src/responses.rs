@@ -172,7 +172,7 @@ pub enum InternalResponse {
         player_id: PlayerId,
         liability: Liability,
     },
-    EndedTurn {
+    TurnEnded {
         player_id: PlayerId,
     },
 }

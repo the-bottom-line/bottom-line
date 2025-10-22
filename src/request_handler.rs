@@ -86,7 +86,7 @@ pub fn handle_public_request(
                     player_id,
                     liability,
                 }]),
-                InternalResponse::EndedTurn { player_id } => {
+                InternalResponse::TurnEnded { player_id } => {
                     if let Some(player) = state.current_player() {
                         Some(vec![
                             TargetedResponse::TurnEnded { player_id },
@@ -244,14 +244,14 @@ fn end_turn(state: &mut GameState, player_id: PlayerId) -> Response {
         Ok(TurnEnded {
             next_player: Some(player_id),
         }) => Response(
-            Some(InternalResponse::EndedTurn { player_id }),
+            Some(InternalResponse::TurnEnded { player_id }),
             PersonalResponse::EndedTurn,
         ),
         Ok(_) => {
             // if next_player is none // TODO: Fix for end of round
             let player_id = state.chairman().id;
             Response(
-                Some(InternalResponse::EndedTurn { player_id }),
+                Some(InternalResponse::TurnEnded { player_id }),
                 PersonalResponse::EndedTurn,
             )
         }

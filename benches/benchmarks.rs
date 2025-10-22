@@ -1,21 +1,27 @@
-use bottom_line::{cards::GameData, game::{GameState, TheBottomLine}};
+use bottom_line::{
+    cards::GameData,
+    game::{GameState, TheBottomLine},
+};
 use diol::prelude::*;
 
 fn get_gamestate(player_count: usize) -> GameState {
-    let players = (0..player_count).into_iter().map(|i| format!("Player {i}")).collect::<Vec<_>>();
+    let players = (0..player_count)
+        .into_iter()
+        .map(|i| format!("Player {i}"))
+        .collect::<Vec<_>>();
     let data = GameData::new("assets/cards/boardgame.json").expect("this should exist");
-    
+
     GameState::new(&players, data)
 }
 
 fn main() -> std::io::Result<()> {
     let mut bench = Bench::new(BenchConfig::from_args()?);
-    
+
     bench.register(player_info, 4..=7);
     bench.register(get_selectable_characters, 0..4);
-    
+
     bench.run()?;
-    
+
     Ok(())
 }
 

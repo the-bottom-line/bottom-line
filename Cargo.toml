@@ -19,3 +19,8 @@ thiserror = "2.0.17"
 [dev-dependencies]
 tokio-tungstenite = "0.24"
 tungstenite = "0.24"
+diol = { version = "0.8.3", default-features = false }
+
+[[bench]]
+name = "benchmarks"
+harness = false

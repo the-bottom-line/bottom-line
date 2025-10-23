@@ -4,9 +4,8 @@ use either::Either;
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    Color, Market,
-    game::{Asset, AssetPowerup, Deck, Event, Liability, LiabilityType, MarketCondition},
+use crate::game::{
+    Asset, AssetPowerup, Color, Deck, Event, Liability, LiabilityType, Market, MarketCondition,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

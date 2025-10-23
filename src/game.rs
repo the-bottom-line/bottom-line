@@ -184,7 +184,7 @@ pub enum CardType {
     Liability,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerInfo {
     pub name: String,
     pub id: PlayerId,

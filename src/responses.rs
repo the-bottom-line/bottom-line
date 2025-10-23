@@ -63,7 +63,7 @@ pub enum DirectResponse {
     EndedTurn,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", content = "data")]
 pub enum UniqueResponse {
     PlayersInLobby {

@@ -272,36 +272,62 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
+    use crate::responses::UniqueResponse;
+
     use super::*;
+    use tokio::time::sleep;
     use tokio_tungstenite::connect_async;
 
     #[tokio::test]
     async fn start_game() {
-        let url = "127.0.0.1:3000";
+        let url = "ws://127.0.0.1:3000/websocket";
 
         tokio::task::spawn(async move {
             setupsocket().await;
         });
 
-        let (ws_stream1, _) = connect_async(format!("{}/websocket", url)).await.unwrap();
+        sleep(Duration::from_millis(250)).await;
+
+        let (ws_stream1, _) = connect_async(url).await.unwrap();
         let (mut write1, mut read1) = ws_stream1.split();
 
-        let (ws_stream2, _) = connect_async(format!("{}/websocket", url)).await.unwrap();
+        let (ws_stream2, _) = connect_async(url).await.unwrap();
         let (mut write2, mut read2) = ws_stream2.split();
 
-        let (ws_stream3, _) = connect_async(format!("{}/websocket", url)).await.unwrap();
+        let (ws_stream3, _) = connect_async(url).await.unwrap();
         let (mut write3, mut read3) = ws_stream3.split();
 
-        let (ws_stream4, _) = connect_async(format!("{}/websocket", url)).await.unwrap();
+        let (ws_stream4, _) = connect_async(url).await.unwrap();
         let (mut write4, mut read4) = ws_stream4.split();
 
-        write1
-            .send(tokio_tungstenite::tungstenite::Message::Text(
-                r#"{"channel":"thing","username": "user1"}"#.into(),
-            ))
+        let mut w = [write1, write2, write3, write4];
+        let mut r = [read1, read2, read3, read4];
+
+        for i in 0..4 {
+            w[i].send(
+                format!(
+                    r#"{{"action": "Connect", "data": {{"channel":"thing","username": "user {i}"}} }}"#
+                ).into()
+            ).await
+            .unwrap();
+
+            let msg = r[i].next().await.unwrap().unwrap().into_text().unwrap();
+            let response = serde_json::from_str::<Vec<UniqueResponse>>(&msg).unwrap();
+
+            assert!(matches!(response[0], UniqueResponse::PlayersInLobby { .. }))
+        }
+
+        w[0].send(r#"{"action": "StartGame"}"#.into())
             .await
             .unwrap();
-        let msg = read1.next().await.unwrap().unwrap();
+        let _ = r[0].next().await;
+        let _ = r[0].next().await;
+        let _ = r[0].next().await;
+        let _ = r[0].next().await;
+        let msg = r[0].next().await.unwrap().unwrap().into_text().unwrap();
         dbg!(msg);
+        // let response = serde_json::from_str::<Vec<UniqueResponse>>(&msg).unwrap();
     }
 }

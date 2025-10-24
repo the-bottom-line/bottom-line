@@ -191,13 +191,15 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
         let sender = sender.clone();
 
         tokio::spawn(async move {
-            loop {
+            'outer: loop {
                 match rx.recv().await {
                     Ok(Json(json)) => {
                         tracing::debug!("public recv: {json:?}");
                         if let Some(external) = handle_internal_request(json, room.clone(), &name) {
-                            if send_external(external, sender.clone()).await.is_err() {
-                                break;
+                            for e in external {
+                                if send_external(e, sender.clone()).await.is_err() {
+                                    break 'outer;
+                                }
                             }
                         }
                     }
@@ -274,7 +276,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 mod tests {
     use std::time::Duration;
 
-    use crate::responses::UniqueResponse;
+    use crate::{game::PickableCharacters, responses::UniqueResponse};
 
     use super::*;
     use tokio::time::sleep;
@@ -291,16 +293,16 @@ mod tests {
         sleep(Duration::from_millis(250)).await;
 
         let (ws_stream1, _) = connect_async(url).await.unwrap();
-        let (mut write1, mut read1) = ws_stream1.split();
+        let (write1, read1) = ws_stream1.split();
 
         let (ws_stream2, _) = connect_async(url).await.unwrap();
-        let (mut write2, mut read2) = ws_stream2.split();
+        let (write2, read2) = ws_stream2.split();
 
         let (ws_stream3, _) = connect_async(url).await.unwrap();
-        let (mut write3, mut read3) = ws_stream3.split();
+        let (write3, read3) = ws_stream3.split();
 
         let (ws_stream4, _) = connect_async(url).await.unwrap();
-        let (mut write4, mut read4) = ws_stream4.split();
+        let (write4, read4) = ws_stream4.split();
 
         let mut w = [write1, write2, write3, write4];
         let mut r = [read1, read2, read3, read4];
@@ -312,22 +314,59 @@ mod tests {
                 ).into()
             ).await
             .unwrap();
-
-            let msg = r[i].next().await.unwrap().unwrap().into_text().unwrap();
-            let response = serde_json::from_str::<Vec<UniqueResponse>>(&msg).unwrap();
-
-            assert!(matches!(response[0], UniqueResponse::PlayersInLobby { .. }))
+        }
+        
+        sleep(Duration::from_millis(250)).await;
+        
+        for i in 0..4 {
+            for _ in i..4 {
+                let msg = r[i].next().await.unwrap().unwrap().into_text().unwrap();
+                let response = serde_json::from_str::<UniqueResponse>(&msg).unwrap();
+                assert!(matches!(response, UniqueResponse::PlayersInLobby { .. }))
+            }
         }
 
         w[0].send(r#"{"action": "StartGame"}"#.into())
             .await
             .unwrap();
-        let _ = r[0].next().await;
-        let _ = r[0].next().await;
-        let _ = r[0].next().await;
-        let _ = r[0].next().await;
+        
         let msg = r[0].next().await.unwrap().unwrap().into_text().unwrap();
-        dbg!(msg);
-        // let response = serde_json::from_str::<Vec<UniqueResponse>>(&msg).unwrap();
+        let response = serde_json::from_str::<DirectResponse>(&msg).unwrap();
+        assert!(matches!(response, DirectResponse::GameStarted));
+        
+        let mut selectable_character_count = 0;
+        let mut ci = 0;
+        let mut pc = PickableCharacters {
+            characters: vec![],
+            closed_character: None
+        };
+        
+        for i in 0..4 {
+            let msg = r[i].next().await.unwrap().unwrap().into_text().unwrap();
+            let response = serde_json::from_str::<UniqueResponse>(&msg).unwrap();
+            assert!(matches!(response, UniqueResponse::StartGame { .. }));
+            
+            let msg = r[i].next().await.unwrap().unwrap().into_text().unwrap();
+            let response = serde_json::from_str::<UniqueResponse>(&msg).unwrap();
+            assert!(matches!(response, UniqueResponse::SelectingCharacters { .. }));
+            if let UniqueResponse::SelectingCharacters { chairman_id, pickable_characters, .. } = response {
+                if let Some(p) = pickable_characters {
+                    selectable_character_count += 1;
+                    assert!(p.closed_character.is_some());
+                    ci = chairman_id.into();
+                    pc = p;
+                }
+            }
+        }
+
+        assert_eq!(selectable_character_count, 1);
+        
+        w[ci].send(format!(r#"{{"action": "SelectedCharacter", "data": {{"character": {:?} }} }}"#, pc.characters[0]).into())
+            .await
+            .unwrap();
+        
+        let msg = r[ci].next().await.unwrap().unwrap().into_text().unwrap();
+        let response = serde_json::from_str::<DirectResponse>(&msg).unwrap();
+        assert!(matches!(response, DirectResponse::SelectedCharacter { .. }));
     }
 }

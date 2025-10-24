@@ -421,8 +421,8 @@ impl<T> Deck<T> {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PickableCharacters {
-    characters: Vec<Character>,
-    closed_character: Option<Character>,
+    pub(crate) characters: Vec<Character>,
+    pub(crate) closed_character: Option<Character>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

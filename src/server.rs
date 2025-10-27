@@ -1,9 +1,7 @@
 use crate::{
     game::GameState,
-    request_handler::{
-        handle_internal_request, handle_request,
-    },
-    responses::{InternalResponse, ResponseError, ReceiveData, DirectResponse, Response}
+    request_handler::{handle_internal_request, handle_request},
+    responses::{DirectResponse, InternalResponse, ReceiveData, Response, ResponseError},
 };
 
 use axum::{
@@ -30,7 +28,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 pub enum Game {
     InLobby { user_set: HashSet<String> },
-    GameStarted { state: GameState },
+    GameStarted { state: Box<GameState> },
 }
 
 pub struct AppState {
@@ -138,13 +136,12 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                         .entry(connect_channel)
                         .or_insert_with(|| Arc::new(RoomState::new()));
 
-                    if let Ok(mut mutex) = room.game.lock() {
-                        if let Game::InLobby { user_set } = &mut *mutex {
-                            if !user_set.contains(&connect_username) {
-                                user_set.insert(connect_username.to_owned());
-                                username = connect_username.clone();
-                            }
-                        }
+                    if let Ok(mut mutex) = room.game.lock()
+                        && let Game::InLobby { user_set } = &mut *mutex
+                        && !user_set.contains(&connect_username)
+                    {
+                        user_set.insert(connect_username.to_owned());
+                        username = connect_username.clone();
                     }
                 }
 
@@ -195,10 +192,10 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 match rx.recv().await {
                     Ok(Json(json)) => {
                         tracing::debug!("public recv: {json:?}");
-                        if let Some(external) = handle_internal_request(json, room.clone(), &name) {
-                            if send_external(external, sender.clone()).await.is_err() {
-                                break;
-                            }
+                        if let Some(external) = handle_internal_request(json, room.clone(), &name)
+                            && send_external(external, sender.clone()).await.is_err()
+                        {
+                            break;
                         }
                     }
                     // If we lagged behind, just continue
@@ -291,16 +288,16 @@ mod tests {
         sleep(Duration::from_millis(250)).await;
 
         let (ws_stream1, _) = connect_async(url).await.unwrap();
-        let (mut write1, mut read1) = ws_stream1.split();
+        let (write1, read1) = ws_stream1.split();
 
         let (ws_stream2, _) = connect_async(url).await.unwrap();
-        let (mut write2, mut read2) = ws_stream2.split();
+        let (write2, read2) = ws_stream2.split();
 
         let (ws_stream3, _) = connect_async(url).await.unwrap();
-        let (mut write3, mut read3) = ws_stream3.split();
+        let (write3, read3) = ws_stream3.split();
 
         let (ws_stream4, _) = connect_async(url).await.unwrap();
-        let (mut write4, mut read4) = ws_stream4.split();
+        let (write4, read4) = ws_stream4.split();
 
         let mut w = [write1, write2, write3, write4];
         let mut r = [read1, read2, read3, read4];

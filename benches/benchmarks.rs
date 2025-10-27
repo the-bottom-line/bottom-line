@@ -6,7 +6,6 @@ use diol::prelude::*;
 
 fn get_gamestate(player_count: usize) -> GameState {
     let players = (0..player_count)
-        .into_iter()
         .map(|i| format!("Player {i}"))
         .collect::<Vec<_>>();
     let data = GameData::new("assets/cards/boardgame.json").expect("this should exist");

@@ -1,9 +1,7 @@
 use crate::{
     game::GameState,
-    request_handler::{
-        handle_internal_request, handle_request,
-    },
-    responses::{InternalResponse, ResponseError, ReceiveData, DirectResponse, Response}
+    request_handler::{handle_internal_request, handle_request},
+    responses::{DirectResponse, InternalResponse, ReceiveData, Response, ResponseError},
 };
 
 use axum::{
@@ -30,7 +28,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 pub enum Game {
     InLobby { user_set: HashSet<String> },
-    GameStarted { state: GameState },
+    GameStarted { state: Box<GameState> },
 }
 
 pub struct AppState {
@@ -138,13 +136,12 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                         .entry(connect_channel)
                         .or_insert_with(|| Arc::new(RoomState::new()));
 
-                    if let Ok(mut mutex) = room.game.lock() {
-                        if let Game::InLobby { user_set } = &mut *mutex {
-                            if !user_set.contains(&connect_username) {
-                                user_set.insert(connect_username.to_owned());
-                                username = connect_username.clone();
-                            }
-                        }
+                    if let Ok(mut mutex) = room.game.lock()
+                        && let Game::InLobby { user_set } = &mut *mutex
+                        && !user_set.contains(&connect_username)
+                    {
+                        user_set.insert(connect_username.to_owned());
+                        username = connect_username.clone();
                     }
                 }
 
@@ -315,9 +312,9 @@ mod tests {
             ).await
             .unwrap();
         }
-        
+
         sleep(Duration::from_millis(250)).await;
-        
+
         for i in 0..4 {
             for _ in i..4 {
                 let msg = r[i].next().await.unwrap().unwrap().into_text().unwrap();
@@ -329,23 +326,23 @@ mod tests {
         w[0].send(r#"{"action": "StartGame"}"#.into())
             .await
             .unwrap();
-        
+
         let msg = r[0].next().await.unwrap().unwrap().into_text().unwrap();
         let response = serde_json::from_str::<DirectResponse>(&msg).unwrap();
         assert!(matches!(response, DirectResponse::GameStarted));
-        
+
         let mut selectable_character_count = 0;
         let mut ci = 0;
         let mut pc = PickableCharacters {
             characters: vec![],
             closed_character: None
         };
-        
+
         for i in 0..4 {
             let msg = r[i].next().await.unwrap().unwrap().into_text().unwrap();
             let response = serde_json::from_str::<UniqueResponse>(&msg).unwrap();
             assert!(matches!(response, UniqueResponse::StartGame { .. }));
-            
+
             let msg = r[i].next().await.unwrap().unwrap().into_text().unwrap();
             let response = serde_json::from_str::<UniqueResponse>(&msg).unwrap();
             assert!(matches!(response, UniqueResponse::SelectingCharacters { .. }));
@@ -360,11 +357,11 @@ mod tests {
         }
 
         assert_eq!(selectable_character_count, 1);
-        
+
         w[ci].send(format!(r#"{{"action": "SelectedCharacter", "data": {{"character": {:?} }} }}"#, pc.characters[0]).into())
             .await
             .unwrap();
-        
+
         let msg = r[ci].next().await.unwrap().unwrap().into_text().unwrap();
         let response = serde_json::from_str::<DirectResponse>(&msg).unwrap();
         assert!(matches!(response, DirectResponse::SelectedCharacter { .. }));

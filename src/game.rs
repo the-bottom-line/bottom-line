@@ -318,10 +318,9 @@ impl Player {
         &mut self,
         card_idx: usize,
     ) -> Result<Either<Asset, Liability>, GiveBackCardError> {
-        if let Some(_) = self.hand.get(card_idx) {
-            Ok(self.hand.remove(card_idx))
-        } else {
-            Err(GiveBackCardError::InvalidCardIndex(card_idx as u8))
+        match self.hand.get(card_idx) {
+            Some(_) => Ok(self.hand.remove(card_idx)),
+            None => Err(GiveBackCardError::InvalidCardIndex(card_idx as u8)),
         }
     }
 
@@ -461,11 +460,11 @@ impl ObtainingCharacters {
     pub fn peek(&self) -> Result<PickableCharacters, SelectableCharactersError> {
         match self.draw_idx {
             0 => Ok(PickableCharacters {
-                characters: self.available_characters.deck.iter().cloned().collect(),
+                characters: self.available_characters.deck.to_vec(),
                 closed_character: Some(self.closed_character),
             }),
             n if n < self.player_count - 1 => Ok(PickableCharacters {
-                characters: self.available_characters.deck.iter().cloned().collect(),
+                characters: self.available_characters.deck.to_vec(),
                 closed_character: None,
             }),
             n if n == self.player_count - 1 => Ok(PickableCharacters {
@@ -482,13 +481,18 @@ impl ObtainingCharacters {
         }
     }
 
-    pub fn next(&mut self) -> Result<PickableCharacters, SelectableCharactersError> {
-        self.draw_idx += 1;
-
-        self.peek()
-    }
     pub fn applies_to_player(&self) -> usize {
         (self.draw_idx + self.chairman_id) % self.player_count
+    }
+}
+
+impl Iterator for ObtainingCharacters {
+    type Item = PickableCharacters;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.draw_idx += 1;
+
+        self.peek().ok()
     }
 }
 
@@ -608,8 +612,7 @@ impl GameState {
             &mut game_data.liabilities,
         );
 
-        let characters =
-            ObtainingCharacters::new(player_names.len(), players.first().unwrap().id.into());
+        let characters = ObtainingCharacters::new(player_names.len(), players.first().unwrap().id);
 
         GameState {
             players,
@@ -645,17 +648,17 @@ impl GameState {
     ) -> Vec<Player> {
         let player_count = player_names.len();
         assert!(
-            player_count >= 4 && player_count <= 7,
+            (4..=7).contains(&player_count),
             "This game supports playing with 4 to 7 players"
         );
 
         player_names
-            .into_iter()
+            .iter()
             .zip(0u8..)
             .map(|(name, i)| {
                 let assets = [assets.draw(), assets.draw()];
                 let liabilities = [liabilites.draw(), liabilites.draw()];
-                Player::new(&name, i, assets, liabilities, 1)
+                Player::new(name, i, assets, liabilities, 1)
             })
             .collect()
     }
@@ -702,24 +705,27 @@ impl TheBottomLine for GameState {
     ) -> Result<(), GameError> {
         use SelectableCharactersError::*;
 
-        if let Some(_) = self.players.get(player_idx) {
-            match (
-                self.is_selecting_characters(),
-                player_idx == self.characters.applies_to_player(),
-            ) {
-                (true, true) => {
-                    self.players
-                        .get_mut(player_idx)
-                        .unwrap()
-                        .select_character(character);
-                    self.characters.next()?;
-                    Ok(())
+        match self.players.get(player_idx) {
+            Some(_) => {
+                match (
+                    self.is_selecting_characters(),
+                    player_idx == self.characters.applies_to_player(),
+                ) {
+                    (true, true) => {
+                        self.players
+                            .get_mut(player_idx)
+                            .unwrap()
+                            .select_character(character);
+                        self.characters
+                            .next()
+                            .ok_or(SelectableCharactersError::NotPickingCharacters)?;
+                        Ok(())
+                    }
+                    (true, false) => Err(GameError::NotPlayersTurn),
+                    _ => Err(NotPickingCharacters.into()),
                 }
-                (true, false) => Err(GameError::NotPlayersTurn.into()),
-                _ => Err(NotPickingCharacters.into()),
             }
-        } else {
-            Err(GameError::InvalidPlayerIndex(player_idx as u8).into())
+            None => Err(GameError::InvalidPlayerIndex(player_idx as u8)),
         }
     }
 
@@ -731,13 +737,10 @@ impl TheBottomLine for GameState {
             self.is_selecting_characters(),
             player_idx == self.characters.applies_to_player(),
         ) {
-            (true, true) => {
-                if let Some(_) = self.players.get(player_idx) {
-                    self.characters.peek().map_err(Into::into)
-                } else {
-                    Err(GameError::InvalidPlayerIndex(player_idx as u8))
-                }
-            }
+            (true, true) => match self.players.get(player_idx) {
+                Some(_) => self.characters.peek().map_err(Into::into),
+                None => Err(GameError::InvalidPlayerIndex(player_idx as u8)),
+            },
             (true, false) => Err(GameError::NotPlayersTurn),
             _ => Err(SelectableCharactersError::NotPickingCharacters.into()),
         }
@@ -799,10 +802,10 @@ impl TheBottomLine for GameState {
                     }
                 }
             } else {
-                Err(GameError::NotPlayersTurn.into())
+                Err(GameError::NotPlayersTurn)
             }
         } else {
-            Err(GameError::InvalidPlayerIndex(idx as u8).into())
+            Err(GameError::InvalidPlayerIndex(idx as u8))
         }
     }
 
@@ -897,11 +900,7 @@ impl TheBottomLine for GameState {
     fn turn_order(&self) -> Vec<PlayerId> {
         let start = usize::from(self.chairman) as u8;
         let limit = self.players.len() as u8;
-        (start..limit)
-            .into_iter()
-            .chain(0..start)
-            .map(Into::into)
-            .collect()
+        (start..limit).chain(0..start).map(Into::into).collect()
     }
 }
 

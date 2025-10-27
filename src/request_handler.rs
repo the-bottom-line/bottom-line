@@ -3,8 +3,8 @@ use std::sync::Arc;
 use crate::{
     cards::GameData,
     game::*,
-    server::{Game, RoomState},
     responses::*,
+    server::{Game, RoomState},
 };
 use either::Either;
 
@@ -15,7 +15,7 @@ pub fn handle_internal_request(
 ) -> Option<Vec<UniqueResponse>> {
     match &*room_state.game.lock().unwrap() {
         Game::GameStarted { state } => {
-            let player = state.player_by_name(&player_name).unwrap();
+            let player = state.player_by_name(player_name).unwrap();
             match msg {
                 InternalResponse::GameStarted => {
                     let hand = player.hand.clone();
@@ -158,7 +158,9 @@ pub fn handle_request(msg: ReceiveData, room_state: Arc<RoomState>, player_name:
                 let names = user_set.iter().cloned().collect::<Vec<_>>();
                 let data = GameData::new("assets/cards/boardgame.json").expect("this should exist");
                 let state = GameState::new(&names, data);
-                *game = Game::GameStarted { state };
+                *game = Game::GameStarted {
+                    state: Box::new(state),
+                };
                 tracing::debug!("{msg:?}");
                 Response(
                     Some(InternalResponse::GameStarted),
@@ -201,24 +203,20 @@ fn put_back_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) ->
 fn play_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) -> Response {
     match state.player_play_card(player_id.into(), card_idx) {
         Ok(played_card) => match played_card.used_card {
-            Either::Left(asset) => {
-                return Response::new(
-                    InternalResponse::BoughtAsset {
-                        player_id,
-                        asset: asset.clone(),
-                    },
-                    DirectResponse::BoughtAsset { asset },
-                );
-            }
-            Either::Right(liability) => {
-                return Response::new(
-                    InternalResponse::IssuedLiability {
-                        player_id,
-                        liability: liability.clone(),
-                    },
-                    DirectResponse::IssuedLiability { liability },
-                );
-            }
+            Either::Left(asset) => Response::new(
+                InternalResponse::BoughtAsset {
+                    player_id,
+                    asset: asset.clone(),
+                },
+                DirectResponse::BoughtAsset { asset },
+            ),
+            Either::Right(liability) => Response::new(
+                InternalResponse::IssuedLiability {
+                    player_id,
+                    liability: liability.clone(),
+                },
+                DirectResponse::IssuedLiability { liability },
+            ),
         },
         Err(e) => e.into(),
     }
@@ -236,8 +234,6 @@ fn select_character(state: &mut GameState, character: Character, player_id: Play
         Err(e) => e.into(),
     }
 }
-
-
 
 fn end_turn(state: &mut GameState, player_id: PlayerId) -> Response {
     match state.end_player_turn(player_id.into()) {

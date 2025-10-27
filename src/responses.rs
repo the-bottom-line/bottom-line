@@ -39,7 +39,7 @@ impl From<GameError> for Response {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "action", content = "data")]
 pub enum DirectResponse {
     Error(ResponseError),
@@ -153,7 +153,7 @@ pub enum InternalResponse {
     },
 }
 
-#[derive(Debug, Error, Serialize)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum ResponseError {
     #[error(transparent)]
     Game(#[from] GameError),

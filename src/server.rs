@@ -188,14 +188,16 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
         let sender = sender.clone();
 
         tokio::spawn(async move {
-            loop {
+            'outer: loop {
                 match rx.recv().await {
                     Ok(Json(json)) => {
                         tracing::debug!("public recv: {json:?}");
-                        if let Some(external) = handle_internal_request(json, room.clone(), &name)
-                            && send_external(external, sender.clone()).await.is_err()
-                        {
-                            break;
+                        if let Some(external) = handle_internal_request(json, room.clone(), &name) {
+                            for e in external {
+                                if send_external(e, sender.clone()).await.is_err() {
+                                    break 'outer;
+                                }
+                            }
                         }
                     }
                     // If we lagged behind, just continue
@@ -271,7 +273,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 mod tests {
     use std::time::Duration;
 
-    use crate::responses::UniqueResponse;
+    use crate::{game::PickableCharacters, responses::UniqueResponse};
 
     use super::*;
     use tokio::time::sleep;
@@ -309,22 +311,59 @@ mod tests {
                 ).into()
             ).await
             .unwrap();
+        }
 
-            let msg = r[i].next().await.unwrap().unwrap().into_text().unwrap();
-            let response = serde_json::from_str::<Vec<UniqueResponse>>(&msg).unwrap();
+        sleep(Duration::from_millis(250)).await;
 
-            assert!(matches!(response[0], UniqueResponse::PlayersInLobby { .. }))
+        for i in 0..4 {
+            for _ in i..4 {
+                let msg = r[i].next().await.unwrap().unwrap().into_text().unwrap();
+                let response = serde_json::from_str::<UniqueResponse>(&msg).unwrap();
+                assert!(matches!(response, UniqueResponse::PlayersInLobby { .. }))
+            }
         }
 
         w[0].send(r#"{"action": "StartGame"}"#.into())
             .await
             .unwrap();
-        let _ = r[0].next().await;
-        let _ = r[0].next().await;
-        let _ = r[0].next().await;
-        let _ = r[0].next().await;
+
         let msg = r[0].next().await.unwrap().unwrap().into_text().unwrap();
-        dbg!(msg);
-        // let response = serde_json::from_str::<Vec<UniqueResponse>>(&msg).unwrap();
+        let response = serde_json::from_str::<DirectResponse>(&msg).unwrap();
+        assert!(matches!(response, DirectResponse::GameStarted));
+
+        let mut selectable_character_count = 0;
+        let mut ci = 0;
+        let mut pc = PickableCharacters {
+            characters: vec![],
+            closed_character: None
+        };
+
+        for i in 0..4 {
+            let msg = r[i].next().await.unwrap().unwrap().into_text().unwrap();
+            let response = serde_json::from_str::<UniqueResponse>(&msg).unwrap();
+            assert!(matches!(response, UniqueResponse::StartGame { .. }));
+
+            let msg = r[i].next().await.unwrap().unwrap().into_text().unwrap();
+            let response = serde_json::from_str::<UniqueResponse>(&msg).unwrap();
+            assert!(matches!(response, UniqueResponse::SelectingCharacters { .. }));
+            if let UniqueResponse::SelectingCharacters { chairman_id, pickable_characters, .. } = response {
+                if let Some(p) = pickable_characters {
+                    selectable_character_count += 1;
+                    assert!(p.closed_character.is_some());
+                    ci = chairman_id.into();
+                    pc = p;
+                }
+            }
+        }
+
+        assert_eq!(selectable_character_count, 1);
+
+        w[ci].send(format!(r#"{{"action": "SelectedCharacter", "data": {{"character": {:?} }} }}"#, pc.characters[0]).into())
+            .await
+            .unwrap();
+
+        let msg = r[ci].next().await.unwrap().unwrap().into_text().unwrap();
+        let response = serde_json::from_str::<DirectResponse>(&msg).unwrap();
+        assert!(matches!(response, DirectResponse::SelectedCharacter { .. }));
     }
 }

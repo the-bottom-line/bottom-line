@@ -917,7 +917,7 @@ impl TheBottomLine for GameState {
     fn player_info(&self, player_idx: usize) -> Vec<PlayerInfo> {
         self.players
             .iter()
-            .flat_map(|p| p.id.0.eq(&(player_idx as u8)).then_some(p.info()))
+            .flat_map(|p| p.id.0.ne(&(player_idx as u8)).then_some(p.info()))
             .collect()
     }
 

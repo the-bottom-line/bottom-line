@@ -74,12 +74,12 @@ pub enum UniqueResponse {
         cash: u8,
         #[serde(with = "serde_asset_liability::vec")]
         hand: Vec<Either<Asset, Liability>>,
+        player_info: Vec<PlayerInfo>,
         open_characters: Vec<Character>,
     },
     SelectingCharacters {
         chairman_id: PlayerId,
         pickable_characters: Option<PickableCharacters>,
-        player_info: Vec<PlayerInfo>,
         turn_order: Vec<PlayerId>,
     },
     SelectedCharacter {

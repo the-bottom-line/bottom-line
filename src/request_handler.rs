@@ -24,16 +24,17 @@ pub fn handle_internal_request(
                         .player_get_selectable_characters(player.id.into())
                         .ok();
                     let open_characters = state.open_characters().to_vec();
+                    let player_info = state.player_info(player.id.into());
                     Some(vec![
                         UniqueResponse::StartGame {
                             hand,
                             cash,
                             open_characters,
+                            player_info,
                         },
                         UniqueResponse::SelectingCharacters {
                             chairman_id: state.chairman().id,
                             pickable_characters,
-                            player_info: state.player_info(player.id.into()),
                             turn_order: state.turn_order(),
                         },
                     ])
@@ -106,7 +107,7 @@ pub fn handle_internal_request(
                         Some(vec![UniqueResponse::SelectingCharacters {
                             chairman_id: state.chairman().id,
                             pickable_characters,
-                            player_info: state.player_info(player.id.into()),
+                            // player_info: state.player_info(player.id.into()),
                             turn_order: state.turn_order(),
                         }])
                     }

@@ -696,7 +696,7 @@ impl GameState {
 
 impl TheBottomLine for GameState {
     fn is_selecting_characters(&self) -> bool {
-        self.characters.draw_idx < self.players.len() - 1
+        self.characters.draw_idx < self.players.len()
     }
 
     fn player_select_character(

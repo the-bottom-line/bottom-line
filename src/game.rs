@@ -732,7 +732,7 @@ impl TheBottomLine for GameState {
                             self.current_player = self
                                 .players
                                 .iter()
-                                .max_by(|p1, p2| p1.character.cmp(&p2.character))
+                                .min_by(|p1, p2| p1.character.cmp(&p2.character))
                                 .map(|p| p.id);
                         }
 

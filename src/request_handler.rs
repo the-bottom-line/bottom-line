@@ -35,14 +35,12 @@ pub fn handle_internal_request(
                 }
                 InternalResponse::SelectedCharacter {
                     player_id,
-                    character,
                 } => {
                     let pickable_characters = state
                         .player_get_selectable_characters(player.id.into())
                         .ok();
                     let selected = UniqueResponse::SelectedCharacter {
                         player_id,
-                        character,
                         pickable_characters,
                     };
 
@@ -65,7 +63,7 @@ pub fn handle_internal_request(
                 InternalResponse::DrawnCard {
                     player_id,
                     card_type,
-                } => Some(vec![UniqueResponse::DrawnCard {
+                } => Some(vec![UniqueResponse::DrewCard {
                     player_id,
                     card_type,
                 }]),
@@ -163,7 +161,7 @@ pub fn handle_request(msg: ReceiveData, room_state: Arc<RoomState>, player_name:
                         tracing::debug!("{msg:?}");
                         Response(
                             Some(InternalResponse::GameStarted),
-                            DirectResponse::GameStarted,
+                            DirectResponse::YouStartedGame,
                         )
                     }
                     Err(e) => {
@@ -184,7 +182,7 @@ fn draw_card(state: &mut GameState, card_type: CardType, player_id: PlayerId) ->
                 player_id,
                 card_type,
             },
-            DirectResponse::DrawnCard {
+            DirectResponse::YouDrewCard {
                 card: card.cloned(),
             },
         ),
@@ -199,7 +197,7 @@ fn put_back_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) ->
                 player_id,
                 card_type,
             },
-            DirectResponse::PutBackCard { card_idx },
+            DirectResponse::YouPutBackCard { card_idx },
         ),
         Err(e) => e.into(),
     }
@@ -213,14 +211,14 @@ fn play_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) -> Res
                     player_id,
                     asset: asset.clone(),
                 },
-                DirectResponse::BoughtAsset { asset },
+                DirectResponse::YouBoughtAsset { asset },
             ),
             Either::Right(liability) => Response::new(
                 InternalResponse::IssuedLiability {
                     player_id,
                     liability: liability.clone(),
                 },
-                DirectResponse::IssuedLiability { liability },
+                DirectResponse::YouIssuedLiability { liability },
             ),
         },
         Err(e) => e.into(),
@@ -232,9 +230,8 @@ fn select_character(state: &mut GameState, character: Character, player_id: Play
         Ok(_) => Response::new(
             InternalResponse::SelectedCharacter {
                 player_id,
-                character,
             },
-            DirectResponse::SelectedCharacter { character },
+            DirectResponse::YouSelectedCharacter { character },
         ),
         Err(e) => e.into(),
     }
@@ -246,14 +243,14 @@ fn end_turn(state: &mut GameState, player_id: PlayerId) -> Response {
             next_player: Some(player_id),
         }) => Response(
             Some(InternalResponse::TurnEnded { player_id }),
-            DirectResponse::EndedTurn,
+            DirectResponse::YouEndedTurn,
         ),
         Ok(_) => {
             // if next_player is none // TODO: Fix for end of round
             let player_id = state.chairman().id;
             Response(
                 Some(InternalResponse::TurnEnded { player_id }),
-                DirectResponse::EndedTurn,
+                DirectResponse::YouEndedTurn,
             )
         }
         Err(e) => e.into(),
@@ -278,7 +275,7 @@ mod tests {
         println!("json: {json}");
         println!("json2: {json2}");
 
-        let send = DirectResponse::PutBackCard { card_idx: 123 };
+        let send = DirectResponse::YouPutBackCard { card_idx: 123 };
 
         let sjson = serde_json::to_string(&send).unwrap();
 

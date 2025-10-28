@@ -43,24 +43,24 @@ impl From<GameError> for Response {
 #[serde(tag = "action", content = "data")]
 pub enum DirectResponse {
     Error(ResponseError),
-    GameStarted,
-    SelectedCharacter {
+    YouStartedGame,
+    YouSelectedCharacter {
         character: Character,
     },
-    DrawnCard {
+    YouDrewCard {
         #[serde(with = "serde_asset_liability::value")]
         card: Either<Asset, Liability>,
     },
-    PutBackCard {
+    YouPutBackCard {
         card_idx: usize,
     },
-    BoughtAsset {
+    YouBoughtAsset {
         asset: Asset,
     },
-    IssuedLiability {
+    YouIssuedLiability {
         liability: Liability,
     },
-    EndedTurn,
+    YouEndedTurn,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -83,7 +83,6 @@ pub enum UniqueResponse {
     },
     SelectedCharacter {
         player_id: PlayerId,
-        character: Character,
         pickable_characters: Option<PickableCharacters>,
     },
     TurnStarts {
@@ -95,7 +94,7 @@ pub enum UniqueResponse {
         draws_n_cards: u8,
         skipped_characters: Vec<Character>,
     },
-    DrawnCard {
+    DrewCard {
         player_id: PlayerId,
         card_type: CardType,
     },
@@ -130,7 +129,6 @@ pub enum InternalResponse {
     GameStarted,
     SelectedCharacter {
         player_id: PlayerId,
-        character: Character,
     },
     DrawnCard {
         player_id: PlayerId,

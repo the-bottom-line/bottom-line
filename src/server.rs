@@ -226,8 +226,6 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                             let Response(public, external) =
                                 handle_request(json, room.clone(), &name);
 
-                            // // broadcast to everyone (including sender)
-                            // let public_ser = serde_json::to_string(&public).unwrap();
                             tracing::debug!("public send: {public:?}");
                             if let Some(public) = public {
                                 let _ = tx.send(public.into());
@@ -302,69 +300,151 @@ mod tests {
         let (ws_stream4, _) = connect_async(url).await.unwrap();
         let (write4, read4) = ws_stream4.split();
 
-        let mut w = [write1, write2, write3, write4];
-        let mut r = [read1, read2, read3, read4];
+        let mut writers = [write1, write2, write3, write4];
+        let mut readers = [read1, read2, read3, read4];
 
-        for i in 0..4 {
-            w[i].send(
-                format!(
-                    r#"{{"action": "Connect", "data": {{"channel":"thing","username": "user {i}"}} }}"#
-                ).into()
-            ).await
+        for (i, writer) in writers.iter_mut().enumerate() {
+            let msg = serde_json::to_string(&ReceiveData::Connect {
+                channel: "thing".to_string(),
+                username: format!("user {}", i),
+            })
             .unwrap();
+            writer.send(msg.into()).await.unwrap();
         }
 
-        sleep(Duration::from_millis(250)).await;
+        sleep(Duration::from_millis(100)).await;
 
-        for i in 0..4 {
+        for (i, reader) in readers.iter_mut().enumerate() {
             for _ in i..4 {
-                let msg = r[i].next().await.unwrap().unwrap().into_text().unwrap();
+                let msg = reader.next().await.unwrap().unwrap().into_text().unwrap();
                 let response = serde_json::from_str::<UniqueResponse>(&msg).unwrap();
                 assert!(matches!(response, UniqueResponse::PlayersInLobby { .. }))
             }
         }
 
-        w[0].send(r#"{"action": "StartGame"}"#.into())
+        writers[0].send(r#"{"action": "StartGame"}"#.into())
             .await
             .unwrap();
 
-        let msg = r[0].next().await.unwrap().unwrap().into_text().unwrap();
+        let msg = readers[0].next().await.unwrap().unwrap().into_text().unwrap();
         let response = serde_json::from_str::<DirectResponse>(&msg).unwrap();
-        assert!(matches!(response, DirectResponse::GameStarted));
+        assert!(matches!(response, DirectResponse::YouStartedGame));
 
         let mut selectable_character_count = 0;
-        let mut ci = 0;
-        let mut pc = PickableCharacters {
+        let mut player_idx = 0;
+        let mut chairman = 0.into();
+        let mut pickable = PickableCharacters {
             characters: vec![],
-            closed_character: None
+            closed_character: None,
         };
 
-        for i in 0..4 {
-            let msg = r[i].next().await.unwrap().unwrap().into_text().unwrap();
+        for (i, reader) in readers.iter_mut().enumerate() {
+            let msg = reader.next().await.unwrap().unwrap().into_text().unwrap();
             let response = serde_json::from_str::<UniqueResponse>(&msg).unwrap();
             assert!(matches!(response, UniqueResponse::StartGame { .. }));
 
-            let msg = r[i].next().await.unwrap().unwrap().into_text().unwrap();
+            let msg = reader.next().await.unwrap().unwrap().into_text().unwrap();
             let response = serde_json::from_str::<UniqueResponse>(&msg).unwrap();
-            assert!(matches!(response, UniqueResponse::SelectingCharacters { .. }));
-            if let UniqueResponse::SelectingCharacters { chairman_id, pickable_characters, .. } = response {
-                if let Some(p) = pickable_characters {
-                    selectable_character_count += 1;
-                    assert!(p.closed_character.is_some());
-                    ci = chairman_id.into();
-                    pc = p;
-                }
+            assert!(matches!(
+                response,
+                UniqueResponse::SelectingCharacters { .. }
+            ));
+            if let UniqueResponse::SelectingCharacters {
+                chairman_id,
+                pickable_characters: Some(p),
+                turn_order,
+                ..
+            } = response
+            {
+                assert_eq!(chairman_id, turn_order[0]);
+                assert!(p.closed_character.is_some());
+                selectable_character_count += 1;
+                player_idx = i;
+                chairman = chairman_id;
+                pickable = p;
             }
         }
 
         assert_eq!(selectable_character_count, 1);
 
-        w[ci].send(format!(r#"{{"action": "SelectedCharacter", "data": {{"character": {:?} }} }}"#, pc.characters[0]).into())
-            .await
-            .unwrap();
+        let msg = serde_json::to_string(&ReceiveData::SelectCharacter {
+            character: pickable.characters[0],
+        })
+        .unwrap();
 
-        let msg = r[ci].next().await.unwrap().unwrap().into_text().unwrap();
+        writers[player_idx].send(msg.into()).await.unwrap();
+
+        let msg = readers[player_idx].next().await.unwrap().unwrap().into_text().unwrap();
+
         let response = serde_json::from_str::<DirectResponse>(&msg).unwrap();
-        assert!(matches!(response, DirectResponse::SelectedCharacter { .. }));
+        assert!(matches!(response, DirectResponse::YouSelectedCharacter { .. }));
+        
+        selectable_character_count = 0;
+        
+        for (i, reader) in readers.iter_mut().enumerate() {
+            let msg = reader.next().await.unwrap().unwrap().into_text().unwrap();
+            let response = serde_json::from_str::<UniqueResponse>(&msg).unwrap();
+            match response {
+                UniqueResponse::SelectedCharacter { player_id, pickable_characters } => {
+                    assert_eq!(player_id, chairman);
+                    // assert_eq!(character, pickable.characters[0]);
+                    if let Some(p) = pickable_characters {
+                        assert!(p.closed_character.is_none());
+                        selectable_character_count += 1;
+                        pickable = p;
+                        player_idx = i;
+                    }
+                }
+                _ => panic!("Unexpected response")
+            }
+        }
+        
+        assert_eq!(selectable_character_count, 1);
+        
+        let msg = serde_json::to_string(&ReceiveData::SelectCharacter {
+            character: pickable.characters[0],
+        })
+        .unwrap();
+
+        writers[player_idx].send(msg.into()).await.unwrap();
+
+        let msg = readers[player_idx].next().await.unwrap().unwrap().into_text().unwrap();
+
+        let response = serde_json::from_str::<DirectResponse>(&msg).unwrap();
+        assert!(matches!(response, DirectResponse::YouSelectedCharacter { .. }));
+        
+        selectable_character_count = 0;
+        
+        for (i, reader) in readers.iter_mut().enumerate() {
+            let msg = reader.next().await.unwrap().unwrap().into_text().unwrap();
+            let response = serde_json::from_str::<UniqueResponse>(&msg).unwrap();
+            match response {
+                UniqueResponse::SelectedCharacter { player_id, pickable_characters } => {
+                    assert_eq!(player_id, chairman);
+                    // assert_eq!(character, pickable.characters[0]);
+                    if let Some(p) = pickable_characters {
+                        assert!(p.closed_character.is_none());
+                        selectable_character_count += 1;
+                        pickable = p;
+                        player_idx = i;
+                    }
+                }
+                _ => panic!("Unexpected response")
+            }
+        }
+        
+        assert_eq!(selectable_character_count, 1);
+        
+        // let msg = serde_json::to_string(&ReceiveData::SelectCharacter {
+        //     character: pickable.characters[0],
+        // })
+        // .unwrap();
+
+        // writers[player_idx].send(msg.into()).await.unwrap();
+
+        // let msg = readers[player_idx].next().await.unwrap().unwrap().into_text().unwrap();
+
+        // let response = serde_json::from_str::<DirectResponse>(&msg).unwrap();
+        // assert!(matches!(response, DirectResponse::SelectedCharacter { .. }));
     }
 }

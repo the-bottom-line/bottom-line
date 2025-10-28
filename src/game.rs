@@ -912,21 +912,90 @@ impl TheBottomLine for GameState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use claim::*;
 
     #[test]
-    fn draw_cards() {
-        let data = GameData::new("assets/cards/boardgame.json").expect("this should exist");
-        let game = GameState::new(
-            &[
-                "your".to_owned(),
-                "mama".to_owned(),
-                "joe".to_owned(),
-                "biden".to_owned(),
-            ],
-            data,
-        );
+    fn pick_characters() {
+        for i in 0..=3 {
+            assert_matches!(
+                pick_with_players(i),
+                Err(GameError::InvalidPlayerCount(n)) if n == i as u8
+            );
+        }
+        assert_ok!(pick_with_players(4));
+        assert_ok!(pick_with_players(5));
+        assert_ok!(pick_with_players(6));
+        assert_ok!(pick_with_players(7));
+        for i in 8..=25 {
+            assert_matches!(
+                pick_with_players(i),
+                Err(GameError::InvalidPlayerCount(n)) if n == i as u8
+            );
+        }
 
-        let json = serde_json::to_string(&game).unwrap();
-        println!("{json}");
+        fn pick_with_players(player_count: usize) -> Result<(), GameError> {
+            let data = GameData::new("assets/cards/boardgame.json").expect("this should exist");
+            let names = (0..player_count)
+                .map(|i| format!("Player {i}"))
+                .collect::<Vec<_>>();
+
+            let mut game = GameState::new(&names, data)?;
+
+            let add = match player_count {
+                4..=6 => 1,
+                7 => 0,
+                _ => unreachable!(),
+            };
+
+            #[allow(unused)]
+            let mut closed = None::<Character>;
+
+            println!("\nplayer count: {player_count}");
+
+            match game.player_get_selectable_characters(0) {
+                Ok(PickableCharacters {
+                    characters,
+                    closed_character,
+                }) => {
+                    dbg!(&characters.len());
+                    assert_eq!(characters.len(), player_count + add);
+                    assert_some!(closed_character);
+                    assert_ok!(game.player_select_character(0, characters[0]));
+
+                    closed = closed_character;
+                }
+                _ => panic!(),
+            }
+
+            for i in 1..(player_count - 1) {
+                match game.player_get_selectable_characters(i) {
+                    Ok(PickableCharacters {
+                        characters,
+                        closed_character,
+                    }) => {
+                        dbg!(&characters.len());
+                        assert_eq!(characters.len(), player_count + add - i);
+                        assert_none!(closed_character);
+                        assert_ok!(game.player_select_character(i, characters[0]));
+                    }
+                    _ => panic!(),
+                }
+            }
+
+            match game.player_get_selectable_characters(player_count - 1) {
+                Ok(PickableCharacters {
+                    characters,
+                    closed_character,
+                }) => {
+                    dbg!(&characters);
+                    assert_eq!(characters.len(), 2 + add);
+                    assert_none!(closed_character);
+                    assert!(characters.contains(&closed.unwrap()));
+                    assert_ok!(game.player_select_character(player_count - 1, characters[0]));
+                    Ok(())
+                }
+                _ => panic!(),
+            }
+        }
     }
 }

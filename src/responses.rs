@@ -71,6 +71,7 @@ pub enum UniqueResponse {
         usernames: HashSet<String>,
     },
     StartGame {
+        id: PlayerId,
         cash: u8,
         #[serde(with = "serde_asset_liability::vec")]
         hand: Vec<Either<Asset, Liability>>,

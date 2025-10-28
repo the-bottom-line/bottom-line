@@ -18,19 +18,16 @@ pub fn handle_internal_request(
             let player = state.player_by_name(player_name).unwrap();
             match msg {
                 InternalResponse::GameStarted => {
-                    let hand = player.hand.clone();
-                    let cash = player.cash;
                     let pickable_characters = state
                         .player_get_selectable_characters(player.id.into())
                         .ok();
-                    let open_characters = state.open_characters().to_vec();
-                    let player_info = state.player_info(player.id.into());
                     Some(vec![
                         UniqueResponse::StartGame {
-                            hand,
-                            cash,
-                            open_characters,
-                            player_info,
+                            id: player.id,
+                            hand: player.hand.clone(),
+                            cash: player.cash,
+                            open_characters: state.open_characters().to_vec(),
+                            player_info: state.player_info(player.id.into()),
                         },
                         UniqueResponse::SelectingCharacters {
                             chairman_id: state.chairman().id,

@@ -26,9 +26,10 @@ use tokio::sync::{Mutex as TokioMutex, broadcast}; // async mutex for shared sin
 
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+#[allow(clippy::large_enum_variant)]
 pub enum Game {
     InLobby { user_set: HashSet<String> },
-    GameStarted { state: Box<GameState> },
+    GameStarted { state: GameState },
 }
 
 pub struct AppState {

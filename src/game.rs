@@ -481,18 +481,24 @@ impl ObtainingCharacters {
         }
     }
 
+    fn pick(&mut self, character: Character) -> Result<(), SelectableCharactersError> {
+        match self
+            .available_characters
+            .deck
+            .iter()
+            .position(|&c| c == character)
+        {
+            Some(i) => {
+                self.draw_idx += 1;
+                self.available_characters.deck.remove(i);
+                Ok(())
+            }
+            None => Err(SelectableCharactersError::UnavailableCharacter),
+        }
+    }
+
     pub fn applies_to_player(&self) -> usize {
         (self.draw_idx + self.chairman_id) % self.player_count
-    }
-}
-
-impl Iterator for ObtainingCharacters {
-    type Item = PickableCharacters;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.draw_idx += 1;
-
-        self.peek().ok()
     }
 }
 
@@ -717,10 +723,8 @@ impl TheBottomLine for GameState {
                             .get_mut(player_idx)
                             .unwrap()
                             .select_character(character);
-                        self.characters
-                            .next()
-                            .ok_or(SelectableCharactersError::NotPickingCharacters)?;
-                        Ok(())
+
+                        self.characters.pick(character).map_err(Into::into)
                     }
                     (true, false) => Err(GameError::NotPlayersTurn),
                     _ => Err(NotPickingCharacters.into()),

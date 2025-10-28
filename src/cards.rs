@@ -4,9 +4,8 @@ use either::Either;
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    Color, Market,
-    game::{Asset, AssetPowerup, Deck, Event, Liability, LiabilityType, MarketCondition},
+use crate::game::{
+    Asset, AssetPowerup, Color, Deck, Event, Liability, LiabilityType, Market, MarketCondition,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -117,11 +116,11 @@ impl From<Deck<AssetCard>> for Deck<Asset> {
         let deck = cards
             .deck
             .into_iter()
-            .map(|c| {
-                // keep borrow checker happy about moving an Rc into each Asset
+            .flat_map(|c| {
+                // keep borrow checker happy about moving an Arc into each Asset
                 let image_back_url = image_back_url.clone();
 
-                (0..c.copies).into_iter().map(move |_| Asset {
+                (0..c.copies).map(move |_| Asset {
                     title: c.title.clone(),
                     gold_value: c.gold_value,
                     silver_value: c.silver_value,
@@ -131,7 +130,6 @@ impl From<Deck<AssetCard>> for Deck<Asset> {
                     image_back_url: image_back_url.clone(),
                 })
             })
-            .flatten()
             .collect::<Vec<_>>();
 
         Deck {
@@ -147,18 +145,17 @@ impl From<Deck<LiabilityCard>> for Deck<Liability> {
         let deck = cards
             .deck
             .into_iter()
-            .map(|c| {
-                // keep borrow checker happy about moving an Rc into each Liability
+            .flat_map(|c| {
+                // keep borrow checker happy about moving an Arc into each Liability
                 let image_back_url = image_back_url.clone();
 
-                (0..c.copies).into_iter().map(move |_| Liability {
+                (0..c.copies).map(move |_| Liability {
                     value: c.gold_value,
                     rfr_type: c.liability_type,
                     image_front_url: c.card_image_url.clone(),
                     image_back_url: image_back_url.clone(),
                 })
             })
-            .flatten()
             .collect::<Vec<_>>();
 
         Deck {
@@ -174,37 +171,32 @@ impl From<Deck<MarketEventCard>> for Deck<Either<Market, Event>> {
         let deck = cards
             .deck
             .into_iter()
-            .map(|c| {
+            .flat_map(|c| {
                 // keep borrow checker happy about moving an Rc into each Liability
                 let image_back_url = image_back_url.clone();
 
-                (0..c.copies)
-                    .into_iter()
-                    .map(move |_| match c.details.clone() {
-                        MarketEventDetails::MarketStatus { market_status } => {
-                            Either::Left(Market {
-                                title: c.title.clone(),
-                                rfr: market_status.rfr,
-                                mrp: market_status.mrp,
-                                red: market_status.red,
-                                green: market_status.green,
-                                blue: market_status.blue,
-                                yellow: market_status.yellow,
-                                purple: market_status.purple,
-                                image_front_url: c.card_image_url.clone(),
-                                image_back_url: image_back_url.clone(),
-                            })
-                        }
-                        MarketEventDetails::Event { event } => Either::Right(Event {
-                            title: c.title.clone(),
-                            description: event.description.clone(),
-                            plus_gold: HashSet::new(),
-                            minus_gold: HashSet::new(),
-                            skip_turn: None,
-                        }),
-                    })
+                (0..c.copies).map(move |_| match c.details.clone() {
+                    MarketEventDetails::MarketStatus { market_status } => Either::Left(Market {
+                        title: c.title.clone(),
+                        rfr: market_status.rfr,
+                        mrp: market_status.mrp,
+                        red: market_status.red,
+                        green: market_status.green,
+                        blue: market_status.blue,
+                        yellow: market_status.yellow,
+                        purple: market_status.purple,
+                        image_front_url: c.card_image_url.clone(),
+                        image_back_url: image_back_url.clone(),
+                    }),
+                    MarketEventDetails::Event { event } => Either::Right(Event {
+                        title: c.title.clone(),
+                        description: event.description.clone(),
+                        plus_gold: HashSet::new(),
+                        minus_gold: HashSet::new(),
+                        skip_turn: None,
+                    }),
+                })
             })
-            .flatten()
             .collect::<Vec<_>>();
 
         Deck {

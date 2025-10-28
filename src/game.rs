@@ -724,7 +724,19 @@ impl TheBottomLine for GameState {
                             .unwrap()
                             .select_character(character);
 
-                        self.characters.pick(character).map_err(Into::into)
+                        let res = self.characters.pick(character).map_err(Into::into);
+
+                        // Set current player when character picking has ended, or in other words
+                        // when the round has started.
+                        if !self.is_selecting_characters() {
+                            self.current_player = self
+                                .players
+                                .iter()
+                                .max_by(|p1, p2| p1.character.cmp(&p2.character))
+                                .map(|p| p.id);
+                        }
+
+                        res
                     }
                     (true, false) => Err(GameError::NotPlayersTurn),
                     _ => Err(NotPickingCharacters.into()),
@@ -992,6 +1004,10 @@ mod tests {
                     assert_none!(closed_character);
                     assert!(characters.contains(&closed.unwrap()));
                     assert_ok!(game.player_select_character(player_count - 1, characters[0]));
+
+                    assert!(!game.is_selecting_characters());
+                    assert_some!(game.current_player());
+
                     Ok(())
                 }
                 _ => panic!(),

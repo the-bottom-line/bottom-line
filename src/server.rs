@@ -322,11 +322,18 @@ mod tests {
             }
         }
 
-        writers[0].send(r#"{"action": "StartGame"}"#.into())
+        writers[0]
+            .send(r#"{"action": "StartGame"}"#.into())
             .await
             .unwrap();
 
-        let msg = readers[0].next().await.unwrap().unwrap().into_text().unwrap();
+        let msg = readers[0]
+            .next()
+            .await
+            .unwrap()
+            .unwrap()
+            .into_text()
+            .unwrap();
         let response = serde_json::from_str::<DirectResponse>(&msg).unwrap();
         assert!(matches!(response, DirectResponse::YouStartedGame));
 
@@ -374,18 +381,30 @@ mod tests {
 
         writers[player_idx].send(msg.into()).await.unwrap();
 
-        let msg = readers[player_idx].next().await.unwrap().unwrap().into_text().unwrap();
+        let msg = readers[player_idx]
+            .next()
+            .await
+            .unwrap()
+            .unwrap()
+            .into_text()
+            .unwrap();
 
         let response = serde_json::from_str::<DirectResponse>(&msg).unwrap();
-        assert!(matches!(response, DirectResponse::YouSelectedCharacter { .. }));
-        
+        assert!(matches!(
+            response,
+            DirectResponse::YouSelectedCharacter { .. }
+        ));
+
         selectable_character_count = 0;
-        
+
         for (i, reader) in readers.iter_mut().enumerate() {
             let msg = reader.next().await.unwrap().unwrap().into_text().unwrap();
             let response = serde_json::from_str::<UniqueResponse>(&msg).unwrap();
             match response {
-                UniqueResponse::SelectedCharacter { player_id, pickable_characters } => {
+                UniqueResponse::SelectedCharacter {
+                    player_id,
+                    pickable_characters,
+                } => {
                     assert_eq!(player_id, chairman);
                     // assert_eq!(character, pickable.characters[0]);
                     if let Some(p) = pickable_characters {
@@ -395,12 +414,12 @@ mod tests {
                         player_idx = i;
                     }
                 }
-                _ => panic!("Unexpected response")
+                _ => panic!("Unexpected response"),
             }
         }
-        
+
         assert_eq!(selectable_character_count, 1);
-        
+
         let msg = serde_json::to_string(&ReceiveData::SelectCharacter {
             character: pickable.characters[0],
         })
@@ -408,18 +427,30 @@ mod tests {
 
         writers[player_idx].send(msg.into()).await.unwrap();
 
-        let msg = readers[player_idx].next().await.unwrap().unwrap().into_text().unwrap();
+        let msg = readers[player_idx]
+            .next()
+            .await
+            .unwrap()
+            .unwrap()
+            .into_text()
+            .unwrap();
 
         let response = serde_json::from_str::<DirectResponse>(&msg).unwrap();
-        assert!(matches!(response, DirectResponse::YouSelectedCharacter { .. }));
-        
+        assert!(matches!(
+            response,
+            DirectResponse::YouSelectedCharacter { .. }
+        ));
+
         selectable_character_count = 0;
-        
+
         for (i, reader) in readers.iter_mut().enumerate() {
             let msg = reader.next().await.unwrap().unwrap().into_text().unwrap();
             let response = serde_json::from_str::<UniqueResponse>(&msg).unwrap();
             match response {
-                UniqueResponse::SelectedCharacter { player_id, pickable_characters } => {
+                UniqueResponse::SelectedCharacter {
+                    player_id,
+                    pickable_characters,
+                } => {
                     assert_eq!(player_id, chairman);
                     // assert_eq!(character, pickable.characters[0]);
                     if let Some(p) = pickable_characters {
@@ -429,12 +460,12 @@ mod tests {
                         player_idx = i;
                     }
                 }
-                _ => panic!("Unexpected response")
+                _ => panic!("Unexpected response"),
             }
         }
-        
+
         assert_eq!(selectable_character_count, 1);
-        
+
         // let msg = serde_json::to_string(&ReceiveData::SelectCharacter {
         //     character: pickable.characters[0],
         // })

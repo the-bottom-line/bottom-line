@@ -195,6 +195,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                         tracing::debug!("public recv: {json:?}");
                         if let Some(external) = handle_internal_request(json, room.clone(), &name) {
                             for e in external {
+                                // tracing::debug!("unique send: {e:?}");
                                 if send_external(e, sender.clone()).await.is_err() {
                                     break 'outer;
                                 }
@@ -227,6 +228,8 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                                 handle_request(json, room.clone(), &name);
 
                             tracing::debug!("public send: {public:?}");
+                            tracing::debug!("direct response: {external:?}");
+
                             if let Some(public) = public {
                                 let _ = tx.send(public.into());
 
@@ -272,11 +275,46 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 mod tests {
     use std::time::Duration;
 
-    use crate::{game::PickableCharacters, responses::UniqueResponse};
+    use crate::responses::UniqueResponse;
 
     use super::*;
-    use tokio::time::sleep;
-    use tokio_tungstenite::connect_async;
+    use claim::*;
+    use futures_util::stream::SplitStream;
+    use serde::Deserialize;
+    use tokio_tungstenite::{WebSocketStream, connect_async};
+
+    pub async fn receive<T, S>(reader: &mut SplitStream<WebSocketStream<S>>) -> T
+    where
+        for<'a> T: Deserialize<'a>,
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+    {
+        let msg = reader
+            .next()
+            .await
+            .expect("Stream ended")
+            .expect("Failed to read message")
+            .into_text()
+            .expect("Message was not text");
+
+        serde_json::from_str::<T>(&msg).unwrap()
+    }
+
+    pub async fn send<S>(writer: &mut S, response: impl Serialize)
+    where
+        S: futures_util::Sink<tokio_tungstenite::tungstenite::Message> + Unpin,
+        S::Error: std::fmt::Debug,
+    {
+        let msg = serde_json::to_string(&response).expect("Serialization failed");
+
+        writer
+            .send(msg.into())
+            .await
+            .expect("Sending message failed");
+    }
+
+    async fn sleep(milliseconds: u64) {
+        tokio::time::sleep(Duration::from_millis(milliseconds)).await
+    }
 
     #[tokio::test]
     async fn start_game() {
@@ -286,7 +324,7 @@ mod tests {
             setupsocket().await;
         });
 
-        sleep(Duration::from_millis(250)).await;
+        sleep(250).await;
 
         let (ws_stream1, _) = connect_async(url).await.unwrap();
         let (write1, read1) = ws_stream1.split();
@@ -304,178 +342,91 @@ mod tests {
         let mut readers = [read1, read2, read3, read4];
 
         for (i, writer) in writers.iter_mut().enumerate() {
-            let msg = serde_json::to_string(&ReceiveData::Connect {
-                channel: "thing".to_string(),
-                username: format!("user {}", i),
-            })
-            .unwrap();
-            writer.send(msg.into()).await.unwrap();
+            send(
+                writer,
+                ReceiveData::Connect {
+                    channel: "thing".to_string(),
+                    username: format!("user {}", i),
+                },
+            )
+            .await;
         }
 
-        sleep(Duration::from_millis(100)).await;
+        sleep(100).await;
 
         for (i, reader) in readers.iter_mut().enumerate() {
+            // The first player gets 4 lists (one with one, one with two players and so on), the
+            // second player gets one with two and so on
             for _ in i..4 {
-                let msg = reader.next().await.unwrap().unwrap().into_text().unwrap();
-                let response = serde_json::from_str::<UniqueResponse>(&msg).unwrap();
+                let response = receive(reader).await;
                 assert!(matches!(response, UniqueResponse::PlayersInLobby { .. }))
             }
         }
 
-        writers[0]
-            .send(r#"{"action": "StartGame"}"#.into())
-            .await
-            .unwrap();
+        send(&mut writers[0], ReceiveData::StartGame).await;
 
-        let msg = readers[0]
-            .next()
-            .await
-            .unwrap()
-            .unwrap()
-            .into_text()
-            .unwrap();
-        let response = serde_json::from_str::<DirectResponse>(&msg).unwrap();
+        let response = receive(&mut readers[0]).await;
         assert!(matches!(response, DirectResponse::YouStartedGame));
 
-        let mut selectable_character_count = 0;
-        let mut player_idx = 0;
-        let mut chairman = 0.into();
-        let mut pickable = PickableCharacters {
-            characters: vec![],
-            closed_character: None,
-        };
+        for reader in readers.iter_mut() {
+            let response = receive(reader).await;
+            assert_matches!(response, UniqueResponse::StartGame { .. });
+        }
 
-        for (i, reader) in readers.iter_mut().enumerate() {
-            let msg = reader.next().await.unwrap().unwrap().into_text().unwrap();
-            let response = serde_json::from_str::<UniqueResponse>(&msg).unwrap();
-            assert!(matches!(response, UniqueResponse::StartGame { .. }));
+        for (reader, writer) in readers.iter_mut().zip(&mut writers) {
+            let response = receive(reader).await;
+            assert_matches!(response, UniqueResponse::SelectingCharacters { .. });
 
-            let msg = reader.next().await.unwrap().unwrap().into_text().unwrap();
-            let response = serde_json::from_str::<UniqueResponse>(&msg).unwrap();
-            assert!(matches!(
-                response,
-                UniqueResponse::SelectingCharacters { .. }
-            ));
             if let UniqueResponse::SelectingCharacters {
-                chairman_id,
                 pickable_characters: Some(p),
-                turn_order,
                 ..
             } = response
             {
-                assert_eq!(chairman_id, turn_order[0]);
-                assert!(p.closed_character.is_some());
-                selectable_character_count += 1;
-                player_idx = i;
-                chairman = chairman_id;
-                pickable = p;
+                assert_some!(p.closed_character);
+
+                let character = p.characters[0];
+                send(writer, ReceiveData::SelectCharacter { character }).await;
+
+                let response = receive(reader).await;
+                assert_matches!(
+                    response,
+                    DirectResponse::YouSelectedCharacter { character }
+                        if character == p.characters[0]
+                );
             }
         }
 
-        assert_eq!(selectable_character_count, 1);
+        for _ in 1..readers.len() {
+            for (reader, writer) in readers.iter_mut().zip(&mut writers) {
+                let response = receive(reader).await;
+                assert_matches!(response, UniqueResponse::SelectedCharacter { .. });
 
-        let msg = serde_json::to_string(&ReceiveData::SelectCharacter {
-            character: pickable.characters[0],
-        })
-        .unwrap();
+                if let UniqueResponse::SelectedCharacter {
+                    pickable_characters: Some(p),
+                    ..
+                } = response
+                {
+                    assert_none!(p.closed_character);
 
-        writers[player_idx].send(msg.into()).await.unwrap();
+                    let character = p.characters[0];
+                    send(writer, ReceiveData::SelectCharacter { character }).await;
 
-        let msg = readers[player_idx]
-            .next()
-            .await
-            .unwrap()
-            .unwrap()
-            .into_text()
-            .unwrap();
-
-        let response = serde_json::from_str::<DirectResponse>(&msg).unwrap();
-        assert!(matches!(
-            response,
-            DirectResponse::YouSelectedCharacter { .. }
-        ));
-
-        selectable_character_count = 0;
-
-        for (i, reader) in readers.iter_mut().enumerate() {
-            let msg = reader.next().await.unwrap().unwrap().into_text().unwrap();
-            let response = serde_json::from_str::<UniqueResponse>(&msg).unwrap();
-            match response {
-                UniqueResponse::SelectedCharacter {
-                    player_id,
-                    pickable_characters,
-                } => {
-                    assert_eq!(player_id, chairman);
-                    // assert_eq!(character, pickable.characters[0]);
-                    if let Some(p) = pickable_characters {
-                        assert!(p.closed_character.is_none());
-                        selectable_character_count += 1;
-                        pickable = p;
-                        player_idx = i;
-                    }
+                    let response = receive(reader).await;
+                    assert_matches!(
+                        response,
+                        DirectResponse::YouSelectedCharacter { character }
+                            if character == p.characters[0]
+                    );
                 }
-                _ => panic!("Unexpected response"),
             }
         }
-
-        assert_eq!(selectable_character_count, 1);
-
-        let msg = serde_json::to_string(&ReceiveData::SelectCharacter {
-            character: pickable.characters[0],
-        })
-        .unwrap();
-
-        writers[player_idx].send(msg.into()).await.unwrap();
-
-        let msg = readers[player_idx]
-            .next()
-            .await
-            .unwrap()
-            .unwrap()
-            .into_text()
-            .unwrap();
-
-        let response = serde_json::from_str::<DirectResponse>(&msg).unwrap();
-        assert!(matches!(
-            response,
-            DirectResponse::YouSelectedCharacter { .. }
-        ));
-
-        selectable_character_count = 0;
-
-        for (i, reader) in readers.iter_mut().enumerate() {
-            let msg = reader.next().await.unwrap().unwrap().into_text().unwrap();
-            let response = serde_json::from_str::<UniqueResponse>(&msg).unwrap();
-            match response {
-                UniqueResponse::SelectedCharacter {
-                    player_id,
-                    pickable_characters,
-                } => {
-                    assert_eq!(player_id, chairman);
-                    // assert_eq!(character, pickable.characters[0]);
-                    if let Some(p) = pickable_characters {
-                        assert!(p.closed_character.is_none());
-                        selectable_character_count += 1;
-                        pickable = p;
-                        player_idx = i;
-                    }
-                }
-                _ => panic!("Unexpected response"),
-            }
+        
+        for reader in readers.iter_mut() {
+            let response = receive(reader).await;
+            assert_matches!(response, UniqueResponse::SelectedCharacter { .. });
+            
+            let response = receive(reader).await;
+            assert_matches!(response, UniqueResponse::TurnStarts { .. });
         }
-
-        assert_eq!(selectable_character_count, 1);
-
-        // let msg = serde_json::to_string(&ReceiveData::SelectCharacter {
-        //     character: pickable.characters[0],
-        // })
-        // .unwrap();
-
-        // writers[player_idx].send(msg.into()).await.unwrap();
-
-        // let msg = readers[player_idx].next().await.unwrap().unwrap().into_text().unwrap();
-
-        // let response = serde_json::from_str::<DirectResponse>(&msg).unwrap();
-        // assert!(matches!(response, DirectResponse::SelectedCharacter { .. }));
     }
 }

@@ -157,15 +157,20 @@ pub fn handle_request(msg: ReceiveData, room_state: Arc<RoomState>, player_name:
             ReceiveData::StartGame => {
                 let names = user_set.iter().cloned().collect::<Vec<_>>();
                 let data = GameData::new("assets/cards/boardgame.json").expect("this should exist");
-                let state = GameState::new(&names, data);
-                *game = Game::GameStarted {
-                    state: Box::new(state),
-                };
-                tracing::debug!("{msg:?}");
-                Response(
-                    Some(InternalResponse::GameStarted),
-                    DirectResponse::GameStarted,
-                )
+                match GameState::new(&names, data) {
+                    Ok(state) => {
+                        *game = Game::GameStarted { state };
+                        tracing::debug!("{msg:?}");
+                        Response(
+                            Some(InternalResponse::GameStarted),
+                            DirectResponse::GameStarted,
+                        )
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to start game: {}", e);
+                        e.into()
+                    }
+                }
             }
             _ => DirectResponse::Error(ResponseError::GameNotYetStarted).into(),
         },

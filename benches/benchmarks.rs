@@ -5,12 +5,14 @@ use bottom_line::{
 use diol::prelude::*;
 
 fn get_gamestate(player_count: usize) -> GameState {
+    assert!((4..=7).contains(&player_count));
+    
     let players = (0..player_count)
         .map(|i| format!("Player {i}"))
         .collect::<Vec<_>>();
     let data = GameData::new("assets/cards/boardgame.json").expect("this should exist");
 
-    GameState::new(&players, data)
+    GameState::new(&players, data).unwrap()
 }
 
 fn main() -> std::io::Result<()> {

@@ -12,6 +12,8 @@ pub enum GameError {
     DrawCard(#[from] DrawCardError),
     #[error(transparent)]
     SelectableCharacters(#[from] SelectableCharactersError),
+    #[error("Player count should be between 4 and 7, {0} is invalid")]
+    InvalidPlayerCount(u8),
     #[error("Player index {0} is invalid")]
     InvalidPlayerIndex(u8),
     #[error("Not player's turn")]

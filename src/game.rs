@@ -600,7 +600,7 @@ pub struct GameState {
 }
 
 impl GameState {
-    pub fn new(player_names: &[String], mut game_data: GameData) -> Self {
+    pub fn new(player_names: &[String], mut game_data: GameData) -> Result<Self, GameError> {
         game_data.shuffle_all();
 
         let current_market = Self::get_first_market(&mut game_data.market_deck)
@@ -610,11 +610,11 @@ impl GameState {
             player_names,
             &mut game_data.assets,
             &mut game_data.liabilities,
-        );
+        )?;
 
         let characters = ObtainingCharacters::new(player_names.len(), players.first().unwrap().id);
 
-        GameState {
+        Ok(GameState {
             players,
             characters,
             assets: game_data.assets,
@@ -625,7 +625,7 @@ impl GameState {
             current_events: vec![],
             chairman: PlayerId(0),
             highest_amount_of_assets: 0,
-        }
+        })
     }
 
     /// Grab market card if available and reshuffles the rest of the deck.
@@ -645,14 +645,13 @@ impl GameState {
         player_names: &[String],
         assets: &mut Deck<Asset>,
         liabilites: &mut Deck<Liability>,
-    ) -> Vec<Player> {
+    ) -> Result<Vec<Player>, GameError> {
         let player_count = player_names.len();
-        assert!(
-            (4..=7).contains(&player_count),
-            "This game supports playing with 4 to 7 players"
-        );
+        if !(4..=7).contains(&player_count) {
+            return Err(GameError::InvalidPlayerCount(player_count as u8));
+        }
 
-        player_names
+        let players = player_names
             .iter()
             .zip(0u8..)
             .map(|(name, i)| {
@@ -660,7 +659,9 @@ impl GameState {
                 let liabilities = [liabilites.draw(), liabilites.draw()];
                 Player::new(name, i, assets, liabilities, 1)
             })
-            .collect()
+            .collect();
+
+        Ok(players)
     }
 
     fn check_new_market(&self) -> bool {

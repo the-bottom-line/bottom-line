@@ -23,8 +23,13 @@ pub fn handle_internal_request(
                     let pickable_characters = state
                         .player_get_selectable_characters(player.id.into())
                         .ok();
+                    let open_characters = state.open_characters().to_vec();
                     Some(vec![
-                        UniqueResponse::StartGame { hand, cash },
+                        UniqueResponse::StartGame {
+                            hand,
+                            cash,
+                            open_characters,
+                        },
                         UniqueResponse::SelectingCharacters {
                             chairman_id: state.chairman().id,
                             pickable_characters,

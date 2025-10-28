@@ -559,6 +559,9 @@ pub trait TheBottomLine {
         character: Character,
     ) -> Result<(), GameError>;
 
+    /// Gets the list of open characters visible to everyone if there are any.
+    fn open_characters(&self) -> &[Character];
+
     /// Attempts to play a card (either an asset or liability) for player with `player_idx`. If
     /// playing this card triggers a market change, returns an object with a list of events and
     /// a new market.
@@ -761,6 +764,10 @@ impl TheBottomLine for GameState {
             (true, false) => Err(GameError::NotPlayersTurn),
             _ => Err(SelectableCharactersError::NotPickingCharacters.into()),
         }
+    }
+
+    fn open_characters(&self) -> &[Character] {
+        &self.characters.open_characters
     }
 
     fn current_player(&self) -> Option<&Player> {

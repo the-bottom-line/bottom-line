@@ -997,6 +997,22 @@ mod tests {
         }
     }
 
+    #[test]
+    fn player_by_name() {
+        for i in 4..=7 {
+            let game = pick_with_players(i).expect("couldn't pick characters");
+
+            game.players
+                .iter()
+                .map(|p| (p.name.as_str(), p.id))
+                .for_each(|(name, id)| {
+                    let p = game.player_by_name(name).expect("couldn't find name");
+
+                    assert_eq!(p.id, id);
+                });
+        }
+    }
+
 
     #[test]
     fn pick_characters() {

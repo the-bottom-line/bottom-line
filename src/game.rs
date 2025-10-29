@@ -942,6 +942,7 @@ impl TheBottomLine for GameState {
 mod tests {
     use super::*;
     use claim::*;
+    use itertools::Itertools;
 
     static GAME_DATA: Lazy<GameData> =
         Lazy::new(|| GameData::new("assets/cards/boardgame.json").expect("this should exist"));
@@ -952,6 +953,15 @@ mod tests {
             let game = pick_with_players(i).expect("couldn't pick characters");
 
             assert_eq!(game.chairman, game.chairman().id);
+        }
+    }
+
+    #[test]
+    fn all_unique_ids() {
+        for i in 4..=7 {
+            let game = pick_with_players(i).expect("couldn't pick characters");
+
+            assert!(game.players.iter().map(|p| p.id).all_unique());
         }
     }
 

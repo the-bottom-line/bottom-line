@@ -943,6 +943,10 @@ mod tests {
     use super::*;
     use claim::*;
 
+    static GAME_DATA: Lazy<GameData> =
+        Lazy::new(|| GameData::new("assets/cards/boardgame.json").expect("this should exist"));
+
+
     #[test]
     fn pick_characters() {
         for i in 0..=3 {
@@ -962,13 +966,12 @@ mod tests {
             );
         }
 
-        fn pick_with_players(player_count: usize) -> Result<(), GameError> {
-            let data = GameData::new("assets/cards/boardgame.json").expect("this should exist");
+    fn pick_with_players(player_count: usize) -> Result<GameState, GameError> {
             let names = (0..player_count)
                 .map(|i| format!("Player {i}"))
                 .collect::<Vec<_>>();
 
-            let mut game = GameState::new(&names, data)?;
+        let mut game = GameState::new(&names, GAME_DATA.clone())?;
 
             let add = match player_count {
                 4..=6 => 1,
@@ -979,14 +982,11 @@ mod tests {
             #[allow(unused)]
             let mut closed = None::<Character>;
 
-            println!("\nplayer count: {player_count}");
-
             match game.player_get_selectable_characters(0) {
                 Ok(PickableCharacters {
                     characters,
                     closed_character,
                 }) => {
-                    dbg!(&characters.len());
                     assert_eq!(characters.len(), player_count + add);
                     assert_some!(closed_character);
                     assert_ok!(game.player_select_character(0, characters[0]));
@@ -1002,7 +1002,6 @@ mod tests {
                         characters,
                         closed_character,
                     }) => {
-                        dbg!(&characters.len());
                         assert_eq!(characters.len(), player_count + add - i);
                         assert_none!(closed_character);
                         assert_ok!(game.player_select_character(i, characters[0]));
@@ -1016,7 +1015,6 @@ mod tests {
                     characters,
                     closed_character,
                 }) => {
-                    dbg!(&characters);
                     assert_eq!(characters.len(), 2 + add);
                     assert_none!(closed_character);
                     assert!(characters.contains(&closed.unwrap()));
@@ -1025,10 +1023,9 @@ mod tests {
                     assert!(!game.is_selecting_characters());
                     assert_some!(game.current_player());
 
-                    Ok(())
+                Ok(game)
                 }
                 _ => panic!(),
-            }
         }
     }
 }

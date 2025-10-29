@@ -943,6 +943,7 @@ mod tests {
     use super::*;
     use claim::*;
     use itertools::Itertools;
+    use once_cell::sync::Lazy;
 
     static GAME_DATA: Lazy<GameData> =
         Lazy::new(|| GameData::new("assets/cards/boardgame.json").expect("this should exist"));
@@ -1127,6 +1128,56 @@ mod tests {
         )
     }
 
+    #[test]
+    fn end_player_turn_no_actions() {
+        let mut game = pick_with_players(4).expect("couldn't pick characters");
+        let current_player = game
+            .current_player()
+            .expect("couldn't get current player")
+            .id;
+
+        assert_ok!(game.end_player_turn(current_player.into()));
+    }
+
+    #[test]
+    fn end_player_turn_used_cards() {
+        let mut game = pick_with_players(4).expect("couldn't pick characters");
+        let current_player = game
+            .current_player()
+            .expect("couldn't get current player")
+            .id;
+
+        // so player can always afford the asset
+        game.players[usize::from(current_player)].cash = 50;
+
+        let hand_len = game.players[usize::from(current_player)].hand.len();
+        assert_ok!(game.player_play_card(current_player.into(), hand_len - 1));
+        assert_ok!(game.player_play_card(current_player.into(), 0));
+
+        assert_ok!(game.end_player_turn(current_player.into()));
+    }
+
+    #[test]
+    fn end_player_turn_drew_three_cards() {
+        let mut game = pick_with_players(4).expect("couldn't pick characters");
+        let current_player = game
+            .current_player()
+            .expect("couldn't get current player")
+            .id;
+
+        draw_cards(
+            &mut game,
+            current_player,
+            [CardType::Asset, CardType::Asset, CardType::Liability],
+        );
+
+        assert_err!(game.end_player_turn(current_player.into()));
+
+        let hand_len = game.players[usize::from(current_player)].hand.len();
+        assert_ok!(game.player_give_back_card(current_player.into(), hand_len - 1));
+
+        assert_ok!(game.end_player_turn(current_player.into()));
+    }
 
     #[test]
     fn pick_characters() {
@@ -1145,6 +1196,13 @@ mod tests {
                 pick_with_players(i),
                 Err(GameError::InvalidPlayerCount(n)) if n == i as u8
             );
+        }
+    }
+
+    fn draw_cards<const N: usize>(game: &mut GameState, id: PlayerId, cards: [CardType; N]) {
+        for card_type in cards {
+            let _ = game.player_draw_card(id.into(), card_type);
+        }
         }
 
     fn pick_with_players(player_count: usize) -> Result<GameState, GameError> {

@@ -43,24 +43,24 @@ impl From<GameError> for Response {
 #[serde(tag = "action", content = "data")]
 pub enum DirectResponse {
     Error(ResponseError),
-    GameStarted,
-    SelectedCharacter {
+    YouStartedGame,
+    YouSelectedCharacter {
         character: Character,
     },
-    DrawnCard {
+    YouDrewCard {
         #[serde(with = "serde_asset_liability::value")]
         card: Either<Asset, Liability>,
     },
-    PutBackCard {
+    YouPutBackCard {
         card_idx: usize,
     },
-    BoughtAsset {
+    YouBoughtAsset {
         asset: Asset,
     },
-    IssuedLiability {
+    YouIssuedLiability {
         liability: Liability,
     },
-    EndedTurn,
+    YouEndedTurn,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,19 +71,20 @@ pub enum UniqueResponse {
         usernames: HashSet<String>,
     },
     StartGame {
+        id: PlayerId,
         cash: u8,
         #[serde(with = "serde_asset_liability::vec")]
         hand: Vec<Either<Asset, Liability>>,
+        player_info: Vec<PlayerInfo>,
+        open_characters: Vec<Character>,
     },
     SelectingCharacters {
         chairman_id: PlayerId,
         pickable_characters: Option<PickableCharacters>,
-        player_info: Vec<PlayerInfo>,
         turn_order: Vec<PlayerId>,
     },
     SelectedCharacter {
-        player_id: PlayerId,
-        character: Character,
+        currently_picking_id: Option<PlayerId>,
         pickable_characters: Option<PickableCharacters>,
     },
     TurnStarts {
@@ -95,7 +96,7 @@ pub enum UniqueResponse {
         draws_n_cards: u8,
         skipped_characters: Vec<Character>,
     },
-    DrawnCard {
+    DrewCard {
         player_id: PlayerId,
         card_type: CardType,
     },
@@ -128,10 +129,7 @@ pub enum InternalResponse {
         username: String,
     },
     GameStarted,
-    SelectedCharacter {
-        player_id: PlayerId,
-        character: Character,
-    },
+    SelectedCharacter,
     DrawnCard {
         player_id: PlayerId,
         card_type: CardType,

@@ -6,7 +6,7 @@ use diol::prelude::*;
 
 fn get_gamestate(player_count: usize) -> GameState {
     assert!((4..=7).contains(&player_count));
-    
+
     let players = (0..player_count)
         .map(|i| format!("Player {i}"))
         .collect::<Vec<_>>();

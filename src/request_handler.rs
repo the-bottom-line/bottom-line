@@ -18,31 +18,33 @@ pub fn handle_internal_request(
             let player = state.player_by_name(player_name).unwrap();
             match msg {
                 InternalResponse::GameStarted => {
-                    let hand = player.hand.clone();
-                    let cash = player.cash;
                     let pickable_characters = state
                         .player_get_selectable_characters(player.id.into())
                         .ok();
                     Some(vec![
-                        UniqueResponse::StartGame { hand, cash },
+                        UniqueResponse::StartGame {
+                            id: player.id,
+                            hand: player.hand.clone(),
+                            cash: player.cash,
+                            open_characters: state.open_characters().to_vec(),
+                            player_info: state.player_info(player.id.into()),
+                        },
                         UniqueResponse::SelectingCharacters {
                             chairman_id: state.chairman().id,
                             pickable_characters,
-                            player_info: state.player_info(player.id.into()),
                             turn_order: state.turn_order(),
                         },
                     ])
                 }
-                InternalResponse::SelectedCharacter {
-                    player_id,
-                    character,
-                } => {
+                InternalResponse::SelectedCharacter => {
                     let pickable_characters = state
                         .player_get_selectable_characters(player.id.into())
                         .ok();
+
+                    let currently_picking_id = state.currently_selecting_id();
+
                     let selected = UniqueResponse::SelectedCharacter {
-                        player_id,
-                        character,
+                        currently_picking_id,
                         pickable_characters,
                     };
 
@@ -65,7 +67,7 @@ pub fn handle_internal_request(
                 InternalResponse::DrawnCard {
                     player_id,
                     card_type,
-                } => Some(vec![UniqueResponse::DrawnCard {
+                } => Some(vec![UniqueResponse::DrewCard {
                     player_id,
                     card_type,
                 }]),
@@ -105,7 +107,7 @@ pub fn handle_internal_request(
                         Some(vec![UniqueResponse::SelectingCharacters {
                             chairman_id: state.chairman().id,
                             pickable_characters,
-                            player_info: state.player_info(player.id.into()),
+                            // player_info: state.player_info(player.id.into()),
                             turn_order: state.turn_order(),
                         }])
                     }
@@ -163,7 +165,7 @@ pub fn handle_request(msg: ReceiveData, room_state: Arc<RoomState>, player_name:
                         tracing::debug!("{msg:?}");
                         Response(
                             Some(InternalResponse::GameStarted),
-                            DirectResponse::GameStarted,
+                            DirectResponse::YouStartedGame,
                         )
                     }
                     Err(e) => {
@@ -184,7 +186,7 @@ fn draw_card(state: &mut GameState, card_type: CardType, player_id: PlayerId) ->
                 player_id,
                 card_type,
             },
-            DirectResponse::DrawnCard {
+            DirectResponse::YouDrewCard {
                 card: card.cloned(),
             },
         ),
@@ -199,7 +201,7 @@ fn put_back_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) ->
                 player_id,
                 card_type,
             },
-            DirectResponse::PutBackCard { card_idx },
+            DirectResponse::YouPutBackCard { card_idx },
         ),
         Err(e) => e.into(),
     }
@@ -213,14 +215,14 @@ fn play_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) -> Res
                     player_id,
                     asset: asset.clone(),
                 },
-                DirectResponse::BoughtAsset { asset },
+                DirectResponse::YouBoughtAsset { asset },
             ),
             Either::Right(liability) => Response::new(
                 InternalResponse::IssuedLiability {
                     player_id,
                     liability: liability.clone(),
                 },
-                DirectResponse::IssuedLiability { liability },
+                DirectResponse::YouIssuedLiability { liability },
             ),
         },
         Err(e) => e.into(),
@@ -230,11 +232,8 @@ fn play_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) -> Res
 fn select_character(state: &mut GameState, character: Character, player_id: PlayerId) -> Response {
     match state.player_select_character(player_id.into(), character) {
         Ok(_) => Response::new(
-            InternalResponse::SelectedCharacter {
-                player_id,
-                character,
-            },
-            DirectResponse::SelectedCharacter { character },
+            InternalResponse::SelectedCharacter,
+            DirectResponse::YouSelectedCharacter { character },
         ),
         Err(e) => e.into(),
     }
@@ -246,14 +245,14 @@ fn end_turn(state: &mut GameState, player_id: PlayerId) -> Response {
             next_player: Some(player_id),
         }) => Response(
             Some(InternalResponse::TurnEnded { player_id }),
-            DirectResponse::EndedTurn,
+            DirectResponse::YouEndedTurn,
         ),
         Ok(_) => {
             // if next_player is none // TODO: Fix for end of round
             let player_id = state.chairman().id;
             Response(
                 Some(InternalResponse::TurnEnded { player_id }),
-                DirectResponse::EndedTurn,
+                DirectResponse::YouEndedTurn,
             )
         }
         Err(e) => e.into(),
@@ -278,7 +277,7 @@ mod tests {
         println!("json: {json}");
         println!("json2: {json2}");
 
-        let send = DirectResponse::PutBackCard { card_idx: 123 };
+        let send = DirectResponse::YouPutBackCard { card_idx: 123 };
 
         let sjson = serde_json::to_string(&send).unwrap();
 

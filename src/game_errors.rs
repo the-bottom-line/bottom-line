@@ -52,4 +52,6 @@ pub enum DrawCardError {
 pub enum SelectableCharactersError {
     #[error("Game is not in a state where characters are being picked")]
     NotPickingCharacters,
+    #[error("Character is not availalble to pick")]
+    UnavailableCharacter,
 }

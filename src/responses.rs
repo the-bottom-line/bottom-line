@@ -79,12 +79,12 @@ pub enum UniqueResponse {
         open_characters: Vec<Character>,
     },
     SelectingCharacters {
-        chairman_id: PlayerId,
+        currently_picking_id: PlayerId,
         pickable_characters: Option<PickableCharacters>,
         turn_order: Vec<PlayerId>,
     },
     SelectedCharacter {
-        player_id: PlayerId,
+        currently_picking_id: Option<PlayerId>,
         pickable_characters: Option<PickableCharacters>,
     },
     TurnStarts {
@@ -129,9 +129,7 @@ pub enum InternalResponse {
         username: String,
     },
     GameStarted,
-    SelectedCharacter {
-        player_id: PlayerId,
-    },
+    SelectedCharacter,
     DrawnCard {
         player_id: PlayerId,
         card_type: CardType,

@@ -527,6 +527,9 @@ impl TurnEnded {
 }
 
 pub trait TheBottomLine {
+    /// Returns the ID of the player that's currently picking
+    fn currently_selecting_id(&self) -> Option<PlayerId>;
+
     /// Checks if the game is in a selecting characters phase, which happens before each round
     /// starts.
     fn is_selecting_characters(&self) -> bool;
@@ -704,6 +707,13 @@ impl GameState {
 }
 
 impl TheBottomLine for GameState {
+    fn currently_selecting_id(&self) -> Option<PlayerId> {
+        match self.current_player() {
+            Some(_) => None,
+            None => Some(PlayerId(self.characters.applies_to_player() as u8)),
+        }
+    }
+
     fn is_selecting_characters(&self) -> bool {
         self.characters.draw_idx < self.players.len()
     }

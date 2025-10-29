@@ -30,18 +30,21 @@ pub fn handle_internal_request(
                             player_info: state.player_info(player.id.into()),
                         },
                         UniqueResponse::SelectingCharacters {
-                            chairman_id: state.chairman().id,
+                            currently_picking_id: state.chairman().id,
                             pickable_characters,
                             turn_order: state.turn_order(),
                         },
                     ])
                 }
-                InternalResponse::SelectedCharacter { player_id } => {
+                InternalResponse::SelectedCharacter => {
                     let pickable_characters = state
                         .player_get_selectable_characters(player.id.into())
                         .ok();
+
+                    let currently_picking_id = state.currently_selecting_id();
+
                     let selected = UniqueResponse::SelectedCharacter {
-                        player_id,
+                        currently_picking_id,
                         pickable_characters,
                     };
 
@@ -102,7 +105,7 @@ pub fn handle_internal_request(
                             .player_get_selectable_characters(player.id.into())
                             .ok();
                         Some(vec![UniqueResponse::SelectingCharacters {
-                            chairman_id: state.chairman().id,
+                            currently_picking_id: state.chairman().id,
                             pickable_characters,
                             // player_info: state.player_info(player.id.into()),
                             turn_order: state.turn_order(),
@@ -229,7 +232,7 @@ fn play_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) -> Res
 fn select_character(state: &mut GameState, character: Character, player_id: PlayerId) -> Response {
     match state.player_select_character(player_id.into(), character) {
         Ok(_) => Response::new(
-            InternalResponse::SelectedCharacter { player_id },
+            InternalResponse::SelectedCharacter,
             DirectResponse::YouSelectedCharacter { character },
         ),
         Err(e) => e.into(),

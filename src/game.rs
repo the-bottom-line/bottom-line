@@ -974,6 +974,29 @@ mod tests {
         }
     }
 
+    #[test]
+    fn player_from_character() {
+        for i in 4..=7 {
+            let game = pick_with_players(i).expect("couldn't pick characters");
+
+            game.players
+                .iter()
+                .map(|p| {
+                    (
+                        p.character.expect("There is a player without a character"),
+                        p.id,
+                    )
+                })
+                .for_each(|(c, id)| {
+                    let p = game
+                        .player_from_character(c)
+                        .expect("couldn't find character");
+
+                    assert_eq!(p.id, id);
+                });
+        }
+    }
+
 
     #[test]
     fn pick_characters() {

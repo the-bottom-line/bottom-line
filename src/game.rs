@@ -1013,6 +1013,54 @@ mod tests {
         }
     }
 
+    #[test]
+    fn player_draw_card() {
+        for i in 4..=7 {
+            // All permutations of a list of 3 card types
+            std::iter::repeat_n([CardType::Asset, CardType::Liability].into_iter(), 4)
+                .multi_cartesian_product()
+                .map(|v| ([v[0], v[1], v[2]], v[3]))
+                .for_each(|(card_types, too_many)| {
+                    let mut game = pick_with_players(i).expect("couldn't pick characters");
+                    let current_player = game
+                        .current_player()
+                        .expect("couldn't get current player")
+                        .id;
+
+                    card_types.into_iter().for_each(|card_type| {
+                        assert_ok!(game.player_draw_card(current_player.into(), card_type));
+                    });
+
+                    assert_matches!(
+                        game.player_draw_card(current_player.into(), too_many),
+                        Err(GameError::DrawCard(DrawCardError::MaximumCardsDrawn(_)))
+                    );
+                });
+        }
+    }
+
+    #[test]
+    fn player_draw_card_invalid_id() {
+        let mut game = pick_with_players(4).expect("couldn't pick characters");
+
+        assert_matches!(
+            game.player_draw_card(usize::MAX, CardType::Asset),
+            Err(GameError::InvalidPlayerIndex(_))
+        );
+    }
+
+    #[test]
+    fn player_draw_card_not_turn() {
+        let mut game = pick_with_players(4).expect("couldn't pick characters");
+        // This is not the current player
+        let next_player = game.next_player().expect("couldn't get next player");
+
+        assert_matches!(
+            game.player_draw_card(next_player.id.into(), CardType::Asset),
+            Err(GameError::NotPlayersTurn)
+        )
+    }
+
 
     #[test]
     fn pick_characters() {

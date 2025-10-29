@@ -128,7 +128,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     }
                 };
 
-                {
+                if !connect_username.is_empty() {
                     // If username that is sent by client is not taken, fill username string.
                     let mut rooms = state.rooms.lock().unwrap();
 
@@ -144,9 +144,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                         user_set.insert(connect_username.to_owned());
                         username = connect_username.clone();
                     }
-                }
 
-                if !connect_username.is_empty() {
                     break;
                 } else {
                     // Only send our client that username is taken.
@@ -420,11 +418,11 @@ mod tests {
                 }
             }
         }
-        
+
         for reader in readers.iter_mut() {
             let response = receive(reader).await;
             assert_matches!(response, UniqueResponse::SelectedCharacter { .. });
-            
+
             let response = receive(reader).await;
             assert_matches!(response, UniqueResponse::TurnStarts { .. });
         }

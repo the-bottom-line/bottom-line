@@ -1061,6 +1061,72 @@ mod tests {
         )
     }
 
+    #[test]
+    fn player_play_card() {
+        for i in 4..=7 {
+            let mut game = pick_with_players(i).expect("couldn't pick characters");
+            let current_player = game
+                .current_player()
+                .expect("couldn't get current player")
+                .id;
+
+            draw_cards(
+                &mut game,
+                current_player,
+                [CardType::Asset, CardType::Asset, CardType::Liability],
+            );
+
+            // so player can always afford the asset
+            game.players[usize::from(current_player)].cash = 50;
+
+            // first buy asset, then issue liability
+            for _ in 0..2 {
+                let hand_len = game.players[usize::from(current_player)].hand.len();
+                assert_ok!(game.player_play_card(current_player.into(), hand_len - 1));
+
+                assert_eq!(
+                    hand_len - 1,
+                    game.players[usize::from(current_player)].hand.len()
+                );
+            }
+
+            let hand_len = game.players[usize::from(current_player)].hand.len();
+            assert_matches!(
+                game.player_play_card(current_player.into(), hand_len - 1),
+                Err(GameError::PlayCard(PlayCardError::ExceedsMaximumAssets))
+            );
+            assert_matches!(
+                game.player_play_card(current_player.into(), hand_len - 2),
+                // Assumes a starter hand has 2 assets and then 2 liabilities
+                Err(GameError::PlayCard(
+                    PlayCardError::ExceedsMaximumLiabilities
+                ))
+            );
+        }
+    }
+
+    #[test]
+    fn player_play_card_invalid_id() {
+        let mut game = pick_with_players(4).expect("couldn't pick characters");
+
+        assert_matches!(
+            game.player_play_card(usize::MAX, 0),
+            Err(GameError::InvalidPlayerIndex(_))
+        )
+    }
+
+    #[test]
+    fn player_play_card_not_turn() {
+        let mut game = pick_with_players(4).expect("couldn't pick characters");
+        // This is not the current player
+        let next_player = game.next_player().expect("couldn't get next player");
+
+        assert_matches!(
+            game.player_play_card(next_player.id.into(), 0),
+            Err(GameError::NotPlayersTurn)
+        )
+    }
+
 
     #[test]
     fn pick_characters() {

@@ -946,6 +946,15 @@ mod tests {
     static GAME_DATA: Lazy<GameData> =
         Lazy::new(|| GameData::new("assets/cards/boardgame.json").expect("this should exist"));
 
+    #[test]
+    fn chairman() {
+        for i in 4..=7 {
+            let game = pick_with_players(i).expect("couldn't pick characters");
+
+            assert_eq!(game.chairman, game.chairman().id);
+        }
+    }
+
 
     #[test]
     fn pick_characters() {

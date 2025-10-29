@@ -273,6 +273,15 @@ impl Player {
         self.into()
     }
 
+    fn update_cards_drawn(&mut self, card_idx: usize) {
+        self.cards_drawn = self
+            .cards_drawn
+            .iter()
+            .copied()
+            .filter(|&i| i != card_idx)
+            .collect();
+    }
+
     /// Plays card in players hand with index `card_idx`. If that index is valid, the card is played
     /// if
     pub fn play_card(
@@ -288,6 +297,7 @@ impl Player {
                     self.cash -= asset.gold_value;
                     self.assets_to_play -= 1;
                     self.assets.push(asset.clone());
+                    self.update_cards_drawn(card_idx);
                     Ok(Either::Left(asset))
                 }
                 Either::Left(_) if self.assets_to_play == 0 => Err(ExceedsMaximumAssets),
@@ -299,6 +309,7 @@ impl Player {
                     let liability = self.hand.remove(card_idx).right().unwrap();
                     self.liabilities_to_play -= 1;
                     self.liabilities.push(liability.clone());
+                    self.update_cards_drawn(card_idx);
                     Ok(Either::Right(liability))
                 }
                 Either::Right(_) if self.liabilities_to_play == 0 => Err(ExceedsMaximumLiabilities),
@@ -319,7 +330,10 @@ impl Player {
         card_idx: usize,
     ) -> Result<Either<Asset, Liability>, GiveBackCardError> {
         match self.hand.get(card_idx) {
-            Some(_) => Ok(self.hand.remove(card_idx)),
+            Some(_) => {
+                self.update_cards_drawn(card_idx);
+                Ok(self.hand.remove(card_idx))
+            }
             None => Err(GiveBackCardError::InvalidCardIndex(card_idx as u8)),
         }
     }

@@ -87,6 +87,20 @@ impl Character {
     pub fn first(characters: &[Self]) -> Option<Self> {
         characters.iter().max().copied()
     }
+
+    pub fn playable_assets(&self) -> usize {
+        match self {
+            Self::CEO => 3,
+            _ => 1,
+        }
+    }
+
+    pub fn playable_liabilities(&self) -> usize {
+        match self {
+            Self::CFO => 3,
+            _ => 1,
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
@@ -178,7 +192,7 @@ impl std::fmt::Display for Liability {
     }
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum CardType {
     Asset,
     Liability,
@@ -273,6 +287,29 @@ impl Player {
         self.into()
     }
 
+    fn update_cards_drawn(&mut self, card_idx: usize) {
+        self.cards_drawn = self
+            .cards_drawn
+            .iter()
+            .copied()
+            .filter(|&i| i != card_idx)
+            .collect();
+    }
+
+    fn can_play_asset(&self) -> bool {
+        match self.character {
+            Some(_) => self.assets_to_play > 0,
+            None => false,
+        }
+    }
+
+    fn can_play_liability(&self) -> bool {
+        match self.character {
+            Some(_) => self.liabilities_to_play > 0,
+            None => false,
+        }
+    }
+
     /// Plays card in players hand with index `card_idx`. If that index is valid, the card is played
     /// if
     pub fn play_card(
@@ -283,25 +320,27 @@ impl Player {
 
         if let Some(card) = self.hand.get(card_idx) {
             match card {
-                Either::Left(a) if self.assets_to_play > 0 && self.cash >= a.gold_value => {
+                Either::Left(a) if self.can_play_asset() && self.cash >= a.gold_value => {
                     let asset = self.hand.remove(card_idx).left().unwrap();
                     self.cash -= asset.gold_value;
                     self.assets_to_play -= 1;
                     self.assets.push(asset.clone());
+                    self.update_cards_drawn(card_idx);
                     Ok(Either::Left(asset))
                 }
-                Either::Left(_) if self.assets_to_play == 0 => Err(ExceedsMaximumAssets),
+                Either::Left(_) if !self.can_play_asset() => Err(ExceedsMaximumAssets),
                 Either::Left(a) if self.cash < a.gold_value => Err(CannotAffordAsset {
                     cash: self.cash,
                     cost: a.gold_value,
                 }),
-                Either::Right(_) if self.liabilities_to_play > 0 => {
+                Either::Right(_) if self.can_play_liability() => {
                     let liability = self.hand.remove(card_idx).right().unwrap();
                     self.liabilities_to_play -= 1;
                     self.liabilities.push(liability.clone());
+                    self.update_cards_drawn(card_idx);
                     Ok(Either::Right(liability))
                 }
-                Either::Right(_) if self.liabilities_to_play == 0 => Err(ExceedsMaximumLiabilities),
+                Either::Right(_) if !self.can_play_liability() => Err(ExceedsMaximumLiabilities),
                 _ => unreachable!(),
             }
         } else {
@@ -319,7 +358,10 @@ impl Player {
         card_idx: usize,
     ) -> Result<Either<Asset, Liability>, GiveBackCardError> {
         match self.hand.get(card_idx) {
-            Some(_) => Ok(self.hand.remove(card_idx)),
+            Some(_) => {
+                self.update_cards_drawn(card_idx);
+                Ok(self.hand.remove(card_idx))
+            }
             None => Err(GiveBackCardError::InvalidCardIndex(card_idx as u8)),
         }
     }
@@ -1203,68 +1245,68 @@ mod tests {
         for card_type in cards {
             let _ = game.player_draw_card(id.into(), card_type);
         }
-        }
+    }
 
     fn pick_with_players(player_count: usize) -> Result<GameState, GameError> {
-            let names = (0..player_count)
-                .map(|i| format!("Player {i}"))
-                .collect::<Vec<_>>();
+        let names = (0..player_count)
+            .map(|i| format!("Player {i}"))
+            .collect::<Vec<_>>();
 
         let mut game = GameState::new(&names, GAME_DATA.clone())?;
 
-            let add = match player_count {
-                4..=6 => 1,
-                7 => 0,
-                _ => unreachable!(),
-            };
+        let add = match player_count {
+            4..=6 => 1,
+            7 => 0,
+            _ => unreachable!(),
+        };
 
-            #[allow(unused)]
-            let mut closed = None::<Character>;
+        #[allow(unused)]
+        let mut closed = None::<Character>;
 
-            match game.player_get_selectable_characters(0) {
+        match game.player_get_selectable_characters(0) {
+            Ok(PickableCharacters {
+                characters,
+                closed_character,
+            }) => {
+                assert_eq!(characters.len(), player_count + add);
+                assert_some!(closed_character);
+                assert_ok!(game.player_select_character(0, characters[0]));
+
+                closed = closed_character;
+            }
+            _ => panic!(),
+        }
+
+        for i in 1..(player_count - 1) {
+            match game.player_get_selectable_characters(i) {
                 Ok(PickableCharacters {
                     characters,
                     closed_character,
                 }) => {
-                    assert_eq!(characters.len(), player_count + add);
-                    assert_some!(closed_character);
-                    assert_ok!(game.player_select_character(0, characters[0]));
-
-                    closed = closed_character;
+                    assert_eq!(characters.len(), player_count + add - i);
+                    assert_none!(closed_character);
+                    assert_ok!(game.player_select_character(i, characters[0]));
                 }
                 _ => panic!(),
             }
+        }
 
-            for i in 1..(player_count - 1) {
-                match game.player_get_selectable_characters(i) {
-                    Ok(PickableCharacters {
-                        characters,
-                        closed_character,
-                    }) => {
-                        assert_eq!(characters.len(), player_count + add - i);
-                        assert_none!(closed_character);
-                        assert_ok!(game.player_select_character(i, characters[0]));
-                    }
-                    _ => panic!(),
-                }
-            }
+        match game.player_get_selectable_characters(player_count - 1) {
+            Ok(PickableCharacters {
+                characters,
+                closed_character,
+            }) => {
+                assert_eq!(characters.len(), 2 + add);
+                assert_none!(closed_character);
+                assert!(characters.contains(&closed.unwrap()));
+                assert_ok!(game.player_select_character(player_count - 1, characters[0]));
 
-            match game.player_get_selectable_characters(player_count - 1) {
-                Ok(PickableCharacters {
-                    characters,
-                    closed_character,
-                }) => {
-                    assert_eq!(characters.len(), 2 + add);
-                    assert_none!(closed_character);
-                    assert!(characters.contains(&closed.unwrap()));
-                    assert_ok!(game.player_select_character(player_count - 1, characters[0]));
-
-                    assert!(!game.is_selecting_characters());
-                    assert_some!(game.current_player());
+                assert!(!game.is_selecting_characters());
+                assert_some!(game.current_player());
 
                 Ok(game)
-                }
-                _ => panic!(),
+            }
+            _ => panic!(),
         }
     }
 }

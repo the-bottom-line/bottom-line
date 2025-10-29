@@ -1,5 +1,5 @@
 {
-  description = "A devshell example";
+  description = "A Rust devshell";
 
   inputs = {
     nixpkgs.url      = "github:NixOS/nixpkgs/nixos-unstable";
@@ -21,8 +21,6 @@
           buildInputs = [
             rust
             pkg-config
-            # rust-bin.stable.latest.default
-            # (rust-bin.selectLatestNightlyWith (toolchain: toolchain.default))
           ];
         };
       }

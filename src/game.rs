@@ -965,6 +965,15 @@ mod tests {
         }
     }
 
+    #[test]
+    fn ids_sorted() {
+        for i in 4..=7 {
+            let game = pick_with_players(i).expect("couldn't pick characters");
+
+            assert!(game.players.iter().map(|p| p.id).is_sorted());
+        }
+    }
+
 
     #[test]
     fn pick_characters() {

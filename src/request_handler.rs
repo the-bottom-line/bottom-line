@@ -30,7 +30,7 @@ pub fn handle_internal_request(
                             player_info: state.player_info(player.id.into()),
                         },
                         UniqueResponse::SelectingCharacters {
-                            currently_picking_id: state.chairman().id,
+                            chairman_id: state.chairman().id,
                             pickable_characters,
                             turn_order: state.turn_order(),
                         },
@@ -105,7 +105,7 @@ pub fn handle_internal_request(
                             .player_get_selectable_characters(player.id.into())
                             .ok();
                         Some(vec![UniqueResponse::SelectingCharacters {
-                            currently_picking_id: state.chairman().id,
+                            chairman_id: state.chairman().id,
                             pickable_characters,
                             // player_info: state.player_info(player.id.into()),
                             turn_order: state.turn_order(),

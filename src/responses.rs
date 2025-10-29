@@ -79,7 +79,7 @@ pub enum UniqueResponse {
         open_characters: Vec<Character>,
     },
     SelectingCharacters {
-        currently_picking_id: PlayerId,
+        chairman_id: PlayerId,
         pickable_characters: Option<PickableCharacters>,
         turn_order: Vec<PlayerId>,
     },

@@ -1,9 +1,7 @@
 use crate::{
     game::GameState,
-    request_handler::{
-        ExternalResponse, InternalResponse, ReceiveData, Response, handle_public_request,
-        handle_request,
-    },
+    request_handler::{handle_internal_request, handle_request},
+    responses::{DirectResponse, InternalResponse, ReceiveData, Response, ResponseError},
 };
 
 use axum::{
@@ -15,7 +13,11 @@ use axum::{
     response::IntoResponse,
     routing::get,
 };
-use futures_util::{sink::SinkExt, stream::StreamExt};
+use futures_util::{
+    sink::SinkExt,
+    stream::{SplitSink, StreamExt},
+};
+use serde::Serialize;
 use std::{
     collections::{HashMap, HashSet},
     sync::{Arc, Mutex}, // std Mutex used only for the username set
@@ -24,8 +26,7 @@ use tokio::sync::{Mutex as TokioMutex, broadcast}; // async mutex for shared sin
 
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use serde::{Deserialize, Serialize};
-
+#[allow(clippy::large_enum_variant)]
 pub enum Game {
     InLobby { user_set: HashSet<String> },
     GameStarted { state: GameState },
@@ -84,6 +85,15 @@ pub async fn setupsocket() {
     axum::serve(listener, app).await.unwrap();
 }
 
+async fn send_external(
+    msg: impl Serialize,
+    sender: Arc<TokioMutex<SplitSink<WebSocket, Message>>>,
+) -> Result<(), axum::Error> {
+    let msg = serde_json::to_string(&msg).unwrap();
+    let mut s = sender.lock().await;
+    s.send(Message::Text(msg.into())).await
+}
+
 async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     // split sink + stream
     let (sender, mut receiver) = stream.split();
@@ -95,52 +105,54 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let mut channel = String::new();
 
     while let Some(Ok(message)) = receiver.next().await {
-        #[derive(Deserialize)]
-        struct Connect {
-            username: String,
-            channel: String,
-        }
-
         match message {
             Message::Text(text) => {
-                let connect: Connect = match serde_json::from_str(&text) {
-                    Ok(connect) => connect,
+                let (connect_username, connect_channel) = match serde_json::from_str(&text) {
+                    Ok(ReceiveData::Connect { username, channel }) => (username, channel),
                     Err(error) => {
                         tracing::error!(%error);
-                        let msg =
-                            serde_json::to_string(&ExternalResponse::UsernameAlreadyTaken).unwrap();
-                        let mut s = sender.lock().await;
-                        let _ = s.send(Message::Text(msg.into())).await;
+                        let _ = send_external(
+                            DirectResponse::Error(ResponseError::UsernameAlreadyTaken),
+                            sender.clone(),
+                        )
+                        .await;
+                        break;
+                    }
+                    _ => {
+                        let _ = send_external(
+                            DirectResponse::Error(ResponseError::InvalidData),
+                            sender.clone(),
+                        )
+                        .await;
                         break;
                     }
                 };
 
-                {
+                if !connect_username.is_empty() {
                     // If username that is sent by client is not taken, fill username string.
                     let mut rooms = state.rooms.lock().unwrap();
 
-                    channel = connect.channel.clone();
+                    channel = connect_channel.clone();
                     let room = rooms
-                        .entry(connect.channel)
+                        .entry(connect_channel)
                         .or_insert_with(|| Arc::new(RoomState::new()));
 
-                    if let Ok(mut mutex) = room.game.lock() {
-                        if let Game::InLobby { user_set } = &mut *mutex {
-                            if !user_set.contains(&connect.username) {
-                                user_set.insert(connect.username.to_owned());
-                                username = connect.username.clone();
-                            }
-                        }
+                    if let Ok(mut mutex) = room.game.lock()
+                        && let Game::InLobby { user_set } = &mut *mutex
+                        && !user_set.contains(&connect_username)
+                    {
+                        user_set.insert(connect_username.to_owned());
+                        username = connect_username.clone();
                     }
-                }
 
-                if !username.is_empty() {
                     break;
                 } else {
                     // Only send our client that username is taken.
-                    let msg = serde_json::to_string(&ExternalResponse::InvalidUsername).unwrap();
-                    let mut s = sender.lock().await;
-                    let _ = s.send(Message::Text(msg.into())).await;
+                    let _ = send_external(
+                        DirectResponse::Error(ResponseError::InvalidUsername),
+                        sender.clone(),
+                    )
+                    .await;
                     return;
                 }
             }
@@ -175,15 +187,16 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
         let sender = sender.clone();
 
         tokio::spawn(async move {
-            loop {
+            'outer: loop {
                 match rx.recv().await {
                     Ok(Json(json)) => {
                         tracing::debug!("public recv: {json:?}");
-                        if let Some(private) = handle_public_request(json, room.clone(), &name) {
-                            let msg = serde_json::to_string(&private).unwrap();
-                            let mut s = sender.lock().await;
-                            if s.send(Message::Text(msg.into())).await.is_err() {
-                                break;
+                        if let Some(external) = handle_internal_request(json, room.clone(), &name) {
+                            for e in external {
+                                // tracing::debug!("unique send: {e:?}");
+                                if send_external(e, sender.clone()).await.is_err() {
+                                    break 'outer;
+                                }
                             }
                         }
                     }
@@ -209,19 +222,16 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     Message::Text(text) => {
                         if let Ok(json) = serde_json::from_str::<ReceiveData>(&text) {
                             tracing::debug!("incoming json: {json:?}");
-                            let Response(public, private) =
+                            let Response(public, external) =
                                 handle_request(json, room.clone(), &name);
 
-                            // // broadcast to everyone (including sender)
-                            // let public_ser = serde_json::to_string(&public).unwrap();
                             tracing::debug!("public send: {public:?}");
-                            let _ = tx.send(public.into());
+                            tracing::debug!("direct response: {external:?}");
 
-                            // send a different message only to the sender
-                            let private_ser = serde_json::to_string(&private).unwrap();
-                            {
-                                let mut s = sender.lock().await;
-                                if s.send(private_ser.into()).await.is_err() {
+                            if let Some(public) = public {
+                                let _ = tx.send(public.into());
+
+                                if send_external(external, sender.clone()).await.is_err() {
                                     break;
                                 }
                             }
@@ -261,36 +271,160 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
+    use crate::responses::UniqueResponse;
+
     use super::*;
-    use tokio_tungstenite::connect_async;
+    use claim::*;
+    use futures_util::stream::SplitStream;
+    use serde::Deserialize;
+    use tokio_tungstenite::{WebSocketStream, connect_async};
+
+    pub async fn receive<T, S>(reader: &mut SplitStream<WebSocketStream<S>>) -> T
+    where
+        for<'a> T: Deserialize<'a>,
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+    {
+        let msg = reader
+            .next()
+            .await
+            .expect("Stream ended")
+            .expect("Failed to read message")
+            .into_text()
+            .expect("Message was not text");
+
+        serde_json::from_str::<T>(&msg).unwrap()
+    }
+
+    pub async fn send<S>(writer: &mut S, response: impl Serialize)
+    where
+        S: futures_util::Sink<tokio_tungstenite::tungstenite::Message> + Unpin,
+        S::Error: std::fmt::Debug,
+    {
+        let msg = serde_json::to_string(&response).expect("Serialization failed");
+
+        writer
+            .send(msg.into())
+            .await
+            .expect("Sending message failed");
+    }
+
+    async fn sleep(milliseconds: u64) {
+        tokio::time::sleep(Duration::from_millis(milliseconds)).await
+    }
 
     #[tokio::test]
     async fn start_game() {
-        let url = "127.0.0.1:3000";
+        let url = "ws://127.0.0.1:3000/websocket";
 
         tokio::task::spawn(async move {
             setupsocket().await;
         });
 
-        let (ws_stream1, _) = connect_async(format!("{}/websocket", url)).await.unwrap();
-        let (mut write1, mut read1) = ws_stream1.split();
+        sleep(250).await;
 
-        let (ws_stream2, _) = connect_async(format!("{}/websocket", url)).await.unwrap();
-        let (mut write2, mut read2) = ws_stream2.split();
+        let (ws_stream1, _) = connect_async(url).await.unwrap();
+        let (write1, read1) = ws_stream1.split();
 
-        let (ws_stream3, _) = connect_async(format!("{}/websocket", url)).await.unwrap();
-        let (mut write3, mut read3) = ws_stream3.split();
+        let (ws_stream2, _) = connect_async(url).await.unwrap();
+        let (write2, read2) = ws_stream2.split();
 
-        let (ws_stream4, _) = connect_async(format!("{}/websocket", url)).await.unwrap();
-        let (mut write4, mut read4) = ws_stream4.split();
+        let (ws_stream3, _) = connect_async(url).await.unwrap();
+        let (write3, read3) = ws_stream3.split();
 
-        write1
-            .send(tokio_tungstenite::tungstenite::Message::Text(
-                r#"{"channel":"thing","username": "user1"}"#.into(),
-            ))
-            .await
-            .unwrap();
-        let msg = read1.next().await.unwrap().unwrap();
-        dbg!(msg);
+        let (ws_stream4, _) = connect_async(url).await.unwrap();
+        let (write4, read4) = ws_stream4.split();
+
+        let mut writers = [write1, write2, write3, write4];
+        let mut readers = [read1, read2, read3, read4];
+
+        for (i, writer) in writers.iter_mut().enumerate() {
+            send(
+                writer,
+                ReceiveData::Connect {
+                    channel: "thing".to_string(),
+                    username: format!("user {}", i),
+                },
+            )
+            .await;
+        }
+
+        sleep(100).await;
+
+        for (i, reader) in readers.iter_mut().enumerate() {
+            // The first player gets 4 lists (one with one, one with two players and so on), the
+            // second player gets one with two and so on
+            for _ in i..4 {
+                let response = receive(reader).await;
+                assert!(matches!(response, UniqueResponse::PlayersInLobby { .. }))
+            }
+        }
+
+        send(&mut writers[0], ReceiveData::StartGame).await;
+
+        let response = receive(&mut readers[0]).await;
+        assert!(matches!(response, DirectResponse::YouStartedGame));
+
+        for reader in readers.iter_mut() {
+            let response = receive(reader).await;
+            assert_matches!(response, UniqueResponse::StartGame { .. });
+        }
+
+        for (reader, writer) in readers.iter_mut().zip(&mut writers) {
+            let response = receive(reader).await;
+            assert_matches!(response, UniqueResponse::SelectingCharacters { .. });
+
+            if let UniqueResponse::SelectingCharacters {
+                pickable_characters: Some(p),
+                ..
+            } = response
+            {
+                assert_some!(p.closed_character);
+
+                let character = p.characters[0];
+                send(writer, ReceiveData::SelectCharacter { character }).await;
+
+                let response = receive(reader).await;
+                assert_matches!(
+                    response,
+                    DirectResponse::YouSelectedCharacter { character }
+                        if character == p.characters[0]
+                );
+            }
+        }
+
+        for _ in 1..readers.len() {
+            for (reader, writer) in readers.iter_mut().zip(&mut writers) {
+                let response = receive(reader).await;
+                assert_matches!(response, UniqueResponse::SelectedCharacter { .. });
+
+                if let UniqueResponse::SelectedCharacter {
+                    pickable_characters: Some(p),
+                    ..
+                } = response
+                {
+                    assert_none!(p.closed_character);
+
+                    let character = p.characters[0];
+                    send(writer, ReceiveData::SelectCharacter { character }).await;
+
+                    let response = receive(reader).await;
+                    assert_matches!(
+                        response,
+                        DirectResponse::YouSelectedCharacter { character }
+                            if character == p.characters[0]
+                    );
+                }
+            }
+        }
+
+        for reader in readers.iter_mut() {
+            let response = receive(reader).await;
+            assert_matches!(response, UniqueResponse::SelectedCharacter { .. });
+
+            let response = receive(reader).await;
+            assert_matches!(response, UniqueResponse::TurnStarts { .. });
+        }
     }
 }

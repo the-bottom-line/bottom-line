@@ -56,7 +56,7 @@ pub mod serde_asset_liability {
         use super::*;
 
         pub fn serialize<S>(
-            value: &Vec<Either<Asset, Liability>>,
+            value: &[Either<Asset, Liability>],
             serializer: S,
         ) -> Result<S::Ok, S::Error>
         where

@@ -50,9 +50,13 @@ pub enum DirectResponse {
     YouDrewCard {
         #[serde(with = "serde_asset_liability::value")]
         card: Either<Asset, Liability>,
+        can_draw_cards: bool,
+        can_give_back_cards: bool,
     },
     YouPutBackCard {
         card_idx: usize,
+        can_draw_cards: bool,
+        can_give_back_cards: bool,
     },
     YouBoughtAsset {
         asset: Asset,

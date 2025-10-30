@@ -1299,7 +1299,7 @@ mod tests {
                 assert_eq!(characters.len(), 2 + add);
                 assert_none!(closed_character);
                 assert!(characters.contains(&closed.unwrap()));
-                assert_ok!(game.player_select_character(player_count - 1, characters[0]));
+                assert_ok!(game.player_select_character(player_count - 1, closed.unwrap()));
 
                 assert!(!game.is_selecting_characters());
                 assert_some!(game.current_player());

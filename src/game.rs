@@ -245,6 +245,8 @@ pub struct Player {
     pub cards_drawn: Vec<usize>,
     pub assets_to_play: u8,
     pub liabilities_to_play: u8,
+    pub total_cards_drawn: u8,
+    pub total_cards_given_back: u8,
 }
 
 impl Player {
@@ -272,6 +274,8 @@ impl Player {
             cards_drawn: vec![],
             assets_to_play: 1,
             liabilities_to_play: 1,
+            total_cards_drawn: 0,
+            total_cards_given_back: 0,
         }
     }
 
@@ -350,6 +354,7 @@ impl Player {
     }
 
     pub fn draw_card(&mut self, card: Either<Asset, Liability>) {
+        self.total_cards_drawn += 1;
         self.cards_drawn.push(self.hand.len());
         self.hand.push(card);
     }
@@ -358,6 +363,8 @@ impl Player {
         &mut self,
         card_idx: usize,
     ) -> Result<Either<Asset, Liability>, GiveBackCardError> {
+        self.total_cards_given_back += 1;
+
         match self.hand.get(card_idx) {
             Some(_) => {
                 self.update_cards_drawn(card_idx);
@@ -367,14 +374,17 @@ impl Player {
         }
     }
 
-    pub fn should_give_back_card(&self) -> bool {
-        let limit = match self.character {
-            Some(Character::HeadRnD) => 4,
-            Some(_) => 2,
-            _ => 0,
-        };
-
-        self.cards_drawn.len() > limit
+    pub fn should_give_back_cards(&self) -> bool {
+        // TODO: add head rnd ability
+        match self.character {
+            Some(_) => self.total_cards_drawn - self.total_cards_given_back >= 3,
+            None => false,
+        }
+    }
+    
+    pub fn can_draw_cards(&self) -> bool {
+        // TODO: add head rn ability
+        self.total_cards_drawn < 3
     }
 
     pub fn select_character(&mut self, character: Character) {
@@ -583,6 +593,9 @@ pub trait TheBottomLine {
 
     /// Gets the character of the next turn
     fn next_player(&self) -> Option<&Player>;
+    
+    /// Get player based on player ID
+    fn player(&self, player_idx: usize) -> Option<&Player>;
 
     /// Gets a player object based on a given username
     fn player_by_name(&self, name: &str) -> Option<&Player>;
@@ -842,6 +855,10 @@ impl TheBottomLine for GameState {
             None
         }
     }
+    
+    fn player(&self, player_idx: usize) -> Option<&Player> {
+        self.players.get(player_idx)
+    }
 
     fn player_by_name(&self, name: &str) -> Option<&Player> {
         self.players.iter().find(|p| p.name == name)
@@ -894,7 +911,7 @@ impl TheBottomLine for GameState {
     ) -> Result<Either<&Asset, &Liability>, GameError> {
         if let Some(player) = self.players.get_mut(player_idx) {
             if self.current_player == Some(player.id) {
-                if player.cards_drawn.len() < 3 {
+                if player.can_draw_cards() {
                     let card = match card_type {
                         CardType::Asset => Either::Left(self.assets.draw()),
                         CardType::Liability => Either::Right(self.liabilities.draw()),
@@ -902,7 +919,7 @@ impl TheBottomLine for GameState {
                     player.draw_card(card);
                     Ok(player.hand.last().unwrap().as_ref())
                 } else {
-                    Err(DrawCardError::MaximumCardsDrawn(player.cards_drawn.len() as u8).into())
+                    Err(DrawCardError::MaximumCardsDrawn(player.total_cards_drawn).into())
                 }
             } else {
                 Err(GameError::NotPlayersTurn)
@@ -919,7 +936,7 @@ impl TheBottomLine for GameState {
     ) -> Result<CardType, GameError> {
         if let Some(player) = self.players.get_mut(player_idx) {
             if self.current_player == Some(player.id) {
-                if player.should_give_back_card() {
+                if player.should_give_back_cards() {
                     match player.give_back_card(card_idx)? {
                         Either::Left(asset) => {
                             self.assets.deck.insert(0, asset);
@@ -943,7 +960,7 @@ impl TheBottomLine for GameState {
 
     fn end_player_turn(&mut self, player_idx: usize) -> Result<TurnEnded, GameError> {
         if let Some(player) = self.players.get(player_idx) {
-            if self.current_player == Some(player.id) && !player.should_give_back_card() {
+            if self.current_player == Some(player.id) && !player.should_give_back_cards() {
                 if let Some(player) = self.next_player() {
                     self.current_player = Some(player.id);
                     Ok(TurnEnded::new(self.current_player))

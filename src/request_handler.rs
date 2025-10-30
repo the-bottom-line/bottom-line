@@ -180,31 +180,45 @@ pub fn handle_request(msg: ReceiveData, room_state: Arc<RoomState>, player_name:
 }
 
 fn draw_card(state: &mut GameState, card_type: CardType, player_id: PlayerId) -> Response {
-    match state.player_draw_card(player_id.into(), card_type) {
-        Ok(card) => Response::new(
-            InternalResponse::DrawnCard {
-                player_id,
-                card_type,
-            },
-            DirectResponse::YouDrewCard {
-                card: card.cloned(),
-            },
-        ),
-        Err(e) => e.into(),
-    }
+    let card = match state.player_draw_card(player_id.into(), card_type) {
+        Ok(card) => card.cloned(),
+        Err(e) => return e.into(),
+    };
+    
+    let player = state.player(player_id.into()).unwrap();
+    
+    Response::new(
+        InternalResponse::DrawnCard {
+            player_id,
+            card_type,
+        },
+        DirectResponse::YouDrewCard {
+            card,
+            can_draw_cards: player.can_draw_cards(),
+            can_give_back_cards: player.should_give_back_cards(),
+        },
+    )
 }
 
 fn put_back_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) -> Response {
-    match state.player_give_back_card(player_id.into(), card_idx) {
-        Ok(card_type) => Response::new(
-            InternalResponse::PutBackCard {
-                player_id,
-                card_type,
-            },
-            DirectResponse::YouPutBackCard { card_idx },
-        ),
-        Err(e) => e.into(),
-    }
+    let card_type = match state.player_give_back_card(player_id.into(), card_idx) {
+        Ok(card_type) => card_type,
+        Err(e) => return e.into(),
+    };
+    
+    let player = state.player(player_id.into()).unwrap();
+    
+    Response::new(
+        InternalResponse::PutBackCard {
+            player_id,
+            card_type,
+        },
+        DirectResponse::YouPutBackCard {
+            card_idx,
+            can_draw_cards: player.can_draw_cards(),
+            can_give_back_cards: player.should_give_back_cards(),
+        },
+    )
 }
 
 fn play_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) -> Response {
@@ -277,7 +291,7 @@ mod tests {
         println!("json: {json}");
         println!("json2: {json2}");
 
-        let send = DirectResponse::YouPutBackCard { card_idx: 123 };
+        let send = DirectResponse::YouPutBackCard { card_idx: 123, can_draw_cards: true, can_give_back_cards: true };
 
         let sjson = serde_json::to_string(&send).unwrap();
 

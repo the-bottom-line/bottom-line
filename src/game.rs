@@ -335,6 +335,7 @@ impl Player {
                 }),
                 Either::Right(_) if self.can_play_liability() => {
                     let liability = self.hand.remove(card_idx).right().unwrap();
+                    self.cash += liability.value;
                     self.liabilities_to_play -= 1;
                     self.liabilities.push(liability.clone());
                     self.update_cards_drawn(card_idx);
@@ -1120,27 +1121,54 @@ mod tests {
                 [CardType::Asset, CardType::Asset, CardType::Liability],
             );
 
+            let current_player = usize::from(current_player);
+
             // so player can always afford the asset
-            game.players[usize::from(current_player)].cash = 50;
+            game.players[current_player].cash = 50;
 
-            // first buy asset, then issue liability
-            for _ in 0..2 {
-                let hand_len = game.players[usize::from(current_player)].hand.len();
-                assert_ok!(game.player_play_card(current_player.into(), hand_len - 1));
+            // test issuing liability
+            let player = &game.players[current_player];
+            let hand_len = player.hand.len();
+            let liability_value = player.hand[hand_len - 1]
+                .as_ref()
+                .right()
+                .expect("Couldn't get liability")
+                .value;
+            let cash_before = player.cash;
 
-                assert_eq!(
-                    hand_len - 1,
-                    game.players[usize::from(current_player)].hand.len()
-                );
-            }
+            assert_ok!(game.player_play_card(current_player, hand_len - 1));
+            assert_eq!(
+                cash_before + liability_value,
+                game.players[current_player].cash
+            );
 
-            let hand_len = game.players[usize::from(current_player)].hand.len();
+            assert_eq!(hand_len - 1, game.players[current_player].hand.len());
+
+            // test buying asset
+            let player = &game.players[current_player];
+            let hand_len = player.hand.len();
+            let liability_value = player.hand[hand_len - 1]
+                .as_ref()
+                .left()
+                .expect("Couldn't get asset")
+                .gold_value;
+            let cash_before = player.cash;
+
+            assert_ok!(game.player_play_card(current_player, hand_len - 1));
+            assert_eq!(
+                cash_before - liability_value,
+                game.players[current_player].cash
+            );
+
+            assert_eq!(hand_len - 1, game.players[current_player].hand.len());
+
+            let hand_len = game.players[current_player].hand.len();
             assert_matches!(
-                game.player_play_card(current_player.into(), hand_len - 1),
+                game.player_play_card(current_player, hand_len - 1),
                 Err(GameError::PlayCard(PlayCardError::ExceedsMaximumAssets))
             );
             assert_matches!(
-                game.player_play_card(current_player.into(), hand_len - 2),
+                game.player_play_card(current_player, hand_len - 2),
                 // Assumes a starter hand has 2 assets and then 2 liabilities
                 Err(GameError::PlayCard(
                     PlayCardError::ExceedsMaximumLiabilities

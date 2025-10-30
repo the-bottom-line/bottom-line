@@ -184,9 +184,9 @@ fn draw_card(state: &mut GameState, card_type: CardType, player_id: PlayerId) ->
         Ok(card) => card.cloned(),
         Err(e) => return e.into(),
     };
-    
+
     let player = state.player(player_id.into()).unwrap();
-    
+
     Response::new(
         InternalResponse::DrawnCard {
             player_id,
@@ -205,9 +205,9 @@ fn put_back_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) ->
         Ok(card_type) => card_type,
         Err(e) => return e.into(),
     };
-    
+
     let player = state.player(player_id.into()).unwrap();
-    
+
     Response::new(
         InternalResponse::PutBackCard {
             player_id,
@@ -291,7 +291,11 @@ mod tests {
         println!("json: {json}");
         println!("json2: {json2}");
 
-        let send = DirectResponse::YouPutBackCard { card_idx: 123, can_draw_cards: true, can_give_back_cards: true };
+        let send = DirectResponse::YouPutBackCard {
+            card_idx: 123,
+            can_draw_cards: true,
+            can_give_back_cards: true,
+        };
 
         let sjson = serde_json::to_string(&send).unwrap();
 

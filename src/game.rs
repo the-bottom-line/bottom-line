@@ -381,7 +381,7 @@ impl Player {
             None => false,
         }
     }
-    
+
     pub fn can_draw_cards(&self) -> bool {
         // TODO: add head rn ability
         self.total_cards_drawn < 3
@@ -593,7 +593,7 @@ pub trait TheBottomLine {
 
     /// Gets the character of the next turn
     fn next_player(&self) -> Option<&Player>;
-    
+
     /// Get player based on player ID
     fn player(&self, player_idx: usize) -> Option<&Player>;
 
@@ -855,7 +855,7 @@ impl TheBottomLine for GameState {
             None
         }
     }
-    
+
     fn player(&self, player_idx: usize) -> Option<&Player> {
         self.players.get(player_idx)
     }

@@ -524,18 +524,19 @@ impl ObtainingCharacters {
     }
 
     fn pick(&mut self, character: Character) -> Result<(), SelectableCharactersError> {
-        match self
-            .available_characters
-            .deck
-            .iter()
-            .position(|&c| c == character)
-        {
-            Some(i) => {
-                self.draw_idx += 1;
-                self.available_characters.deck.remove(i);
-                Ok(())
+        match self.peek() {
+            Ok(PickableCharacters { mut characters, .. }) => {
+                match characters.iter().position(|&c| c == character) {
+                    Some(i) => {
+                        characters.remove(i);
+                        self.draw_idx += 1;
+                        self.available_characters.deck = characters;
+                        Ok(())
+                    }
+                    None => Err(SelectableCharactersError::UnavailableCharacter),
+                }
             }
-            None => Err(SelectableCharactersError::UnavailableCharacter),
+            Err(e) => Err(e),
         }
     }
 
@@ -1299,7 +1300,7 @@ mod tests {
                 assert_eq!(characters.len(), 2 + add);
                 assert_none!(closed_character);
                 assert!(characters.contains(&closed.unwrap()));
-                assert_ok!(game.player_select_character(player_count - 1, characters[0]));
+                assert_ok!(game.player_select_character(player_count - 1, closed.unwrap()));
 
                 assert!(!game.is_selecting_characters());
                 assert_some!(game.current_player());

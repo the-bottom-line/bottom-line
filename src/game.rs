@@ -524,18 +524,19 @@ impl ObtainingCharacters {
     }
 
     fn pick(&mut self, character: Character) -> Result<(), SelectableCharactersError> {
-        match self
-            .available_characters
-            .deck
-            .iter()
-            .position(|&c| c == character)
-        {
-            Some(i) => {
-                self.draw_idx += 1;
-                self.available_characters.deck.remove(i);
-                Ok(())
+        match self.peek() {
+            Ok(PickableCharacters { mut characters, .. }) => {
+                match characters.iter().position(|&c| c == character) {
+                    Some(i) => {
+                        characters.remove(i);
+                        self.draw_idx += 1;
+                        self.available_characters.deck = characters;
+                        Ok(())
+                    }
+                    None => Err(SelectableCharactersError::UnavailableCharacter),
+                }
             }
-            None => Err(SelectableCharactersError::UnavailableCharacter),
+            Err(e) => Err(e),
         }
     }
 

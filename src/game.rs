@@ -153,7 +153,7 @@ impl std::fmt::Display for Asset {
     }
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum LiabilityType {
     #[serde(rename = "Trade Credit")]
     TradeCredit,
@@ -279,14 +279,6 @@ impl Player {
         }
     }
 
-    pub fn total_gold(&self) -> u8 {
-        self.assets.iter().map(|a| a.gold_value).sum()
-    }
-
-    pub fn total_silver(&self) -> u8 {
-        self.assets.iter().map(|a| a.silver_value).sum()
-    }
-
     pub fn info(&self) -> PlayerInfo {
         self.into()
     }
@@ -402,6 +394,58 @@ impl Player {
             HeadRnD => {}
             Stakeholder => {}
         }
+    }
+
+    pub fn total_gold(&self) -> u8 {
+        self.assets.iter().map(|a| a.gold_value).sum()
+    }
+
+    pub fn total_silver(&self) -> u8 {
+        self.assets.iter().map(|a| a.silver_value).sum()
+    }
+
+    fn calc_loan(&self, rfr_type: LiabilityType) -> u8 {
+        self.liabilities
+            .iter()
+            .filter_map(|l| (l.rfr_type == rfr_type).then_some(l.value))
+            .sum()
+    }
+
+    pub fn trade_credit(&self) -> u8 {
+        self.calc_loan(LiabilityType::TradeCredit)
+    }
+
+    pub fn bank_loan(&self) -> u8 {
+        self.calc_loan(LiabilityType::BankLoan)
+    }
+
+    pub fn bonds(&self) -> u8 {
+        self.calc_loan(LiabilityType::Bonds)
+    }
+
+    pub fn color_value(&self, color: Color, market: &Market) -> f64 {
+        let market_condition = match color {
+            Color::Red => market.red,
+            Color::Green => market.green,
+            Color::Purple => market.purple,
+            Color::Yellow => market.yellow,
+            Color::Blue => market.blue,
+        };
+
+        let mul = match market_condition {
+            MarketCondition::Plus => 1.0,
+            MarketCondition::Minus => 0.0,
+            MarketCondition::Zero => -1.0,
+        };
+
+        self.assets
+            .iter()
+            .filter_map(|a| {
+                color
+                    .eq(&a.color)
+                    .then_some(a.gold_value as f64 + (a.silver_value as f64) * mul)
+            })
+            .sum()
     }
 }
 
@@ -1271,9 +1315,40 @@ pub struct Results {
 }
 
 impl Results {
-    fn player(&self, id: PlayerId) -> Option<&Player> {
+    pub fn player(&self, id: PlayerId) -> Option<&Player> {
         // TODO: make result
         self.players.get(usize::from(id))
+    }
+
+    pub fn score(&self, id: PlayerId) -> Option<f64> {
+        let player = self.player(id)?;
+
+        let gold = player.total_gold() as f64;
+        let silver = player.total_silver() as f64;
+
+        let trade_credit = player.trade_credit() as f64;
+        let bank_loan = player.bank_loan() as f64;
+        let bonds = player.bonds() as f64;
+        let debt = trade_credit + bank_loan + bonds;
+
+        let beta = silver / gold;
+
+        // TODO: end of game bonuses
+        let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / gold;
+
+        let wacc = self.final_market.rfr as f64 + drp + beta * self.final_market.mrp as f64;
+
+        let red = player.color_value(Color::Red, &self.final_market);
+        let green = player.color_value(Color::Green, &self.final_market);
+        let yellow = player.color_value(Color::Yellow, &self.final_market);
+        let purple = player.color_value(Color::Purple, &self.final_market);
+        let blue = player.color_value(Color::Blue, &self.final_market);
+
+        let fcf = red + green + yellow + purple + blue;
+
+        let score = (fcf / (10.0 * wacc)) + (debt / 3.0) + player.cash as f64;
+
+        Some(score)
     }
 }
 

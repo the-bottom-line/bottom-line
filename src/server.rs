@@ -1,7 +1,7 @@
 use crate::{
     game::GameState,
     request_handler::{handle_internal_request, handle_request},
-    responses::{DirectResponse, InternalResponse, ReceiveData, Response, ResponseError},
+    responses::{Connect, DirectResponse, InternalResponse, ReceiveData, Response, ResponseError},
 };
 
 use axum::{
@@ -19,18 +19,12 @@ use futures_util::{
 };
 use serde::Serialize;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     sync::{Arc, Mutex}, // std Mutex used only for the username set
 };
 use tokio::sync::{Mutex as TokioMutex, broadcast}; // async mutex for shared sink
 
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
-#[allow(clippy::large_enum_variant)]
-pub enum Game {
-    InLobby { user_set: HashSet<String> },
-    GameStarted { state: GameState },
-}
 
 pub struct AppState {
     /// Keys are the name of the channel
@@ -40,7 +34,7 @@ pub struct AppState {
 pub struct RoomState {
     /// Previously created in main.
     tx: broadcast::Sender<Json<InternalResponse>>,
-    pub game: Mutex<Game>,
+    pub game: Mutex<GameState>,
 }
 
 impl RoomState {
@@ -49,9 +43,7 @@ impl RoomState {
             // Create a new channel for every room
             tx: broadcast::channel(100).0,
             // Track usernames per room rather than globally.
-            game: Mutex::new(Game::InLobby {
-                user_set: HashSet::new(),
-            }),
+            game: Mutex::new(GameState::new()),
         }
     }
 }
@@ -108,17 +100,9 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
         match message {
             Message::Text(text) => {
                 let (connect_username, connect_channel) = match serde_json::from_str(&text) {
-                    Ok(ReceiveData::Connect { username, channel }) => (username, channel),
+                    Ok(Connect::Connect { username, channel }) => (username, channel),
                     Err(error) => {
                         tracing::error!(%error);
-                        let _ = send_external(
-                            DirectResponse::Error(ResponseError::UsernameAlreadyTaken),
-                            sender.clone(),
-                        )
-                        .await;
-                        break;
-                    }
-                    _ => {
                         let _ = send_external(
                             DirectResponse::Error(ResponseError::InvalidData),
                             sender.clone(),
@@ -138,13 +122,11 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                         .or_insert_with(|| Arc::new(RoomState::new()));
 
                     if let Ok(mut mutex) = room.game.lock()
-                        && let Game::InLobby { user_set } = &mut *mutex
-                        && !user_set.contains(&connect_username)
+                        && let GameState::Lobby(lobby) = &mut *mutex
+                        && lobby.join(connect_username.to_owned())
                     {
-                        user_set.insert(connect_username.to_owned());
                         username = connect_username.clone();
                     }
-
                     break;
                 } else {
                     // Only send our client that username is taken.
@@ -263,8 +245,8 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             .get(&channel)
             .cloned()
             .expect("The room should exist at this point");
-        if let Game::InLobby { user_set } = &mut *room.game.lock().unwrap() {
-            user_set.remove(&username);
+        if let GameState::Lobby(lobby) = &mut *room.game.lock().unwrap() {
+            lobby.leave(&username);
         }
     }
 }
@@ -342,7 +324,7 @@ mod tests {
         for (i, writer) in writers.iter_mut().enumerate() {
             send(
                 writer,
-                ReceiveData::Connect {
+                Connect::Connect {
                     channel: "thing".to_string(),
                     username: format!("user {}", i),
                 },

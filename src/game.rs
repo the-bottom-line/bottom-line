@@ -603,8 +603,6 @@ pub trait TheBottomLine {
     /// Gets player if one exists with specified character
     fn player_from_character(&self, character: Character) -> Option<&Player>;
 
-    fn chairman(&self) -> &Player;
-
     /// Gets list of selectable caracters if its the players turn
     fn player_get_selectable_characters(
         &self,
@@ -662,7 +660,7 @@ pub struct GameState {
     characters: ObtainingCharacters,
     players: Vec<Player>,
     current_player: Option<PlayerId>,
-    chairman: PlayerId,
+    pub chairman: PlayerId,
     current_market: Market,
     current_events: Vec<Event>,
     highest_amount_of_assets: u8,
@@ -868,10 +866,6 @@ impl TheBottomLine for GameState {
         self.players.iter().find(|p| p.character == Some(character))
     }
 
-    fn chairman(&self) -> &Player {
-        &self.players[usize::from(self.chairman)]
-    }
-
     fn player_play_card(
         &mut self,
         idx: usize,
@@ -1008,15 +1002,6 @@ mod tests {
 
     static GAME_DATA: Lazy<GameData> =
         Lazy::new(|| GameData::new("assets/cards/boardgame.json").expect("this should exist"));
-
-    #[test]
-    fn chairman() {
-        for i in 4..=7 {
-            let game = pick_with_players(i).expect("couldn't pick characters");
-
-            assert_eq!(game.chairman, game.chairman().id);
-        }
-    }
 
     #[test]
     fn all_unique_ids() {

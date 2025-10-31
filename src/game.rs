@@ -699,16 +699,16 @@ impl GameState {
 
         let characters = ObtainingCharacters::new(player_names.len(), players.first().unwrap().id);
 
-        let decks = CardDecks {
-            assets: game_data.assets,
-            liabilities: game_data.liabilities,
-            markets: game_data.market_deck,
-        };
+        let assets = game_data.assets;
+        let liabilities = game_data.liabilities;
+        let markets = game_data.market_deck;
 
         Ok(GameState::SelectingCharacters(SelectingCharacters {
             players,
             characters,
-            decks,
+            assets,
+            liabilities,
+            markets,
             chairman: 0.into(),
             current_market,
             current_events: Vec::new(),
@@ -818,7 +818,9 @@ impl TheBottomLine for GameState {
                         .unwrap();
 
                     let players = std::mem::take(&mut selecting.players);
-                    let decks = std::mem::take(&mut selecting.decks);
+                    let assets = std::mem::take(&mut selecting.assets);
+                    let liabilities = std::mem::take(&mut selecting.liabilities);
+                    let markets = std::mem::take(&mut selecting.markets);
                     let current_market = std::mem::take(&mut selecting.current_market);
                     let current_events = std::mem::take(&mut selecting.current_events);
                     let open_characters = selecting.characters.open_characters().to_vec();
@@ -826,7 +828,9 @@ impl TheBottomLine for GameState {
                     *self = GameState::Round(Round {
                         current_player,
                         players,
-                        decks,
+                        assets,
+                        liabilities,
+                        markets,
                         chairman: selecting.chairman,
                         current_market,
                         current_events,
@@ -962,8 +966,8 @@ impl TheBottomLine for GameState {
             Some(player) if player.id == round.current_player => {
                 if player.can_draw_cards() {
                     let card = match card_type {
-                        CardType::Asset => Either::Left(round.decks.draw_asset()),
-                        CardType::Liability => Either::Right(round.decks.draw_liability()),
+                        CardType::Asset => Either::Left(round.assets.draw()),
+                        CardType::Liability => Either::Right(round.liabilities.draw()),
                     };
                     player.draw_card(card);
                     Ok(player.hand.last().unwrap().as_ref())
@@ -991,11 +995,11 @@ impl TheBottomLine for GameState {
                 if player.should_give_back_cards() {
                     match player.give_back_card(card_idx)? {
                         Either::Left(asset) => {
-                            round.put_back_asset(asset);
+                            round.assets.put_back(asset);
                             Ok(CardType::Asset)
                         }
                         Either::Right(liability) => {
-                            round.put_back_liability(liability);
+                            round.liabilities.put_back(liability);
                             Ok(CardType::Liability)
                         }
                     }
@@ -1033,14 +1037,18 @@ impl TheBottomLine for GameState {
 
                     let characters = ObtainingCharacters::new(round.players.len(), chairman_id);
                     let players = std::mem::take(&mut round.players);
-                    let decks = std::mem::take(&mut round.decks);
+                    let assets = std::mem::take(&mut round.assets);
+                    let liabilities = std::mem::take(&mut round.liabilities);
+                    let markets = std::mem::take(&mut round.markets);
                     let current_market = std::mem::take(&mut round.current_market);
                     let current_events = std::mem::take(&mut round.current_events);
 
                     *self = Self::SelectingCharacters(SelectingCharacters {
                         players,
                         characters,
-                        decks,
+                        assets,
+                        liabilities,
+                        markets,
                         chairman: chairman_id,
                         current_market,
                         current_events,
@@ -1114,7 +1122,7 @@ impl TheBottomLine for GameState {
         let mut events = vec![];
 
         loop {
-            match round.decks.draw_market() {
+            match round.markets.draw() {
                 Either::Left(new_market) => {
                     round.current_market = new_market.clone();
                     break MarketChange { events, new_market };
@@ -1137,7 +1145,9 @@ pub struct Lobby {
 pub struct SelectingCharacters {
     players: Vec<Player>,
     characters: ObtainingCharacters,
-    decks: CardDecks,
+    assets: Deck<Asset>,
+    liabilities: Deck<Liability>,
+    markets: Deck<Either<Market, Event>>,
     pub chairman: PlayerId,
     current_market: Market,
     current_events: Vec<Event>,
@@ -1153,7 +1163,9 @@ impl SelectingCharacters {
 pub struct Round {
     current_player: PlayerId,
     players: Vec<Player>,
-    decks: CardDecks,
+    assets: Deck<Asset>,
+    liabilities: Deck<Liability>,
+    markets: Deck<Either<Market, Event>>,
     pub chairman: PlayerId,
     current_market: Market,
     current_events: Vec<Event>,
@@ -1184,81 +1196,11 @@ impl Round {
     }
 }
 
-impl Draw for Round {
-    fn draw_asset(&mut self) -> Asset {
-        self.decks.draw_asset()
-    }
-
-    fn put_back_asset(&mut self, card: Asset) {
-        self.decks.put_back_asset(card);
-    }
-
-    fn draw_liability(&mut self) -> Liability {
-        self.decks.draw_liability()
-    }
-
-    fn put_back_liability(&mut self, card: Liability) {
-        self.decks.put_back_liability(card);
-    }
-
-    fn draw_market(&mut self) -> Either<Market, Event> {
-        self.decks.draw_market()
-    }
-
-    fn put_back_market(&mut self, card: Either<Market, Event>) {
-        self.decks.put_back_market(card);
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct Results {
     players: Vec<Player>,
     final_market: Market,
     final_events: Vec<Event>,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct CardDecks {
-    assets: Deck<Asset>,
-    liabilities: Deck<Liability>,
-    markets: Deck<Either<Market, Event>>,
-}
-
-pub trait Draw {
-    fn draw_asset(&mut self) -> Asset;
-    fn put_back_asset(&mut self, card: Asset);
-
-    fn draw_liability(&mut self) -> Liability;
-    fn put_back_liability(&mut self, card: Liability);
-
-    fn draw_market(&mut self) -> Either<Market, Event>;
-    fn put_back_market(&mut self, card: Either<Market, Event>);
-}
-
-impl Draw for CardDecks {
-    fn draw_asset(&mut self) -> Asset {
-        self.assets.draw()
-    }
-
-    fn put_back_asset(&mut self, card: Asset) {
-        self.assets.put_back(card);
-    }
-
-    fn draw_liability(&mut self) -> Liability {
-        self.liabilities.draw()
-    }
-
-    fn put_back_liability(&mut self, card: Liability) {
-        self.liabilities.put_back(card);
-    }
-
-    fn draw_market(&mut self) -> Either<Market, Event> {
-        self.markets.draw()
-    }
-
-    fn put_back_market(&mut self, card: Either<Market, Event>) {
-        self.markets.put_back(card);
-    }
 }
 
 #[cfg(test)]

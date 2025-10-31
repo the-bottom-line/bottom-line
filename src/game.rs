@@ -1241,10 +1241,6 @@ impl SelectingCharacters {
         self.players.get(usize::from(id))
     }
 
-    fn player_mut(&mut self, id: PlayerId) -> Option<&mut Player> {
-        self.players.get_mut(usize::from(id))
-    }
-
     fn currently_selecting_id(&self) -> PlayerId {
         (self.characters.applies_to_player() as u8).into()
     }

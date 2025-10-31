@@ -7,8 +7,13 @@ use thiserror::Error;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "action", content = "data")]
-pub enum ReceiveData {
+pub enum Connect {
     Connect { username: String, channel: String },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "action", content = "data")]
+pub enum ReceiveData {
     StartGame,
     SelectCharacter { character: Character },
     DrawCard { card_type: CardType },

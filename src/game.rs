@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::Arc, vec};
+use std::{collections::HashSet, path::Path, sync::Arc, vec};
 
 use either::Either;
 use rand::seq::SliceRandom;
@@ -598,6 +598,15 @@ impl TurnEnded {
 }
 
 pub trait TheBottomLine {
+    /// Join the lobby if game is in lobby state
+    fn join(&mut self, username: String) -> Result<bool, GameError>;
+
+    /// Leave the lobby if game is in lobby state
+    fn leave(&mut self, username: &str) -> Result<bool, GameError>;
+
+    /// Starts the game when the game is in lobby state and between 4 and 7 players are present
+    fn start_game<P: AsRef<Path>>(&mut self, data_path: P) -> Result<(), GameError>;
+
     /// Returns the ID of the player that's currently picking
     fn currently_selecting_id(&self) -> Option<PlayerId>;
 
@@ -685,34 +694,8 @@ pub enum GameState {
 
 impl GameState {
     // TODO: start in lobby
-    pub fn new(player_names: &[String], mut game_data: GameData) -> Result<Self, GameError> {
-        game_data.shuffle_all();
-
-        let current_market = Self::get_first_market(&mut game_data.market_deck)
-            .expect("The default deck should have a market");
-
-        let players = Self::get_players(
-            player_names,
-            &mut game_data.assets,
-            &mut game_data.liabilities,
-        )?;
-
-        let characters = ObtainingCharacters::new(player_names.len(), players.first().unwrap().id);
-
-        let assets = game_data.assets;
-        let liabilities = game_data.liabilities;
-        let markets = game_data.market_deck;
-
-        Ok(GameState::SelectingCharacters(SelectingCharacters {
-            players,
-            characters,
-            assets,
-            liabilities,
-            markets,
-            chairman: 0.into(),
-            current_market,
-            current_events: Vec::new(),
-        }))
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn lobby(&self) -> Result<&Lobby, GameError> {
@@ -742,43 +725,63 @@ impl GameState {
             _ => Err(GameError::NotResultsState),
         }
     }
+}
 
-    /// Grab market card if available and reshuffles the rest of the deck.
-    fn get_first_market(deck: &mut Deck<Either<Market, Event>>) -> Option<Market> {
-        if let Some(pos) = deck.deck.iter().position(|c| c.is_left()) {
-            let market = deck.deck.swap_remove(pos).left();
-            deck.shuffle();
-            market
-        } else {
-            None
-        }
-    }
-
-    fn get_players(
-        player_names: &[String],
-        assets: &mut Deck<Asset>,
-        liabilites: &mut Deck<Liability>,
-    ) -> Result<Vec<Player>, GameError> {
-        let player_count = player_names.len();
-        if !(4..=7).contains(&player_count) {
-            return Err(GameError::InvalidPlayerCount(player_count as u8));
-        }
-
-        let players = player_names
-            .iter()
-            .zip(0u8..)
-            .map(|(name, i)| {
-                let assets = [assets.draw(), assets.draw()];
-                let liabilities = [liabilites.draw(), liabilites.draw()];
-                Player::new(name, i, assets, liabilities, 1)
-            })
-            .collect();
-
-        Ok(players)
+impl Default for GameState {
+    fn default() -> Self {
+        Self::Lobby(Lobby::default())
     }
 }
 
 impl TheBottomLine for GameState {
+    fn join(&mut self, username: String) -> Result<bool, GameError> {
+        match self {
+            Self::Lobby(lobby) => Ok(lobby.join(username)),
+            _ => Err(GameError::NotLobbyState),
+        }
+    }
+
+    fn leave(&mut self, username: &str) -> Result<bool, GameError> {
+        match self {
+            Self::Lobby(lobby) => Ok(lobby.leave(username)),
+            _ => Err(GameError::NotLobbyState),
+        }
+    }
+
+    fn start_game<P: AsRef<Path>>(&mut self, data_path: P) -> Result<(), GameError> {
+        match self {
+            Self::Lobby(lobby) if lobby.can_start() => {
+                let mut data = GameData::new(data_path).expect("Path for game data is invalid");
+                data.shuffle_all();
+
+                let mut assets = data.assets;
+                let mut liabilities = data.liabilities;
+                let mut markets = data.market_deck;
+
+                let players = lobby.init_players(&mut assets, &mut liabilities);
+                let current_market = Lobby::initial_market(&mut markets)
+                    .expect("No markets in deck for some reason");
+
+                let chairman = players.first().unwrap().id;
+                let characters = ObtainingCharacters::new(players.len(), chairman);
+
+                *self = Self::SelectingCharacters(SelectingCharacters {
+                    players,
+                    characters,
+                    assets,
+                    liabilities,
+                    markets,
+                    chairman,
+                    current_market,
+                    current_events: Vec::new(),
+                });
+                Ok(())
+            }
+            Self::Lobby(lobby) => Err(GameError::InvalidPlayerCount(lobby.players().len() as u8)),
+            _ => Err(GameError::NotLobbyState),
+        }
+    }
+
     fn currently_selecting_id(&self) -> Option<PlayerId> {
         match self {
             Self::SelectingCharacters(s) => Some(s.currently_selecting_id()),
@@ -800,49 +803,39 @@ impl TheBottomLine for GameState {
             _ => return Err(GameError::NotSelectingCharactersState),
         };
 
-        let currently_selecting_id = selecting.currently_selecting_id();
+        selecting.player_select_character(player_idx, character)?;
 
-        match selecting.players.get_mut(player_idx) {
-            Some(p) if p.id == currently_selecting_id => {
-                selecting.characters.pick(character)?;
+        // Start round when no more characters can be picked
+        if selecting.characters.peek().is_err() {
+            let current_player = selecting
+                .players
+                .iter()
+                .min_by(|p1, p2| p1.character.cmp(&p2.character))
+                .map(|p| p.id)
+                .unwrap();
 
-                p.select_character(character);
+            let players = std::mem::take(&mut selecting.players);
+            let assets = std::mem::take(&mut selecting.assets);
+            let liabilities = std::mem::take(&mut selecting.liabilities);
+            let markets = std::mem::take(&mut selecting.markets);
+            let current_market = std::mem::take(&mut selecting.current_market);
+            let current_events = std::mem::take(&mut selecting.current_events);
+            let open_characters = selecting.characters.open_characters().to_vec();
 
-                // Start round when no more characters can be picked
-                if selecting.characters.peek().is_err() {
-                    let current_player = selecting
-                        .players
-                        .iter()
-                        .min_by(|p1, p2| p1.character.cmp(&p2.character))
-                        .map(|p| p.id)
-                        .unwrap();
-
-                    let players = std::mem::take(&mut selecting.players);
-                    let assets = std::mem::take(&mut selecting.assets);
-                    let liabilities = std::mem::take(&mut selecting.liabilities);
-                    let markets = std::mem::take(&mut selecting.markets);
-                    let current_market = std::mem::take(&mut selecting.current_market);
-                    let current_events = std::mem::take(&mut selecting.current_events);
-                    let open_characters = selecting.characters.open_characters().to_vec();
-
-                    *self = GameState::Round(Round {
-                        current_player,
-                        players,
-                        assets,
-                        liabilities,
-                        markets,
-                        chairman: selecting.chairman,
-                        current_market,
-                        current_events,
-                        open_characters,
-                    });
-                }
-
-                Ok(())
-            }
-            Some(_) => Err(GameError::NotPlayersTurn),
-            None => Err(GameError::InvalidPlayerIndex(player_idx as u8)),
+            *self = GameState::Round(Round {
+                current_player,
+                players,
+                assets,
+                liabilities,
+                markets,
+                chairman: selecting.chairman,
+                current_market,
+                current_events,
+                open_characters,
+            });
         }
+
+        Ok(())
     }
 
     fn player_get_selectable_characters(
@@ -1136,9 +1129,57 @@ impl TheBottomLine for GameState {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Lobby {
     players: HashSet<String>,
+}
+
+impl Lobby {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn players(&self) -> &HashSet<String> {
+        &self.players
+    }
+
+    pub fn join(&mut self, username: String) -> bool {
+        let res = self.players.insert(username);
+        dbg!(&self.players);
+        res
+    }
+
+    pub fn leave(&mut self, username: &str) -> bool {
+        self.players.remove(username)
+    }
+
+    pub fn can_start(&self) -> bool {
+        (4..=7).contains(&self.players.len())
+    }
+
+    pub fn init_players(
+        &self,
+        assets: &mut Deck<Asset>,
+        liabilities: &mut Deck<Liability>,
+    ) -> Vec<Player> {
+        self.players
+            .iter()
+            .zip(0u8..)
+            .map(|(name, i)| {
+                let assets = [assets.draw(), assets.draw()];
+                let liabilities = [liabilities.draw(), liabilities.draw()];
+                Player::new(name, i, assets, liabilities, 1)
+            })
+            .collect()
+    }
+
+    /// Grab market card if available and reshuffles the rest of the deck.
+    fn initial_market(markets: &mut Deck<Either<Market, Event>>) -> Option<Market> {
+        match markets.deck.iter().position(|c| c.is_left()) {
+            Some(pos) => markets.deck.swap_remove(pos).left(),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -1156,6 +1197,26 @@ pub struct SelectingCharacters {
 impl SelectingCharacters {
     fn currently_selecting_id(&self) -> PlayerId {
         (self.characters.applies_to_player() as u8).into()
+    }
+
+    pub fn player_select_character(
+        &mut self,
+        player_idx: usize,
+        character: Character,
+    ) -> Result<(), GameError> {
+        let currently_selecting_id = self.currently_selecting_id();
+
+        match self.players.get_mut(player_idx) {
+            Some(p) if p.id == currently_selecting_id => {
+                self.characters.pick(character)?;
+
+                p.select_character(character);
+
+                Ok(())
+            }
+            Some(_) => Err(GameError::NotPlayersTurn),
+            None => Err(GameError::InvalidPlayerIndex(player_idx as u8)),
+        }
     }
 }
 
@@ -1205,15 +1266,9 @@ pub struct Results {
 
 #[cfg(test)]
 mod tests {
-    use crate::cards::GameData;
-
     use super::*;
     use claim::*;
     use itertools::Itertools;
-    use once_cell::sync::Lazy;
-
-    static GAME_DATA: Lazy<GameData> =
-        Lazy::new(|| GameData::new("assets/cards/boardgame.json").expect("this should exist"));
 
     #[test]
     fn all_unique_ids() {
@@ -1518,11 +1573,13 @@ mod tests {
     }
 
     fn pick_with_players(player_count: usize) -> Result<GameState, GameError> {
-        let names = (0..player_count)
-            .map(|i| format!("Player {i}"))
-            .collect::<Vec<_>>();
+        let mut game = GameState::new();
 
-        let mut game = GameState::new(&names, GAME_DATA.clone())?;
+        (0..player_count)
+            .map(|i| format!("Player {i}"))
+            .for_each(|name| assert_matches!(game.join(name), Ok(true)));
+
+        game.start_game("assets/cards/boardgame.json")?;
 
         let add = match player_count {
             4..=6 => 1,

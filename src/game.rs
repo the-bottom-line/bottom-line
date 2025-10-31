@@ -1144,9 +1144,7 @@ impl Lobby {
     }
 
     pub fn join(&mut self, username: String) -> bool {
-        let res = self.players.insert(username);
-        dbg!(&self.players);
-        res
+        self.players.insert(username)
     }
 
     pub fn leave(&mut self, username: &str) -> bool {

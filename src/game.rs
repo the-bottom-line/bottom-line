@@ -1307,7 +1307,8 @@ impl Round {
 pub struct Results {
     players: Vec<Player>,
     final_market: Market,
-    final_events: Vec<Event>,
+    // TODO: implement events
+    _final_events: Vec<Event>,
 }
 
 impl Results {

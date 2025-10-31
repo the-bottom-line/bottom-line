@@ -1176,7 +1176,7 @@ impl Round {
     }
 
     fn next_player(&self) -> Option<&Player> {
-        let current_character = self.current_player().map(|p| p.character).flatten();
+        let current_character = self.current_player().and_then(|p| p.character);
         self.players
             .iter()
             .filter(|p| p.character > current_character)

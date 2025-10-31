@@ -1,4 +1,4 @@
-use bottom_line::game::{GameState, TheBottomLine};
+use bottom_line::game::{GameState, PlayerId, TheBottomLine};
 use claim::assert_matches;
 use diol::prelude::*;
 
@@ -28,11 +28,11 @@ fn main() -> std::io::Result<()> {
 fn player_info(bencher: Bencher, player_count: usize) {
     let state = get_gamestate(player_count);
 
-    bencher.bench(|| state.player_info(1))
+    bencher.bench(|| state.player_info(1.into()))
 }
 
-fn get_selectable_characters(bencher: Bencher, player_id: usize) {
+fn get_selectable_characters(bencher: Bencher, player_id: u8) {
     let state = get_gamestate(7);
 
-    bencher.bench(|| state.player_get_selectable_characters(player_id))
+    bencher.bench(|| state.player_get_selectable_characters(PlayerId::from(player_id)))
 }

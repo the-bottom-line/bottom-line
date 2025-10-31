@@ -13,7 +13,7 @@ pub fn handle_internal_request(
         InternalResponse::GameStarted => {
             let player = state.player_by_name(player_name).unwrap();
             let pickable_characters = state
-                .player_get_selectable_characters(player.id.into())
+                .player_get_selectable_characters(player.id)
                 .ok();
             Some(vec![
                 UniqueResponse::StartGame {
@@ -21,7 +21,7 @@ pub fn handle_internal_request(
                     hand: player.hand.clone(),
                     cash: player.cash,
                     open_characters: state.open_characters().to_vec(),
-                    player_info: state.player_info(player.id.into()),
+                    player_info: state.player_info(player.id),
                 },
                 UniqueResponse::SelectingCharacters {
                     chairman_id: state.selecting_characters().unwrap().chairman,
@@ -33,7 +33,7 @@ pub fn handle_internal_request(
         InternalResponse::SelectedCharacter => {
             let player = state.player_by_name(player_name).unwrap();
             let pickable_characters = state
-                .player_get_selectable_characters(player.id.into())
+                .player_get_selectable_characters(player.id)
                 .ok();
 
             let currently_picking_id = state.currently_selecting_id();
@@ -98,7 +98,7 @@ pub fn handle_internal_request(
             } else {
                 let player = state.player_by_name(player_name).unwrap();
                 let pickable_characters = state
-                    .player_get_selectable_characters(player.id.into())
+                    .player_get_selectable_characters(player.id)
                     .ok();
                 Some(vec![UniqueResponse::SelectingCharacters {
                     chairman_id: state.selecting_characters().unwrap().chairman,
@@ -184,12 +184,12 @@ pub fn handle_request(msg: ReceiveData, room_state: Arc<RoomState>, player_name:
 }
 
 fn draw_card(state: &mut GameState, card_type: CardType, player_id: PlayerId) -> Response {
-    let card = match state.player_draw_card(player_id.into(), card_type) {
+    let card = match state.player_draw_card(player_id, card_type) {
         Ok(card) => card.cloned(),
         Err(e) => return e.into(),
     };
 
-    let player = state.player(player_id.into()).unwrap();
+    let player = state.player(player_id).unwrap();
 
     Response::new(
         InternalResponse::DrawnCard {
@@ -205,12 +205,12 @@ fn draw_card(state: &mut GameState, card_type: CardType, player_id: PlayerId) ->
 }
 
 fn put_back_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) -> Response {
-    let card_type = match state.player_give_back_card(player_id.into(), card_idx) {
+    let card_type = match state.player_give_back_card(player_id, card_idx) {
         Ok(card_type) => card_type,
         Err(e) => return e.into(),
     };
 
-    let player = state.player(player_id.into()).unwrap();
+    let player = state.player(player_id).unwrap();
 
     Response::new(
         InternalResponse::PutBackCard {
@@ -226,7 +226,7 @@ fn put_back_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) ->
 }
 
 fn play_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) -> Response {
-    match state.player_play_card(player_id.into(), card_idx) {
+    match state.player_play_card(player_id, card_idx) {
         Ok(played_card) => match played_card.used_card {
             Either::Left(asset) => Response::new(
                 InternalResponse::BoughtAsset {
@@ -258,7 +258,7 @@ fn select_character(state: &mut GameState, character: Character, player_id: Play
 }
 
 fn end_turn(state: &mut GameState, player_id: PlayerId) -> Response {
-    match state.end_player_turn(player_id.into()) {
+    match state.end_player_turn(player_id) {
         Ok(TurnEnded {
             next_player: Some(player_id),
         }) => Response(

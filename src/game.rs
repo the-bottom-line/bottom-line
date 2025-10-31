@@ -650,6 +650,12 @@ pub trait TheBottomLine {
 
     /// Gets a list of `PlayerId`s in the order of their respective turns.
     fn turn_order(&self) -> Vec<PlayerId>;
+    
+    /// Checks if there should be a new market triggered
+    fn check_new_market(&self, player_assets: usize) -> bool;
+
+    /// Starts a new market. Automatically triggers if any player gets the first, second, third, fourth, fifth, seventh or eight asset. Loops through the deck and fetches events as they come.
+    fn new_market(&mut self) -> MarketChange;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -663,7 +669,6 @@ pub struct GameState {
     pub chairman: PlayerId,
     current_market: Market,
     current_events: Vec<Event>,
-    highest_amount_of_assets: u8,
 }
 
 impl GameState {
@@ -691,7 +696,6 @@ impl GameState {
             current_player: None,
             current_events: vec![],
             chairman: PlayerId(0),
-            highest_amount_of_assets: 0,
         })
     }
 
@@ -729,35 +733,6 @@ impl GameState {
             .collect();
 
         Ok(players)
-    }
-
-    fn check_new_market(&self) -> bool {
-        let max_asset_count = self
-            .players
-            .iter()
-            .map(|player| player.assets.len() as u8)
-            .max()
-            .unwrap_or_default();
-
-        max_asset_count > self.highest_amount_of_assets
-    }
-
-    /// Starts a new market. Automatically triggers if any player gets the first, second, third, fourth, fifth, seventh or eight asset. Loops through the deck and fetches events as they come.
-    fn new_market(&mut self) -> MarketChange {
-        let mut events = vec![];
-
-        loop {
-            match self.market_deck.draw() {
-                Either::Left(new_market) => {
-                    self.current_market = new_market.clone();
-                    break MarketChange { events, new_market };
-                }
-                Either::Right(event) => {
-                    self.current_events.push(event.clone());
-                    events.push(event);
-                }
-            }
-        }
     }
 }
 
@@ -875,9 +850,10 @@ impl TheBottomLine for GameState {
 
         if let Some(player) = self.players.get_mut(idx) {
             if player.character == current_character {
+                let current_assets = player.assets.len();
                 match player.play_card(card_idx)? {
                     Either::Left(asset) => {
-                        let market = match self.check_new_market() {
+                        let market = match self.check_new_market(current_assets) {
                             true => Some(self.new_market()),
                             false => None,
                         };
@@ -990,6 +966,35 @@ impl TheBottomLine for GameState {
         let start = usize::from(self.chairman) as u8;
         let limit = self.players.len() as u8;
         (start..limit).chain(0..start).map(Into::into).collect()
+    }
+    
+    fn check_new_market(&self, player_assets: usize) -> bool {
+        let max_asset_count = self
+            .players
+            .iter()
+            .map(|player| player.assets.len())
+            .max()
+            .unwrap_or_default();
+
+        max_asset_count > player_assets
+    }
+
+    /// Starts a new market. Automatically triggers if any player gets the first, second, third, fourth, fifth, seventh or eight asset. Loops through the deck and fetches events as they come.
+    fn new_market(&mut self) -> MarketChange {
+        let mut events = vec![];
+
+        loop {
+            match self.market_deck.draw() {
+                Either::Left(new_market) => {
+                    self.current_market = new_market.clone();
+                    break MarketChange { events, new_market };
+                }
+                Either::Right(event) => {
+                    self.current_events.push(event.clone());
+                    events.push(event);
+                }
+            }
+        }
     }
 }
 

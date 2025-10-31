@@ -1,18 +1,17 @@
-use bottom_line::{
-    cards::GameData,
-    game::{GameState, TheBottomLine},
-};
+use bottom_line::game::{GameState, TheBottomLine};
+use claim::assert_matches;
 use diol::prelude::*;
 
 fn get_gamestate(player_count: usize) -> GameState {
-    assert!((4..=7).contains(&player_count));
+    let mut game = GameState::new();
 
-    let players = (0..player_count)
+    (0..player_count)
         .map(|i| format!("Player {i}"))
-        .collect::<Vec<_>>();
-    let data = GameData::new("assets/cards/boardgame.json").expect("this should exist");
+        .for_each(|name| assert_matches!(game.join(name), Ok(true)));
 
-    GameState::new(&players, data).unwrap()
+    game.start_game("assets/cards/boardgame.json").unwrap();
+
+    game
 }
 
 fn main() -> std::io::Result<()> {

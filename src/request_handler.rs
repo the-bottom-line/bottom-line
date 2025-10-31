@@ -248,7 +248,7 @@ fn play_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) -> Res
 }
 
 fn select_character(state: &mut GameState, character: Character, player_id: PlayerId) -> Response {
-    match state.player_select_character(player_id.into(), character) {
+    match state.player_select_character(player_id, character) {
         Ok(_) => Response::new(
             InternalResponse::SelectedCharacter,
             DirectResponse::YouSelectedCharacter { character },

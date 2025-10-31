@@ -1361,11 +1361,11 @@ mod tests {
                         .id;
 
                     card_types.into_iter().for_each(|card_type| {
-                        assert_ok!(game.player_draw_card(current_player.into(), card_type));
+                        assert_ok!(game.player_draw_card(current_player, card_type));
                     });
 
                     assert_matches!(
-                        game.player_draw_card(current_player.into(), too_many),
+                        game.player_draw_card(current_player, too_many),
                         Err(GameError::DrawCard(DrawCardError::MaximumCardsDrawn(_)))
                     );
                 });
@@ -1389,7 +1389,7 @@ mod tests {
         let next_player = game.next_player().expect("couldn't get next player");
 
         assert_matches!(
-            game.player_draw_card(next_player.id.into(), CardType::Asset),
+            game.player_draw_card(next_player.id, CardType::Asset),
             Err(GameError::NotPlayersTurn)
         )
     }
@@ -1492,7 +1492,7 @@ mod tests {
         let next_player = game.next_player().expect("couldn't get next player");
 
         assert_matches!(
-            game.player_play_card(next_player.id.into(), 0),
+            game.player_play_card(next_player.id, 0),
             Err(GameError::NotPlayersTurn)
         )
     }
@@ -1505,7 +1505,7 @@ mod tests {
             .expect("couldn't get current player")
             .id;
 
-        assert_ok!(game.end_player_turn(current_player.into()));
+        assert_ok!(game.end_player_turn(current_player));
     }
 
     #[test]
@@ -1527,10 +1527,10 @@ mod tests {
         let hand_len = game.round().unwrap().players[usize::from(current_player)]
             .hand
             .len();
-        assert_ok!(game.player_play_card(current_player.into(), hand_len - 1));
-        assert_ok!(game.player_play_card(current_player.into(), 0));
+        assert_ok!(game.player_play_card(current_player, hand_len - 1));
+        assert_ok!(game.player_play_card(current_player, 0));
 
-        assert_ok!(game.end_player_turn(current_player.into()));
+        assert_ok!(game.end_player_turn(current_player));
     }
 
     #[test]
@@ -1547,14 +1547,14 @@ mod tests {
             [CardType::Asset, CardType::Asset, CardType::Liability],
         );
 
-        assert_err!(game.end_player_turn(current_player.into()));
+        assert_err!(game.end_player_turn(current_player));
 
         let hand_len = game.round().unwrap().players[usize::from(current_player)]
             .hand
             .len();
-        assert_ok!(game.player_give_back_card(current_player.into(), hand_len - 1));
+        assert_ok!(game.player_give_back_card(current_player, hand_len - 1));
 
-        assert_ok!(game.end_player_turn(current_player.into()));
+        assert_ok!(game.end_player_turn(current_player));
     }
 
     #[test]
@@ -1579,7 +1579,7 @@ mod tests {
 
     fn draw_cards<const N: usize>(game: &mut GameState, id: PlayerId, cards: [CardType; N]) {
         for card_type in cards {
-            let _ = game.player_draw_card(id.into(), card_type);
+            let _ = game.player_draw_card(id, card_type);
         }
     }
 

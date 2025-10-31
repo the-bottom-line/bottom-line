@@ -20,6 +20,14 @@ pub enum GameError {
     NotPlayersTurn,
     #[error("Player should still give back at least one card")]
     PlayerShouldGiveBackCard,
+    #[error("Action only allowed in Lobby state")]
+    NotLobbyState,
+    #[error("Action only allowed in Selecting Characters state")]
+    NotSelectingCharactersState,
+    #[error("Action only allowed in Round state")]
+    NotRoundState,
+    #[error("Action only allowed in Results state")]
+    NotResultsState,
 }
 
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]

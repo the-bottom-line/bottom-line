@@ -30,7 +30,7 @@ pub fn handle_internal_request(
                             player_info: state.player_info(player.id.into()),
                         },
                         UniqueResponse::SelectingCharacters {
-                            chairman_id: state.chairman,
+                            chairman_id: state.selecting_characters().unwrap().chairman,
                             pickable_characters,
                             turn_order: state.turn_order(),
                         },
@@ -105,7 +105,7 @@ pub fn handle_internal_request(
                             .player_get_selectable_characters(player.id.into())
                             .ok();
                         Some(vec![UniqueResponse::SelectingCharacters {
-                            chairman_id: state.chairman,
+                            chairman_id: state.selecting_characters().unwrap().chairman,
                             pickable_characters,
                             // player_info: state.player_info(player.id.into()),
                             turn_order: state.turn_order(),
@@ -263,7 +263,7 @@ fn end_turn(state: &mut GameState, player_id: PlayerId) -> Response {
         ),
         Ok(_) => {
             // if next_player is none // TODO: Fix for end of round
-            let player_id = state.chairman;
+            let player_id = state.round().unwrap().chairman;
             Response(
                 Some(InternalResponse::TurnEnded { player_id }),
                 DirectResponse::YouEndedTurn,

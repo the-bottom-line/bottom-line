@@ -1196,11 +1196,11 @@ impl SelectingCharacters {
     fn player(&self, id: PlayerId) -> Option<&Player> {
         self.players.get(usize::from(id))
     }
-    
+
     fn player_mut(&mut self, id: PlayerId) -> Option<&mut Player> {
         self.players.get_mut(usize::from(id))
     }
-    
+
     fn currently_selecting_id(&self) -> PlayerId {
         (self.characters.applies_to_player() as u8).into()
     }
@@ -1436,7 +1436,12 @@ mod tests {
 
             assert_eq!(
                 hand_len - 1,
-                game.round().unwrap().player(current_player).unwrap().hand.len()
+                game.round()
+                    .unwrap()
+                    .player(current_player)
+                    .unwrap()
+                    .hand
+                    .len()
             );
 
             // test buying asset
@@ -1457,10 +1462,21 @@ mod tests {
 
             assert_eq!(
                 hand_len - 1,
-                game.round().unwrap().player(current_player).unwrap().hand.len()
+                game.round()
+                    .unwrap()
+                    .player(current_player)
+                    .unwrap()
+                    .hand
+                    .len()
             );
 
-            let hand_len = game.round().unwrap().player(current_player).unwrap().hand.len();
+            let hand_len = game
+                .round()
+                .unwrap()
+                .player(current_player)
+                .unwrap()
+                .hand
+                .len();
             assert_matches!(
                 game.player_play_card(current_player, hand_len - 1),
                 Err(GameError::PlayCard(PlayCardError::ExceedsMaximumAssets))
@@ -1637,7 +1653,12 @@ mod tests {
                 assert_eq!(characters.len(), 2 + add);
                 assert_none!(closed_character);
                 assert!(characters.contains(&closed.unwrap()));
-                assert_ok!(game.player_select_character(PlayerId((player_count - 1) as u8), closed.unwrap()));
+                assert_ok!(
+                    game.player_select_character(
+                        PlayerId((player_count - 1) as u8),
+                        closed.unwrap()
+                    )
+                );
 
                 assert!(!game.is_selecting_characters());
                 assert_some!(game.current_player());

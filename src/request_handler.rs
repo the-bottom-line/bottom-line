@@ -12,9 +12,7 @@ pub fn handle_internal_request(
     match msg {
         InternalResponse::GameStarted => {
             let player = state.player_by_name(player_name).unwrap();
-            let pickable_characters = state
-                .player_get_selectable_characters(player.id)
-                .ok();
+            let pickable_characters = state.player_get_selectable_characters(player.id).ok();
             Some(vec![
                 UniqueResponse::StartGame {
                     id: player.id,
@@ -32,9 +30,7 @@ pub fn handle_internal_request(
         }
         InternalResponse::SelectedCharacter => {
             let player = state.player_by_name(player_name).unwrap();
-            let pickable_characters = state
-                .player_get_selectable_characters(player.id)
-                .ok();
+            let pickable_characters = state.player_get_selectable_characters(player.id).ok();
 
             let currently_picking_id = state.currently_selecting_id();
 
@@ -97,9 +93,7 @@ pub fn handle_internal_request(
                 ])
             } else {
                 let player = state.player_by_name(player_name).unwrap();
-                let pickable_characters = state
-                    .player_get_selectable_characters(player.id)
-                    .ok();
+                let pickable_characters = state.player_get_selectable_characters(player.id).ok();
                 Some(vec![UniqueResponse::SelectingCharacters {
                     chairman_id: state.selecting_characters().unwrap().chairman,
                     pickable_characters,

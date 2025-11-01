@@ -719,7 +719,7 @@ pub trait TheBottomLine {
     fn player_info(&self, id: PlayerId) -> Option<Vec<PlayerInfo>>;
 
     /// Gets a list of `PlayerId`s in the order of their respective turns.
-    fn turn_order(&self) -> Vec<PlayerId>;
+    fn turn_order(&self) -> Result<Vec<PlayerId>, GameError>;
 
     /// Checks if there should be a new market triggered
     fn check_new_market(&self, player_assets: usize) -> bool;
@@ -932,6 +932,7 @@ impl TheBottomLine for GameState {
     }
 
     fn player_by_name(&self, name: &str) -> Option<&Player> {
+        // TODO: Implement for all subclasses
         let players = match self {
             Self::SelectingCharacters(s) => &s.players,
             Self::Round(r) => &r.players,
@@ -1106,15 +1107,10 @@ impl TheBottomLine for GameState {
         }
     }
 
-    fn turn_order(&self) -> Vec<PlayerId> {
-        // TODO: make result
+    fn turn_order(&self) -> Result<Vec<PlayerId>, GameError> {
         match self {
-            Self::SelectingCharacters(s) => {
-                let start = usize::from(s.chairman) as u8;
-                let limit = s.players.len() as u8;
-                (start..limit).chain(0..start).map(Into::into).collect()
-            }
-            _ => vec![],
+            Self::SelectingCharacters(s) => Ok(s.turn_order()),
+            _ => Err(GameError::NotSelectingCharactersState),
         }
     }
 
@@ -1261,6 +1257,12 @@ impl SelectingCharacters {
 
     pub fn open_characters(&self) -> &[Character] {
         self.characters.open_characters()
+    }
+
+    pub fn turn_order(&self) -> Vec<PlayerId> {
+        let start = usize::from(self.chairman) as u8;
+        let limit = self.players.len() as u8;
+        (start..limit).chain(0..start).map(Into::into).collect()
     }
 
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {

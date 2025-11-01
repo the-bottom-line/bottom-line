@@ -787,34 +787,10 @@ impl TheBottomLine for GameState {
 
     fn start_game<P: AsRef<Path>>(&mut self, data_path: P) -> Result<(), GameError> {
         match self {
-            Self::Lobby(lobby) if lobby.can_start() => {
-                let mut data = GameData::new(data_path).expect("Path for game data is invalid");
-                data.shuffle_all();
-
-                let mut assets = data.assets;
-                let mut liabilities = data.liabilities;
-                let mut markets = data.market_deck;
-
-                let players = lobby.init_players(&mut assets, &mut liabilities);
-                let current_market = Lobby::initial_market(&mut markets)
-                    .expect("No markets in deck for some reason");
-
-                let chairman = players.first().unwrap().id;
-                let characters = ObtainingCharacters::new(players.len(), chairman);
-
-                *self = Self::SelectingCharacters(SelectingCharacters {
-                    players,
-                    characters,
-                    assets,
-                    liabilities,
-                    markets,
-                    chairman,
-                    current_market,
-                    current_events: Vec::new(),
-                });
+            Self::Lobby(lobby) => {
+                *self = lobby.start_game(data_path)?;
                 Ok(())
             }
-            Self::Lobby(lobby) => Err(GameError::InvalidPlayerCount(lobby.players().len() as u8)),
             _ => Err(GameError::NotLobbyState),
         }
     }
@@ -1130,6 +1106,39 @@ impl Lobby {
 
     pub fn can_start(&self) -> bool {
         (4..=7).contains(&self.players.len())
+    }
+
+    fn start_game<P: AsRef<Path>>(&mut self, data_path: P) -> Result<GameState, GameError> {
+        if self.can_start() {
+            let mut data = GameData::new(data_path).expect("Path for game data is invalid");
+            data.shuffle_all();
+
+            let mut assets = data.assets;
+            let mut liabilities = data.liabilities;
+            let mut markets = data.market_deck;
+
+            let players = self.init_players(&mut assets, &mut liabilities);
+            let current_market =
+                Lobby::initial_market(&mut markets).expect("No markets in deck for some reason");
+
+            let chairman = players.first().unwrap().id;
+            let characters = ObtainingCharacters::new(players.len(), chairman);
+
+            let selecting = GameState::SelectingCharacters(SelectingCharacters {
+                players,
+                characters,
+                assets,
+                liabilities,
+                markets,
+                chairman,
+                current_market,
+                current_events: Vec::new(),
+            });
+
+            Ok(selecting)
+        } else {
+            Err(GameError::InvalidPlayerCount(self.players().len() as u8))
+        }
     }
 
     pub fn init_players(

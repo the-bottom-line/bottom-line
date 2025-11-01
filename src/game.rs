@@ -932,47 +932,12 @@ impl TheBottomLine for GameState {
             _ => return Err(GameError::NotRoundState),
         };
 
-        match round.player(id) {
-            Ok(current)
-                if current.id == round.current_player && !current.should_give_back_cards() =>
-            {
-                if let Some(player) = round.next_player() {
-                    round.current_player = player.id;
-                    Ok(TurnEnded::new(Some(round.current_player)))
-                } else {
-                    let maybe_ceo = round.player_from_character(Character::CEO);
-                    let chairman_id = match maybe_ceo.map(|p| p.id) {
-                        Some(id) => id,
-                        None => round.chairman,
-                    };
-                    round.players.iter_mut().for_each(|p| {
-                        p.character = None;
-                    });
-
-                    let characters = ObtainingCharacters::new(round.players.len(), chairman_id);
-                    let players = std::mem::take(&mut round.players);
-                    let assets = std::mem::take(&mut round.assets);
-                    let liabilities = std::mem::take(&mut round.liabilities);
-                    let markets = std::mem::take(&mut round.markets);
-                    let current_market = std::mem::take(&mut round.current_market);
-                    let current_events = std::mem::take(&mut round.current_events);
-
-                    *self = Self::SelectingCharacters(SelectingCharacters {
-                        players,
-                        characters,
-                        assets,
-                        liabilities,
-                        markets,
-                        chairman: chairman_id,
-                        current_market,
-                        current_events,
-                    });
-
-                    Ok(TurnEnded::new(None))
-                }
+        match round.end_player_turn(id)? {
+            Either::Left(te) => Ok(te),
+            Either::Right(state) => {
+                *self = state;
+                Ok(TurnEnded::new(None))
             }
-            Ok(_) => Err(GameError::NotPlayersTurn),
-            Err(e) => Err(e),
         }
     }
 
@@ -1308,6 +1273,51 @@ impl Round {
             }
             Some(_) => Err(GameError::NotPlayersTurn),
             _ => Err(GameError::InvalidPlayerIndex(id.0)),
+        }
+    }
+
+    fn end_player_turn(&mut self, id: PlayerId) -> Result<Either<TurnEnded, GameState>, GameError> {
+        match self.player(id) {
+            Ok(current)
+                if current.id == self.current_player && !current.should_give_back_cards() =>
+            {
+                if let Some(player) = self.next_player() {
+                    self.current_player = player.id;
+                    Ok(Either::Left(TurnEnded::new(Some(self.current_player))))
+                } else {
+                    let maybe_ceo = self.player_from_character(Character::CEO);
+                    let chairman_id = match maybe_ceo.map(|p| p.id) {
+                        Some(id) => id,
+                        None => self.chairman,
+                    };
+                    self.players.iter_mut().for_each(|p| {
+                        p.character = None;
+                    });
+
+                    let characters = ObtainingCharacters::new(self.players.len(), chairman_id);
+                    let players = std::mem::take(&mut self.players);
+                    let assets = std::mem::take(&mut self.assets);
+                    let liabilities = std::mem::take(&mut self.liabilities);
+                    let markets = std::mem::take(&mut self.markets);
+                    let current_market = std::mem::take(&mut self.current_market);
+                    let current_events = std::mem::take(&mut self.current_events);
+
+                    let state = GameState::SelectingCharacters(SelectingCharacters {
+                        players,
+                        characters,
+                        assets,
+                        liabilities,
+                        markets,
+                        chairman: chairman_id,
+                        current_market,
+                        current_events,
+                    });
+
+                    Ok(Either::Right(state))
+                }
+            }
+            Ok(_) => Err(GameError::NotPlayersTurn),
+            Err(e) => Err(e),
         }
     }
 

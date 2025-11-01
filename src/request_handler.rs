@@ -20,7 +20,7 @@ pub fn handle_internal_request(
                     hand: player.hand.clone(),
                     cash: player.cash,
                     open_characters: selecting.open_characters().to_vec(),
-                    player_info: state.player_info(player.id),
+                    player_info: selecting.player_info(player.id),
                 },
                 UniqueResponse::SelectingCharacters {
                     chairman_id: selecting.chairman,

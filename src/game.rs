@@ -716,7 +716,7 @@ pub trait TheBottomLine {
     fn end_player_turn(&mut self, id: PlayerId) -> Result<TurnEnded, GameError>;
 
     /// Gets a list of players with publicly available information, besides the main player
-    fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo>;
+    fn player_info(&self, id: PlayerId) -> Option<Vec<PlayerInfo>>;
 
     /// Gets a list of `PlayerId`s in the order of their respective turns.
     fn turn_order(&self) -> Vec<PlayerId>;
@@ -1097,19 +1097,13 @@ impl TheBottomLine for GameState {
         }
     }
 
-    fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
-        // TODO: make option/result
-        let players = match self {
-            Self::SelectingCharacters(s) => &s.players,
-            Self::Round(r) => &r.players,
-            Self::Results(r) => &r.players,
-            Self::Lobby(_) => return vec![],
-        };
-
-        players
-            .iter()
-            .flat_map(|p| p.id.ne(&id).then_some(p.info()))
-            .collect()
+    fn player_info(&self, id: PlayerId) -> Option<Vec<PlayerInfo>> {
+        match self {
+            Self::SelectingCharacters(s) => Some(s.player_info(id)),
+            Self::Round(r) => Some(r.player_info(id)),
+            Self::Results(r) => Some(r.player_info(id)),
+            Self::Lobby(_) => None,
+        }
     }
 
     fn turn_order(&self) -> Vec<PlayerId> {
@@ -1266,6 +1260,13 @@ impl SelectingCharacters {
     pub fn open_characters(&self) -> &[Character] {
         self.characters.open_characters()
     }
+    
+    pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
+        self.players
+            .iter()
+            .flat_map(|p| p.id.ne(&id).then_some(p.info()))
+            .collect()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -1306,6 +1307,13 @@ impl Round {
 
     pub fn open_characters(&self) -> &[Character] {
         &self.open_characters
+    }
+    
+    pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
+        self.players
+            .iter()
+            .flat_map(|p| p.id.ne(&id).then_some(p.info()))
+            .collect()
     }
 }
 
@@ -1352,6 +1360,13 @@ impl Results {
         let score = (fcf / (10.0 * wacc)) + (debt / 3.0) + player.cash as f64;
 
         Some(score)
+    }
+    
+    pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
+        self.players
+            .iter()
+            .flat_map(|p| p.id.ne(&id).then_some(p.info()))
+            .collect()
     }
 }
 

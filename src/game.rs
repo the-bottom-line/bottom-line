@@ -898,32 +898,9 @@ impl TheBottomLine for GameState {
         id: PlayerId,
         card_idx: usize,
     ) -> Result<PlayerPlayedCard, GameError> {
-        let round = match self {
-            Self::Round(r) => r,
-            _ => return Err(GameError::NotRoundState),
-        };
-
-        match round.players.get_mut(usize::from(id)) {
-            Some(player) if player.id == round.current_player => {
-                let current_assets = player.assets.len();
-                match player.play_card(card_idx)? {
-                    Either::Left(asset) => {
-                        let market = match round.check_new_market(current_assets) {
-                            true => Some(round.new_market()),
-                            false => None,
-                        };
-                        let used_card = Either::Left(asset.clone());
-                        Ok(PlayerPlayedCard { market, used_card })
-                    }
-                    Either::Right(liability) => {
-                        let market = None;
-                        let used_card = Either::Right(liability);
-                        Ok(PlayerPlayedCard { market, used_card })
-                    }
-                }
-            }
-            Some(_) => Err(GameError::NotPlayersTurn),
-            _ => Err(GameError::InvalidPlayerIndex(id.0)),
+        match self {
+            Self::Round(r) => r.player_play_card(id, card_idx),
+            _ => Err(GameError::NotRoundState),
         }
     }
 
@@ -1291,6 +1268,35 @@ impl Round {
             .iter()
             .flat_map(|p| p.id.ne(&id).then_some(p.info()))
             .collect()
+    }
+
+    fn player_play_card(
+        &mut self,
+        id: PlayerId,
+        card_idx: usize,
+    ) -> Result<PlayerPlayedCard, GameError> {
+        match self.players.get_mut(usize::from(id)) {
+            Some(player) if player.id == self.current_player => {
+                let current_assets = player.assets.len();
+                match player.play_card(card_idx)? {
+                    Either::Left(asset) => {
+                        let market = match self.check_new_market(current_assets) {
+                            true => Some(self.new_market()),
+                            false => None,
+                        };
+                        let used_card = Either::Left(asset.clone());
+                        Ok(PlayerPlayedCard { market, used_card })
+                    }
+                    Either::Right(liability) => {
+                        let market = None;
+                        let used_card = Either::Right(liability);
+                        Ok(PlayerPlayedCard { market, used_card })
+                    }
+                }
+            }
+            Some(_) => Err(GameError::NotPlayersTurn),
+            _ => Err(GameError::InvalidPlayerIndex(id.0)),
+        }
     }
 
     fn check_new_market(&self, player_assets: usize) -> bool {

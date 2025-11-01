@@ -375,7 +375,7 @@ impl Player {
     }
 
     pub fn can_draw_cards(&self) -> bool {
-        // TODO: add head rn ability
+        // TODO: add head rnd ability
         self.total_cards_drawn < 3
     }
 
@@ -737,7 +737,6 @@ pub enum GameState {
 }
 
 impl GameState {
-    // TODO: start in lobby
     pub fn new() -> Self {
         Self::default()
     }

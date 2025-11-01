@@ -5,19 +5,78 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     errors::*,
-    game::{Market, MarketCondition},
-    utility::serde_asset_liability,
+    game::{Market, MarketCondition}
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Player {
+#[derive(Debug, Clone)]
+pub struct SelectingCharactersPlayer {
     pub id: PlayerId,
     pub name: String,
     pub cash: u8,
     pub assets: Vec<Asset>,
     pub liabilities: Vec<Liability>,
     pub character: Option<Character>,
-    #[serde(with = "serde_asset_liability::vec")]
+    pub hand: Vec<Either<Asset, Liability>>,
+}
+
+impl SelectingCharactersPlayer {
+    pub fn new(
+        name: &str,
+        id: u8,
+        assets: [Asset; 2],
+        liabilities: [Liability; 2],
+        cash: u8,
+    ) -> SelectingCharactersPlayer {
+        let hand = assets
+            .into_iter()
+            .map(Either::Left)
+            .chain(liabilities.into_iter().map(Either::Right))
+            .collect();
+
+        SelectingCharactersPlayer {
+            id: PlayerId(id),
+            name: name.to_string(),
+            cash,
+            assets: vec![],
+            liabilities: vec![],
+            character: None,
+            hand,
+        }
+    }
+
+    pub fn info(&self) -> PlayerInfo {
+        self.into()
+    }
+
+    pub fn select_character(&mut self, character: Character) {
+        use Character::*;
+
+        self.character = Some(character);
+
+        // TODO: implement character abilities/stats
+        match character {
+            Shareholder => {}
+            Banker => {}
+            Regulator => {}
+            CEO => {}
+            CFO => {}
+            CSO => {}
+            HeadRnD => {}
+            Stakeholder => {}
+        }
+    }
+}
+
+
+
+#[derive(Debug, Clone)]
+pub struct RoundPlayer {
+    pub id: PlayerId,
+    pub name: String,
+    pub cash: u8,
+    pub assets: Vec<Asset>,
+    pub liabilities: Vec<Liability>,
+    pub character: Character,
     pub hand: Vec<Either<Asset, Liability>>,
     pub cards_drawn: Vec<usize>,
     pub assets_to_play: u8,
@@ -26,21 +85,226 @@ pub struct Player {
     pub total_cards_given_back: u8,
 }
 
-impl Player {
+impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
+    type Error = ();
+
+    fn try_from(player: SelectingCharactersPlayer) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: player.id,
+            name: player.name,
+            cash: player.cash,
+            assets: player.assets,
+            liabilities: player.liabilities,
+            character: player.character.ok_or(())?,
+            hand: player.hand,
+            // TODO: character abilities
+            cards_drawn: vec![],
+            assets_to_play: 1,
+            liabilities_to_play: 1,
+            total_cards_drawn: 0,
+            total_cards_given_back: 0,
+        })
+    }
+}
+
+impl RoundPlayer {
+    pub fn info(&self) -> PlayerInfo {
+        self.into()
+    }
+
+    fn update_cards_drawn(&mut self, card_idx: usize) {
+        self.cards_drawn = self
+            .cards_drawn
+            .iter()
+            .copied()
+            .filter(|&i| i != card_idx)
+            .collect();
+    }
+
+    fn can_play_asset(&self) -> bool {
+        self.assets_to_play > 0
+    }
+
+    fn can_play_liability(&self) -> bool {
+        self.liabilities_to_play > 0
+    }
+
+    /// Plays card in players hand with index `card_idx`. If that index is valid, the card is played
+    /// if
+    pub fn play_card(
+        &mut self,
+        card_idx: usize,
+    ) -> Result<Either<Asset, Liability>, PlayCardError> {
+        use PlayCardError::*;
+
+        if let Some(card) = self.hand.get(card_idx) {
+            match card {
+                Either::Left(a) if self.can_play_asset() && self.cash >= a.gold_value => {
+                    let asset = self.hand.remove(card_idx).left().unwrap();
+                    self.cash -= asset.gold_value;
+                    self.assets_to_play -= 1;
+                    self.assets.push(asset.clone());
+                    self.update_cards_drawn(card_idx);
+                    Ok(Either::Left(asset))
+                }
+                Either::Left(_) if !self.can_play_asset() => Err(ExceedsMaximumAssets),
+                Either::Left(a) if self.cash < a.gold_value => Err(CannotAffordAsset {
+                    cash: self.cash,
+                    cost: a.gold_value,
+                }),
+                Either::Right(_) if self.can_play_liability() => {
+                    let liability = self.hand.remove(card_idx).right().unwrap();
+                    self.cash += liability.value;
+                    self.liabilities_to_play -= 1;
+                    self.liabilities.push(liability.clone());
+                    self.update_cards_drawn(card_idx);
+                    Ok(Either::Right(liability))
+                }
+                Either::Right(_) if !self.can_play_liability() => Err(ExceedsMaximumLiabilities),
+                _ => unreachable!(),
+            }
+        } else {
+            Err(InvalidCardIndex(card_idx as u8))
+        }
+    }
+
+    pub fn draw_card(&mut self, card: Either<Asset, Liability>) {
+        self.total_cards_drawn += 1;
+        self.cards_drawn.push(self.hand.len());
+        self.hand.push(card);
+    }
+
+    pub fn give_back_card(
+        &mut self,
+        card_idx: usize,
+    ) -> Result<Either<Asset, Liability>, GiveBackCardError> {
+        self.total_cards_given_back += 1;
+
+        match self.hand.get(card_idx) {
+            Some(_) => {
+                self.update_cards_drawn(card_idx);
+                Ok(self.hand.remove(card_idx))
+            }
+            None => Err(GiveBackCardError::InvalidCardIndex(card_idx as u8)),
+        }
+    }
+
+    pub fn should_give_back_cards(&self) -> bool {
+        // TODO: add head rnd ability
+        self.total_cards_drawn - self.total_cards_given_back >= 3
+    }
+
+    pub fn can_draw_cards(&self) -> bool {
+        // TODO: add head rnd ability
+        self.total_cards_drawn < 3
+    }
+}
+
+impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
+    type Error = ();
+
+    fn try_from(player: SelectingCharactersPlayer) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: player.id,
+            name: player.name,
+            cash: player.cash,
+            assets: player.assets,
+            liabilities: player.liabilities,
+            character: player.character.ok_or(())?,
+            hand: player.hand,
+            // TODO: character abilities
+            cards_drawn: vec![],
+            assets_to_play: 1,
+            liabilities_to_play: 1,
+            total_cards_drawn: 0,
+            total_cards_given_back: 0,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ResultsPlayer {
+    pub id: PlayerId,
+    pub name: String,
+    pub cash: u8,
+    pub assets: Vec<Asset>,
+    pub liabilities: Vec<Liability>,
+    pub hand: Vec<Either<Asset, Liability>>,
+}
+
+impl ResultsPlayer {
+    pub fn info(&self) -> PlayerInfo {
+        self.into()
+    }
+
+    pub fn total_gold(&self) -> u8 {
+        self.assets.iter().map(|a| a.gold_value).sum()
+    }
+
+    pub fn total_silver(&self) -> u8 {
+        self.assets.iter().map(|a| a.silver_value).sum()
+    }
+
+    fn calc_loan(&self, rfr_type: LiabilityType) -> u8 {
+        self.liabilities
+            .iter()
+            .filter_map(|l| (l.rfr_type == rfr_type).then_some(l.value))
+            .sum()
+    }
+
+    pub fn trade_credit(&self) -> u8 {
+        self.calc_loan(LiabilityType::TradeCredit)
+    }
+
+    pub fn bank_loan(&self) -> u8 {
+        self.calc_loan(LiabilityType::BankLoan)
+    }
+
+    pub fn bonds(&self) -> u8 {
+        self.calc_loan(LiabilityType::Bonds)
+    }
+
+    pub fn color_value(&self, color: Color, market: &Market) -> f64 {
+        let market_condition = match color {
+            Color::Red => market.red,
+            Color::Green => market.green,
+            Color::Purple => market.purple,
+            Color::Yellow => market.yellow,
+            Color::Blue => market.blue,
+        };
+
+        let mul = match market_condition {
+            MarketCondition::Plus => 1.0,
+            MarketCondition::Minus => 0.0,
+            MarketCondition::Zero => -1.0,
+        };
+
+        self.assets
+            .iter()
+            .filter_map(|a| {
+                color
+                    .eq(&a.color)
+                    .then_some(a.gold_value as f64 + (a.silver_value as f64) * mul)
+            })
+            .sum()
+    }
+}
+
+impl PlayerState {
     pub fn new(
         name: &str,
         id: u8,
         assets: [Asset; 2],
         liabilities: [Liability; 2],
         cash: u8,
-    ) -> Player {
+    ) -> PlayerState {
         let hand = assets
             .into_iter()
             .map(Either::Left)
             .chain(liabilities.into_iter().map(Either::Right))
             .collect();
 
-        Player {
+        PlayerState {
             id: PlayerId(id),
             name: name.to_string(),
             cash,

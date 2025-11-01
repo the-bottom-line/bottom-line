@@ -651,9 +651,6 @@ pub trait TheBottomLine {
     /// Starts the game when the game is in lobby state and between 4 and 7 players are present
     fn start_game<P: AsRef<Path>>(&mut self, data_path: P) -> Result<(), GameError>;
 
-    /// Returns the ID of the player that's currently picking
-    fn currently_selecting_id(&self) -> Option<PlayerId>;
-
     /// Gets the character of the current turn.
     fn current_player(&self) -> Result<&Player, GameError>;
 
@@ -788,13 +785,6 @@ impl TheBottomLine for GameState {
                 Ok(())
             }
             _ => Err(GameError::NotLobbyState),
-        }
-    }
-
-    fn currently_selecting_id(&self) -> Option<PlayerId> {
-        match self {
-            Self::SelectingCharacters(s) => Some(s.currently_selecting_id()),
-            _ => Err(GameError::NotSelectingCharactersState).ok(),
         }
     }
 
@@ -1052,7 +1042,7 @@ impl SelectingCharacters {
             .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
     }
 
-    fn currently_selecting_id(&self) -> PlayerId {
+    pub fn currently_selecting_id(&self) -> PlayerId {
         (self.characters.applies_to_player() as u8).into()
     }
 

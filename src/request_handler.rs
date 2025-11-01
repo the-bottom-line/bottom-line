@@ -31,9 +31,13 @@ pub fn handle_internal_request(
         }
         InternalResponse::SelectedCharacter => {
             let player = state.player_by_name(player_name).unwrap();
-            let pickable_characters = state.player_get_selectable_characters(player.id).ok();
+            let currently_picking_id = match state {
+                GameState::SelectingCharacters(s) => Some(s.currently_selecting_id()),
+                GameState::Round(_) => None,
+                _ => unreachable!(),
+            };
 
-            let currently_picking_id = state.currently_selecting_id();
+            let pickable_characters = state.player_get_selectable_characters(player.id).ok();
 
             let selected = UniqueResponse::SelectedCharacter {
                 currently_picking_id,

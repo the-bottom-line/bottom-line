@@ -16,6 +16,8 @@ pub enum GameError {
     InvalidPlayerCount(u8),
     #[error("Player index {0} is invalid")]
     InvalidPlayerIndex(u8),
+    #[error("Player index {0} is invalid")]
+    InvalidPlayerName(String),
     #[error("Not player's turn")]
     NotPlayersTurn,
     #[error("Player should still give back at least one card")]
@@ -28,6 +30,10 @@ pub enum GameError {
     NotRoundState,
     #[error("Action only allowed in Results state")]
     NotResultsState,
+    #[error("Action unavailable in lobby state")]
+    NotAvailableInLobbyState,
+    #[error("Action unavailable in results state")]
+    NotAvailableInResultsState,
 }
 
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]

@@ -13,40 +13,45 @@ pub fn handle_internal_request(
         InternalResponse::GameStarted => {
             let player = state.player_by_name(player_name).unwrap();
             let pickable_characters = state.player_get_selectable_characters(player.id).ok();
+            let selecting = state.selecting_characters().unwrap();
             Some(vec![
                 UniqueResponse::StartGame {
                     id: player.id,
                     hand: player.hand.clone(),
                     cash: player.cash,
-                    open_characters: state.open_characters().to_vec(),
-                    player_info: state.player_info(player.id),
+                    open_characters: selecting.open_characters().to_vec(),
+                    player_info: selecting.player_info(player.id),
                 },
                 UniqueResponse::SelectingCharacters {
-                    chairman_id: state.selecting_characters().unwrap().chairman,
+                    chairman_id: selecting.chairman,
                     pickable_characters,
-                    turn_order: state.turn_order(),
+                    turn_order: selecting.turn_order(),
                 },
             ])
         }
         InternalResponse::SelectedCharacter => {
             let player = state.player_by_name(player_name).unwrap();
-            let pickable_characters = state.player_get_selectable_characters(player.id).ok();
+            let currently_picking_id = match state {
+                GameState::SelectingCharacters(s) => Some(s.currently_selecting_id()),
+                GameState::Round(_) => None,
+                _ => unreachable!(),
+            };
 
-            let currently_picking_id = state.currently_selecting_id();
+            let pickable_characters = state.player_get_selectable_characters(player.id).ok();
 
             let selected = UniqueResponse::SelectedCharacter {
                 currently_picking_id,
                 pickable_characters,
             };
 
-            if let Some(player) = state.current_player() {
-                // starting round
+            if let GameState::Round(round) = state {
+                // started round
                 Some(vec![
                     selected,
                     UniqueResponse::TurnStarts {
-                        player_turn: player.id,
+                        player_turn: round.current_player().id,
                         player_turn_cash: 1,
-                        player_character: player.character.unwrap(),
+                        player_character: round.current_player().character.unwrap(),
                         draws_n_cards: 3,
                         skipped_characters: vec![],
                     },
@@ -80,26 +85,33 @@ pub fn handle_internal_request(
             liability,
         }]),
         InternalResponse::TurnEnded { player_id } => {
-            if let Some(player) = state.current_player() {
-                Some(vec![
-                    UniqueResponse::TurnEnded { player_id },
-                    UniqueResponse::TurnStarts {
-                        player_turn: player.id,
-                        player_turn_cash: 1,
-                        player_character: player.character.unwrap(),
-                        draws_n_cards: 3,
-                        skipped_characters: vec![],
-                    },
-                ])
-            } else {
-                let player = state.player_by_name(player_name).unwrap();
-                let pickable_characters = state.player_get_selectable_characters(player.id).ok();
-                Some(vec![UniqueResponse::SelectingCharacters {
-                    chairman_id: state.selecting_characters().unwrap().chairman,
-                    pickable_characters,
-                    // player_info: state.player_info(player.id.into()),
-                    turn_order: state.turn_order(),
-                }])
+            match state {
+                GameState::Round(round) => {
+                    Some(vec![
+                        UniqueResponse::TurnEnded { player_id },
+                        UniqueResponse::TurnStarts {
+                            player_turn: round.current_player().id,
+                            player_turn_cash: 1,
+                            player_character: round.current_player().character.unwrap(),
+                            draws_n_cards: 3,
+                            // TODO: implement concept of skipped characters
+                            skipped_characters: vec![],
+                        },
+                    ])
+                }
+                GameState::SelectingCharacters(selecting) => {
+                    let player = state.player_by_name(player_name).unwrap();
+                    let pickable_characters =
+                        state.player_get_selectable_characters(player.id).ok();
+                    Some(vec![UniqueResponse::SelectingCharacters {
+                        chairman_id: selecting.chairman,
+                        pickable_characters,
+                        // player_info: state.player_info(player.id.into()),
+                        turn_order: selecting.turn_order(),
+                    }])
+                }
+                GameState::Results(_) => todo!(),
+                GameState::Lobby(_) => unreachable!(),
             }
         }
         InternalResponse::PlayerJoined { username } | InternalResponse::PlayerLeft { username } => {

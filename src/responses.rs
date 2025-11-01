@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::{game::*, game_errors::GameError, utility::serde_asset_liability};
+use crate::{errors::GameError, game::*, utility::serde_asset_liability};
 use either::Either;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;

@@ -665,7 +665,7 @@ pub trait TheBottomLine {
     fn next_player(&self) -> Option<&Player>;
 
     /// Get player based on player ID
-    fn player(&self, id: PlayerId) -> Option<&Player>;
+    fn player(&self, id: PlayerId) -> Result<&Player, GameError>;
 
     /// Gets a player object based on a given username
     fn player_by_name(&self, name: &str) -> Option<&Player>;
@@ -892,8 +892,8 @@ impl TheBottomLine for GameState {
 
         match selecting.currently_selecting_id() == id {
             true => match selecting.player(id) {
-                Some(_) => selecting.characters.peek().map_err(Into::into),
-                None => Err(GameError::InvalidPlayerIndex(id.0)),
+                Ok(_) => selecting.characters.peek().map_err(Into::into),
+                Err(e) => Err(e),
             },
             false => Err(GameError::NotPlayersTurn),
         }
@@ -903,17 +903,17 @@ impl TheBottomLine for GameState {
         match self {
             Self::SelectingCharacters(s) => Ok(s.open_characters()),
             Self::Round(r) => Ok(r.open_characters()),
-            _ => Err(GameError::NotRoundState),
+            GameState::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
+            GameState::Results(_) => Err(GameError::NotAvailableInResultsState),
         }
     }
 
-    fn player(&self, id: PlayerId) -> Option<&Player> {
-        // TODO: make result
+    fn player(&self, id: PlayerId) -> Result<&Player, GameError> {
         match self {
             Self::SelectingCharacters(s) => s.player(id),
             Self::Round(r) => r.player(id),
             Self::Results(r) => r.player(id),
-            Self::Lobby(_) => None,
+            Self::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
         }
     }
 
@@ -1054,7 +1054,7 @@ impl TheBottomLine for GameState {
         };
 
         match round.player(id) {
-            Some(current)
+            Ok(current)
                 if current.id == round.current_player && !current.should_give_back_cards() =>
             {
                 if let Some(player) = round.next_player() {
@@ -1092,8 +1092,8 @@ impl TheBottomLine for GameState {
                     Ok(TurnEnded::new(None))
                 }
             }
-            Some(_) => Err(GameError::NotPlayersTurn),
-            _ => Err(GameError::InvalidPlayerIndex(id.0)),
+            Ok(_) => Err(GameError::NotPlayersTurn),
+            Err(e) => Err(e),
         }
     }
 
@@ -1229,8 +1229,10 @@ pub struct SelectingCharacters {
 }
 
 impl SelectingCharacters {
-    fn player(&self, id: PlayerId) -> Option<&Player> {
-        self.players.get(usize::from(id))
+    fn player(&self, id: PlayerId) -> Result<&Player, GameError> {
+        self.players
+            .get(usize::from(id))
+            .ok_or(GameError::InvalidPlayerIndex(id.0))
     }
 
     fn currently_selecting_id(&self) -> PlayerId {
@@ -1260,7 +1262,7 @@ impl SelectingCharacters {
     pub fn open_characters(&self) -> &[Character] {
         self.characters.open_characters()
     }
-    
+
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
         self.players
             .iter()
@@ -1283,9 +1285,10 @@ pub struct Round {
 }
 
 impl Round {
-    fn player(&self, id: PlayerId) -> Option<&Player> {
-        // TODO: make result
-        self.players.get(usize::from(id))
+    fn player(&self, id: PlayerId) -> Result<&Player, GameError> {
+        self.players
+            .get(usize::from(id))
+            .ok_or(GameError::InvalidPlayerIndex(id.0))
     }
 
     fn player_from_character(&self, character: Character) -> Option<&Player> {
@@ -1308,7 +1311,7 @@ impl Round {
     pub fn open_characters(&self) -> &[Character] {
         &self.open_characters
     }
-    
+
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
         self.players
             .iter()
@@ -1326,12 +1329,13 @@ pub struct Results {
 }
 
 impl Results {
-    pub fn player(&self, id: PlayerId) -> Option<&Player> {
-        // TODO: make result
-        self.players.get(usize::from(id))
+    pub fn player(&self, id: PlayerId) -> Result<&Player, GameError> {
+        self.players
+            .get(usize::from(id))
+            .ok_or(GameError::InvalidPlayerIndex(id.0))
     }
 
-    pub fn score(&self, id: PlayerId) -> Option<f64> {
+    pub fn score(&self, id: PlayerId) -> Result<f64, GameError> {
         let player = self.player(id)?;
 
         let gold = player.total_gold() as f64;
@@ -1359,9 +1363,9 @@ impl Results {
 
         let score = (fcf / (10.0 * wacc)) + (debt / 3.0) + player.cash as f64;
 
-        Some(score)
+        Ok(score)
     }
-    
+
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
         self.players
             .iter()

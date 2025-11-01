@@ -28,6 +28,10 @@ pub enum GameError {
     NotRoundState,
     #[error("Action only allowed in Results state")]
     NotResultsState,
+    #[error("Action unavailable in lobby state")]
+    NotAvailableInLobbyState,
+    #[error("Action unavailable in results state")]
+    NotAvailableInResultsState,
 }
 
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]

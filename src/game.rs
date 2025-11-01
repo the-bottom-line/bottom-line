@@ -920,30 +920,9 @@ impl TheBottomLine for GameState {
         id: PlayerId,
         card_idx: usize,
     ) -> Result<CardType, GameError> {
-        let round = match self {
-            Self::Round(r) => r,
-            _ => return Err(GameError::NotRoundState),
-        };
-
-        match round.players.get_mut(usize::from(id)) {
-            Some(player) if player.id == round.current_player => {
-                if player.should_give_back_cards() {
-                    match player.give_back_card(card_idx)? {
-                        Either::Left(asset) => {
-                            round.assets.put_back(asset);
-                            Ok(CardType::Asset)
-                        }
-                        Either::Right(liability) => {
-                            round.liabilities.put_back(liability);
-                            Ok(CardType::Liability)
-                        }
-                    }
-                } else {
-                    Err(GiveBackCardError::Unnecessary.into())
-                }
-            }
-            Some(_) => Err(GameError::NotPlayersTurn),
-            _ => Err(GameError::InvalidPlayerIndex(id.0)),
+        match self {
+            Self::Round(r) => r.player_give_back_card(id, card_idx),
+            _ => Err(GameError::NotRoundState),
         }
     }
 
@@ -1298,6 +1277,33 @@ impl Round {
                     Ok(player.hand.last().unwrap().as_ref())
                 } else {
                     Err(DrawCardError::MaximumCardsDrawn(player.total_cards_drawn).into())
+                }
+            }
+            Some(_) => Err(GameError::NotPlayersTurn),
+            _ => Err(GameError::InvalidPlayerIndex(id.0)),
+        }
+    }
+
+    fn player_give_back_card(
+        &mut self,
+        id: PlayerId,
+        card_idx: usize,
+    ) -> Result<CardType, GameError> {
+        match self.players.get_mut(usize::from(id)) {
+            Some(player) if player.id == self.current_player => {
+                if player.should_give_back_cards() {
+                    match player.give_back_card(card_idx)? {
+                        Either::Left(asset) => {
+                            self.assets.put_back(asset);
+                            Ok(CardType::Asset)
+                        }
+                        Either::Right(liability) => {
+                            self.liabilities.put_back(liability);
+                            Ok(CardType::Liability)
+                        }
+                    }
+                } else {
+                    Err(GiveBackCardError::Unnecessary.into())
                 }
             }
             Some(_) => Err(GameError::NotPlayersTurn),

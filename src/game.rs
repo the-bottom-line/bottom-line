@@ -716,7 +716,7 @@ pub trait TheBottomLine {
     fn end_player_turn(&mut self, id: PlayerId) -> Result<TurnEnded, GameError>;
 
     /// Gets a list of players with publicly available information, besides the main player
-    fn player_info(&self, id: PlayerId) -> Option<Vec<PlayerInfo>>;
+    fn player_info(&self, id: PlayerId) -> Result<Vec<PlayerInfo>, GameError>;
 
     /// Gets a list of `PlayerId`s in the order of their respective turns.
     fn turn_order(&self) -> Result<Vec<PlayerId>, GameError>;
@@ -1098,12 +1098,12 @@ impl TheBottomLine for GameState {
         }
     }
 
-    fn player_info(&self, id: PlayerId) -> Option<Vec<PlayerInfo>> {
+    fn player_info(&self, id: PlayerId) -> Result<Vec<PlayerInfo>, GameError> {
         match self {
-            Self::SelectingCharacters(s) => Some(s.player_info(id)),
-            Self::Round(r) => Some(r.player_info(id)),
-            Self::Results(r) => Some(r.player_info(id)),
-            Self::Lobby(_) => None,
+            Self::SelectingCharacters(s) => Ok(s.player_info(id)),
+            Self::Round(r) => Ok(r.player_info(id)),
+            Self::Results(r) => Ok(r.player_info(id)),
+            Self::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
         }
     }
 

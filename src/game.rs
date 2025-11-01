@@ -909,26 +909,9 @@ impl TheBottomLine for GameState {
         id: PlayerId,
         card_type: CardType,
     ) -> Result<Either<&Asset, &Liability>, GameError> {
-        let round = match self {
-            Self::Round(r) => r,
-            _ => return Err(GameError::NotRoundState),
-        };
-
-        match round.players.get_mut(usize::from(id)) {
-            Some(player) if player.id == round.current_player => {
-                if player.can_draw_cards() {
-                    let card = match card_type {
-                        CardType::Asset => Either::Left(round.assets.draw()),
-                        CardType::Liability => Either::Right(round.liabilities.draw()),
-                    };
-                    player.draw_card(card);
-                    Ok(player.hand.last().unwrap().as_ref())
-                } else {
-                    Err(DrawCardError::MaximumCardsDrawn(player.total_cards_drawn).into())
-                }
-            }
-            Some(_) => Err(GameError::NotPlayersTurn),
-            _ => Err(GameError::InvalidPlayerIndex(id.0)),
+        match self {
+            Self::Round(r) => r.player_draw_card(id, card_type),
+            _ => Err(GameError::NotRoundState),
         }
     }
 
@@ -1292,6 +1275,29 @@ impl Round {
                         let used_card = Either::Right(liability);
                         Ok(PlayerPlayedCard { market, used_card })
                     }
+                }
+            }
+            Some(_) => Err(GameError::NotPlayersTurn),
+            _ => Err(GameError::InvalidPlayerIndex(id.0)),
+        }
+    }
+
+    fn player_draw_card(
+        &mut self,
+        id: PlayerId,
+        card_type: CardType,
+    ) -> Result<Either<&Asset, &Liability>, GameError> {
+        match self.players.get_mut(usize::from(id)) {
+            Some(player) if player.id == self.current_player => {
+                if player.can_draw_cards() {
+                    let card = match card_type {
+                        CardType::Asset => Either::Left(self.assets.draw()),
+                        CardType::Liability => Either::Right(self.liabilities.draw()),
+                    };
+                    player.draw_card(card);
+                    Ok(player.hand.last().unwrap().as_ref())
+                } else {
+                    Err(DrawCardError::MaximumCardsDrawn(player.total_cards_drawn).into())
                 }
             }
             Some(_) => Err(GameError::NotPlayersTurn),

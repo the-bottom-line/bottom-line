@@ -720,12 +720,6 @@ pub trait TheBottomLine {
 
     /// Gets a list of `PlayerId`s in the order of their respective turns.
     fn turn_order(&self) -> Result<Vec<PlayerId>, GameError>;
-
-    /// Checks if there should be a new market triggered
-    fn check_new_market(&self, player_assets: usize) -> bool;
-
-    /// Starts a new market. Automatically triggers if any player gets the first, second, third, fourth, fifth, seventh or eight asset. Loops through the deck and fetches events as they come.
-    fn new_market(&mut self) -> MarketChange;
 }
 
 #[derive(Debug, Clone)]
@@ -966,8 +960,8 @@ impl TheBottomLine for GameState {
                 let current_assets = player.assets.len();
                 match player.play_card(card_idx)? {
                     Either::Left(asset) => {
-                        let market = match self.check_new_market(current_assets) {
-                            true => Some(self.new_market()),
+                        let market = match round.check_new_market(current_assets) {
+                            true => Some(round.new_market()),
                             false => None,
                         };
                         let used_card = Either::Left(asset.clone());
@@ -1108,52 +1102,6 @@ impl TheBottomLine for GameState {
         match self {
             Self::SelectingCharacters(s) => Ok(s.turn_order()),
             _ => Err(GameError::NotSelectingCharactersState),
-        }
-    }
-
-    fn check_new_market(&self, player_assets: usize) -> bool {
-        match self {
-            Self::Round(r) => {
-                let max_asset_count = r
-                    .players
-                    .iter()
-                    .map(|player| player.assets.len())
-                    .max()
-                    .unwrap_or_default();
-
-                max_asset_count > player_assets
-            }
-            _ => false,
-        }
-    }
-
-    /// Starts a new market. Automatically triggers if any player gets the first, second, third, fourth, fifth, seventh or eight asset. Loops through the deck and fetches events as they come.
-    fn new_market(&mut self) -> MarketChange {
-        // TODO: make result
-        let round = match self {
-            Self::Round(r) => r,
-            // TODO: fix with Err(GameError::NotRoundState)
-            _ => {
-                return MarketChange {
-                    events: vec![],
-                    new_market: Market::default(),
-                };
-            }
-        };
-
-        let mut events = vec![];
-
-        loop {
-            match round.markets.draw() {
-                Either::Left(new_market) => {
-                    round.current_market = new_market.clone();
-                    break MarketChange { events, new_market };
-                }
-                Either::Right(event) => {
-                    round.current_events.push(event.clone());
-                    events.push(event);
-                }
-            }
         }
     }
 }
@@ -1330,6 +1278,35 @@ impl Round {
             .iter()
             .flat_map(|p| p.id.ne(&id).then_some(p.info()))
             .collect()
+    }
+
+    fn check_new_market(&self, player_assets: usize) -> bool {
+        let max_asset_count = self
+            .players
+            .iter()
+            .map(|player| player.assets.len())
+            .max()
+            .unwrap_or_default();
+
+        max_asset_count > player_assets
+    }
+
+    /// Starts a new market. Automatically triggers if any player gets the first, second, third, fourth, fifth, seventh or eight asset. Loops through the deck and fetches events as they come.
+    fn new_market(&mut self) -> MarketChange {
+        let mut events = vec![];
+
+        loop {
+            match self.markets.draw() {
+                Either::Left(new_market) => {
+                    self.current_market = new_market.clone();
+                    break MarketChange { events, new_market };
+                }
+                Either::Right(event) => {
+                    self.current_events.push(event.clone());
+                    events.push(event);
+                }
+            }
+        }
     }
 }
 

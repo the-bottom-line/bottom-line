@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{game::*, game_errors::GameError, responses::*, server::RoomState};
+use crate::{errors::GameError, game::*, responses::*, server::RoomState};
 use either::Either;
 
 pub fn handle_internal_request(

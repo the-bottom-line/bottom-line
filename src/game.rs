@@ -4,7 +4,7 @@ use either::Either;
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
-use crate::{cards::GameData, game_errors::*, utility::serde_asset_liability};
+use crate::{cards::GameData, errors::*, utility::serde_asset_liability};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PlayerId(u8);

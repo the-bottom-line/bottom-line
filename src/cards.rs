@@ -4,7 +4,7 @@ use either::Either;
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
-use crate::{errors::DataParseError, game::*};
+use crate::{errors::DataParseError, game::*, player::*};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct LoadedCards {

@@ -13,16 +13,17 @@ pub fn handle_internal_request(
         InternalResponse::GameStarted => {
             let player = state.player_by_name(player_name).unwrap();
             let pickable_characters = state.player_get_selectable_characters(player.id).ok();
+            let selecting = state.selecting_characters().unwrap();
             Some(vec![
                 UniqueResponse::StartGame {
                     id: player.id,
                     hand: player.hand.clone(),
                     cash: player.cash,
-                    open_characters: state.open_characters().to_vec(),
+                    open_characters: selecting.open_characters().to_vec(),
                     player_info: state.player_info(player.id),
                 },
                 UniqueResponse::SelectingCharacters {
-                    chairman_id: state.selecting_characters().unwrap().chairman,
+                    chairman_id: selecting.chairman,
                     pickable_characters,
                     turn_order: state.turn_order(),
                 },

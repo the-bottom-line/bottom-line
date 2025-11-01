@@ -688,7 +688,7 @@ pub trait TheBottomLine {
     ) -> Result<(), GameError>;
 
     /// Gets the list of open characters visible to everyone if there are any.
-    fn open_characters(&self) -> &[Character];
+    fn open_characters(&self) -> Result<&[Character], GameError>;
 
     /// Attempts to play a card (either an asset or liability) for player with `player_idx`. If
     /// playing this card triggers a market change, returns an object with a list of events and
@@ -900,11 +900,11 @@ impl TheBottomLine for GameState {
         }
     }
 
-    fn open_characters(&self) -> &[Character] {
-        // TODO: make result
+    fn open_characters(&self) -> Result<&[Character], GameError> {
         match self {
-            Self::Round(r) => &r.open_characters,
-            _ => &[],
+            Self::SelectingCharacters(s) => Ok(s.open_characters()),
+            Self::Round(r) => Ok(r.open_characters()),
+            _ => Err(GameError::NotRoundState),
         }
     }
 
@@ -1264,6 +1264,10 @@ impl SelectingCharacters {
             None => Err(GameError::InvalidPlayerIndex(id.0)),
         }
     }
+
+    pub fn open_characters(&self) -> &[Character] {
+        self.characters.open_characters()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -1300,6 +1304,10 @@ impl Round {
             .iter()
             .filter(|p| p.character > current_character)
             .min_by(|p1, p2| p1.character.cmp(&p2.character))
+    }
+
+    pub fn open_characters(&self) -> &[Character] {
+        &self.open_characters
     }
 }
 

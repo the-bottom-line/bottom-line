@@ -40,14 +40,14 @@ pub fn handle_internal_request(
                 pickable_characters,
             };
 
-            if let Some(player) = state.current_player() {
-                // starting round
+            if let GameState::Round(round) = state {
+                // started round
                 Some(vec![
                     selected,
                     UniqueResponse::TurnStarts {
-                        player_turn: player.id,
+                        player_turn: round.current_player().id,
                         player_turn_cash: 1,
-                        player_character: player.character.unwrap(),
+                        player_character: round.current_player().character.unwrap(),
                         draws_n_cards: 3,
                         skipped_characters: vec![],
                     },
@@ -81,14 +81,15 @@ pub fn handle_internal_request(
             liability,
         }]),
         InternalResponse::TurnEnded { player_id } => {
-            if let Some(player) = state.current_player() {
+            if let GameState::Round(round) = state {
                 Some(vec![
                     UniqueResponse::TurnEnded { player_id },
                     UniqueResponse::TurnStarts {
-                        player_turn: player.id,
+                        player_turn: round.current_player().id,
                         player_turn_cash: 1,
-                        player_character: player.character.unwrap(),
+                        player_character: round.current_player().character.unwrap(),
                         draws_n_cards: 3,
+                        // TODO: implement concept of skipped characters
                         skipped_characters: vec![],
                     },
                 ])

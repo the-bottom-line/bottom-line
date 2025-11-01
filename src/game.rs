@@ -659,7 +659,7 @@ pub trait TheBottomLine {
     fn is_selecting_characters(&self) -> bool;
 
     /// Gets the character of the current turn.
-    fn current_player(&self) -> Option<&Player>;
+    fn current_player(&self) -> Result<&Player, GameError>;
 
     /// Gets the character of the next turn
     fn next_player(&self) -> Option<&Player>;
@@ -918,11 +918,10 @@ impl TheBottomLine for GameState {
         }
     }
 
-    fn current_player(&self) -> Option<&Player> {
-        // TODO: make result
+    fn current_player(&self) -> Result<&Player, GameError> {
         match self {
-            Self::Round(r) => r.current_player(),
-            _ => None,
+            Self::Round(r) => Ok(r.current_player()),
+            _ => Err(GameError::NotRoundState),
         }
     }
 
@@ -1293,13 +1292,13 @@ impl Round {
         self.players.iter().find(|p| p.character == Some(character))
     }
 
-    fn current_player(&self) -> Option<&Player> {
-        // TODO: make result
+    pub fn current_player(&self) -> &Player {
         self.player(self.current_player)
+            .expect("self.current_player went out of bounds")
     }
 
     fn next_player(&self) -> Option<&Player> {
-        let current_character = self.current_player().and_then(|p| p.character);
+        let current_character = self.current_player().character;
         self.players
             .iter()
             .filter(|p| p.character > current_character)
@@ -1741,7 +1740,7 @@ mod tests {
                 );
 
                 assert!(!game.is_selecting_characters());
-                assert_some!(game.current_player());
+                assert_ok!(game.current_player());
                 assert_matches!(game, GameState::Round(_));
                 assert_ok!(game.round());
 

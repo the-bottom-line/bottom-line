@@ -63,3 +63,11 @@ pub enum SelectableCharactersError {
     #[error("Character is not availalble to pick")]
     UnavailableCharacter,
 }
+
+#[derive(Debug, Error)]
+pub enum DataParseError {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error(transparent)]
+    Serde(#[from] serde_json::Error),
+}

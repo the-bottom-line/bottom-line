@@ -816,37 +816,9 @@ impl TheBottomLine for GameState {
             _ => return Err(GameError::NotSelectingCharactersState),
         };
 
-        selecting.player_select_character(id, character)?;
-
-        // Start round when no more characters can be picked
-        if selecting.characters.peek().is_err() {
-            let current_player = selecting
-                .players
-                .iter()
-                .min_by(|p1, p2| p1.character.cmp(&p2.character))
-                .map(|p| p.id)
-                .unwrap();
-
-            let players = std::mem::take(&mut selecting.players);
-            let assets = std::mem::take(&mut selecting.assets);
-            let liabilities = std::mem::take(&mut selecting.liabilities);
-            let markets = std::mem::take(&mut selecting.markets);
-            let current_market = std::mem::take(&mut selecting.current_market);
-            let current_events = std::mem::take(&mut selecting.current_events);
-            let open_characters = selecting.characters.open_characters().to_vec();
-
-            *self = GameState::Round(Round {
-                current_player,
-                players,
-                assets,
-                liabilities,
-                markets,
-                chairman: selecting.chairman,
-                current_market,
-                current_events,
-                open_characters,
-            });
-        }
+        if let Some(state) = selecting.player_select_character(id, character)? {
+            *self = state;
+        };
 
         Ok(())
     }
@@ -1196,11 +1168,11 @@ impl SelectingCharacters {
         (self.characters.applies_to_player() as u8).into()
     }
 
-    pub fn player_select_character(
+    fn player_select_character(
         &mut self,
         id: PlayerId,
         character: Character,
-    ) -> Result<(), GameError> {
+    ) -> Result<Option<GameState>, GameError> {
         let currently_selecting_id = self.currently_selecting_id();
 
         match self.players.get_mut(usize::from(id)) {
@@ -1209,7 +1181,39 @@ impl SelectingCharacters {
 
                 p.select_character(character);
 
-                Ok(())
+                // Start round when no more characters can be picked
+                if self.characters.peek().is_err() {
+                    let current_player = self
+                        .players
+                        .iter()
+                        .min_by(|p1, p2| p1.character.cmp(&p2.character))
+                        .map(|p| p.id)
+                        .unwrap();
+
+                    let players = std::mem::take(&mut self.players);
+                    let assets = std::mem::take(&mut self.assets);
+                    let liabilities = std::mem::take(&mut self.liabilities);
+                    let markets = std::mem::take(&mut self.markets);
+                    let current_market = std::mem::take(&mut self.current_market);
+                    let current_events = std::mem::take(&mut self.current_events);
+                    let open_characters = self.characters.open_characters().to_vec();
+
+                    let state = GameState::Round(Round {
+                        current_player,
+                        players,
+                        assets,
+                        liabilities,
+                        markets,
+                        chairman: self.chairman,
+                        current_market,
+                        current_events,
+                        open_characters,
+                    });
+
+                    Ok(Some(state))
+                } else {
+                    Ok(None)
+                }
             }
             Some(_) => Err(GameError::NotPlayersTurn),
             None => Err(GameError::InvalidPlayerIndex(id.0)),

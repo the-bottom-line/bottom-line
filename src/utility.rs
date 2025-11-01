@@ -2,7 +2,7 @@ pub mod serde_asset_liability {
     use either::Either;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-    use crate::game::{Asset, Liability};
+    use crate::player::{Asset, Liability};
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(tag = "card_type")]

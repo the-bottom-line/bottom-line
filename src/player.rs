@@ -9,232 +9,6 @@ use crate::{
     utility::serde_asset_liability,
 };
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct PlayerId(pub u8);
-
-impl<I: Into<u8>> From<I> for PlayerId {
-    fn from(value: I) -> Self {
-        Self(value.into())
-    }
-}
-
-impl From<PlayerId> for usize {
-    fn from(value: PlayerId) -> Self {
-        value.0 as usize
-    }
-}
-
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum Color {
-    Red,
-    Green,
-    Purple,
-    Yellow,
-    Blue,
-}
-
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Character {
-    Shareholder,
-    Banker,
-    Regulator,
-    CEO,
-    CFO,
-    CSO,
-    HeadRnD,
-    Stakeholder,
-}
-
-impl Character {
-    pub const CHARACTERS: [Character; 8] = [
-        Self::Shareholder,
-        Self::Banker,
-        Self::Regulator,
-        Self::CEO,
-        Self::CFO,
-        Self::CSO,
-        Self::HeadRnD,
-        Self::Stakeholder,
-    ];
-
-    pub fn color(&self) -> Option<Color> {
-        use Color::*;
-
-        match self {
-            Self::Shareholder => None,
-            Self::Banker => None,
-            Self::Regulator => None,
-            Self::CEO => Some(Yellow),
-            Self::CFO => Some(Blue),
-            Self::CSO => Some(Green),
-            Self::HeadRnD => Some(Purple),
-            Self::Stakeholder => Some(Red),
-        }
-    }
-
-    pub fn next(&self) -> Option<Self> {
-        use Character::*;
-
-        match self {
-            Shareholder => Some(Banker),
-            Banker => Some(Regulator),
-            Regulator => Some(CEO),
-            CEO => Some(CFO),
-            CFO => Some(CSO),
-            CSO => Some(HeadRnD),
-            HeadRnD => Some(Stakeholder),
-            Stakeholder => None,
-        }
-    }
-
-    pub fn first(characters: &[Self]) -> Option<Self> {
-        characters.iter().max().copied()
-    }
-
-    pub fn playable_assets(&self) -> usize {
-        match self {
-            Self::CEO => 3,
-            _ => 1,
-        }
-    }
-
-    pub fn playable_liabilities(&self) -> usize {
-        match self {
-            Self::CFO => 3,
-            _ => 1,
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
-pub enum AssetPowerup {
-    #[serde(rename = "At the end of the game, for one color, turn - into 0 or 0 into +")]
-    MinusIntoPlus,
-    #[serde(rename = "At the end of the game, turn silver into gold on one asset card")]
-    SilverIntoGold,
-    #[serde(rename = "At the end of the game, count one of your assets as any color")]
-    CountAsAnyColor,
-}
-
-impl std::fmt::Display for AssetPowerup {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::MinusIntoPlus => write!(
-                f,
-                "At the end of the game, for one color, turn - into 0 or 0 into +"
-            ),
-            Self::SilverIntoGold => write!(
-                f,
-                "At the end of the game, turn silver into gold on one asset card"
-            ),
-            Self::CountAsAnyColor => write!(
-                f,
-                "At the end of the game, count one of your assets as any color"
-            ),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Asset {
-    pub title: String,
-    pub gold_value: u8,
-    pub silver_value: u8,
-    pub color: Color,
-    pub ability: Option<AssetPowerup>,
-    pub image_front_url: String,
-    pub image_back_url: Arc<String>,
-}
-
-impl std::fmt::Display for Asset {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}\ngold: {}\nsilver: {}\ncolor: {:?}",
-            self.title, self.gold_value, self.silver_value, self.color
-        )
-    }
-}
-
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum LiabilityType {
-    #[serde(rename = "Trade Credit")]
-    TradeCredit,
-    #[serde(rename = "Bank Loan")]
-    BankLoan,
-    Bonds,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Liability {
-    pub value: u8,
-    pub rfr_type: LiabilityType,
-    pub image_front_url: String,
-    pub image_back_url: Arc<String>,
-}
-
-impl Liability {
-    pub fn rfr_percentage(&self) -> u8 {
-        match self.rfr_type {
-            LiabilityType::TradeCredit => 1,
-            LiabilityType::BankLoan => 2,
-            LiabilityType::Bonds => 3,
-        }
-    }
-}
-
-impl std::fmt::Display for Liability {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let title = serde_json::to_string(&self.rfr_type).unwrap();
-        write!(
-            f,
-            "{title} - {}%\nvalue: {}\n",
-            self.rfr_percentage(),
-            self.value
-        )
-    }
-}
-
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum CardType {
-    Asset,
-    Liability,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PlayerInfo {
-    pub name: String,
-    pub id: PlayerId,
-    pub hand: Vec<CardType>,
-    pub assets: Vec<Asset>,
-    pub liabilities: Vec<Liability>,
-    pub cash: u8,
-    pub character: Option<Character>,
-}
-
-impl From<&Player> for PlayerInfo {
-    fn from(player: &Player) -> Self {
-        let hand = player
-            .hand
-            .iter()
-            .map(|e| match e {
-                Either::Left(_) => CardType::Asset,
-                Either::Right(_) => CardType::Liability,
-            })
-            .collect();
-
-        Self {
-            hand,
-            name: player.name.clone(),
-            assets: player.assets.clone(),
-            liabilities: player.liabilities.clone(),
-            id: player.id,
-            cash: player.cash,
-            character: player.character,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Player {
     pub id: PlayerId,
@@ -449,5 +223,231 @@ impl Player {
                     .then_some(a.gold_value as f64 + (a.silver_value as f64) * mul)
             })
             .sum()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Asset {
+    pub title: String,
+    pub gold_value: u8,
+    pub silver_value: u8,
+    pub color: Color,
+    pub ability: Option<AssetPowerup>,
+    pub image_front_url: String,
+    pub image_back_url: Arc<String>,
+}
+
+impl std::fmt::Display for Asset {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}\ngold: {}\nsilver: {}\ncolor: {:?}",
+            self.title, self.gold_value, self.silver_value, self.color
+        )
+    }
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub enum AssetPowerup {
+    #[serde(rename = "At the end of the game, for one color, turn - into 0 or 0 into +")]
+    MinusIntoPlus,
+    #[serde(rename = "At the end of the game, turn silver into gold on one asset card")]
+    SilverIntoGold,
+    #[serde(rename = "At the end of the game, count one of your assets as any color")]
+    CountAsAnyColor,
+}
+
+impl std::fmt::Display for AssetPowerup {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MinusIntoPlus => write!(
+                f,
+                "At the end of the game, for one color, turn - into 0 or 0 into +"
+            ),
+            Self::SilverIntoGold => write!(
+                f,
+                "At the end of the game, turn silver into gold on one asset card"
+            ),
+            Self::CountAsAnyColor => write!(
+                f,
+                "At the end of the game, count one of your assets as any color"
+            ),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Liability {
+    pub value: u8,
+    pub rfr_type: LiabilityType,
+    pub image_front_url: String,
+    pub image_back_url: Arc<String>,
+}
+
+impl Liability {
+    pub fn rfr_percentage(&self) -> u8 {
+        match self.rfr_type {
+            LiabilityType::TradeCredit => 1,
+            LiabilityType::BankLoan => 2,
+            LiabilityType::Bonds => 3,
+        }
+    }
+}
+
+impl std::fmt::Display for Liability {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let title = serde_json::to_string(&self.rfr_type).unwrap();
+        write!(
+            f,
+            "{title} - {}%\nvalue: {}\n",
+            self.rfr_percentage(),
+            self.value
+        )
+    }
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum LiabilityType {
+    #[serde(rename = "Trade Credit")]
+    TradeCredit,
+    #[serde(rename = "Bank Loan")]
+    BankLoan,
+    Bonds,
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum CardType {
+    Asset,
+    Liability,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlayerInfo {
+    pub name: String,
+    pub id: PlayerId,
+    pub hand: Vec<CardType>,
+    pub assets: Vec<Asset>,
+    pub liabilities: Vec<Liability>,
+    pub cash: u8,
+    pub character: Option<Character>,
+}
+
+impl From<&Player> for PlayerInfo {
+    fn from(player: &Player) -> Self {
+        let hand = player
+            .hand
+            .iter()
+            .map(|e| match e {
+                Either::Left(_) => CardType::Asset,
+                Either::Right(_) => CardType::Liability,
+            })
+            .collect();
+
+        Self {
+            hand,
+            name: player.name.clone(),
+            assets: player.assets.clone(),
+            liabilities: player.liabilities.clone(),
+            id: player.id,
+            cash: player.cash,
+            character: player.character,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum Color {
+    Red,
+    Green,
+    Purple,
+    Yellow,
+    Blue,
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Character {
+    Shareholder,
+    Banker,
+    Regulator,
+    CEO,
+    CFO,
+    CSO,
+    HeadRnD,
+    Stakeholder,
+}
+
+impl Character {
+    pub const CHARACTERS: [Character; 8] = [
+        Self::Shareholder,
+        Self::Banker,
+        Self::Regulator,
+        Self::CEO,
+        Self::CFO,
+        Self::CSO,
+        Self::HeadRnD,
+        Self::Stakeholder,
+    ];
+
+    pub fn color(&self) -> Option<Color> {
+        use Color::*;
+
+        match self {
+            Self::Shareholder => None,
+            Self::Banker => None,
+            Self::Regulator => None,
+            Self::CEO => Some(Yellow),
+            Self::CFO => Some(Blue),
+            Self::CSO => Some(Green),
+            Self::HeadRnD => Some(Purple),
+            Self::Stakeholder => Some(Red),
+        }
+    }
+
+    pub fn next(&self) -> Option<Self> {
+        use Character::*;
+
+        match self {
+            Shareholder => Some(Banker),
+            Banker => Some(Regulator),
+            Regulator => Some(CEO),
+            CEO => Some(CFO),
+            CFO => Some(CSO),
+            CSO => Some(HeadRnD),
+            HeadRnD => Some(Stakeholder),
+            Stakeholder => None,
+        }
+    }
+
+    pub fn first(characters: &[Self]) -> Option<Self> {
+        characters.iter().max().copied()
+    }
+
+    pub fn playable_assets(&self) -> usize {
+        match self {
+            Self::CEO => 3,
+            _ => 1,
+        }
+    }
+
+    pub fn playable_liabilities(&self) -> usize {
+        match self {
+            Self::CFO => 3,
+            _ => 1,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct PlayerId(pub u8);
+
+impl<I: Into<u8>> From<I> for PlayerId {
+    fn from(value: I) -> Self {
+        Self(value.into())
+    }
+}
+
+impl From<PlayerId> for usize {
+    fn from(value: PlayerId) -> Self {
+        value.0 as usize
     }
 }

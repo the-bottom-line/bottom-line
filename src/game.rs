@@ -654,10 +654,6 @@ pub trait TheBottomLine {
     /// Returns the ID of the player that's currently picking
     fn currently_selecting_id(&self) -> Option<PlayerId>;
 
-    /// Checks if the game is in a selecting characters phase, which happens before each round
-    /// starts.
-    fn is_selecting_characters(&self) -> bool;
-
     /// Gets the character of the current turn.
     fn current_player(&self) -> Result<&Player, GameError>;
 
@@ -800,10 +796,6 @@ impl TheBottomLine for GameState {
             Self::SelectingCharacters(s) => Some(s.currently_selecting_id()),
             _ => Err(GameError::NotSelectingCharactersState).ok(),
         }
-    }
-
-    fn is_selecting_characters(&self) -> bool {
-        matches!(self, Self::SelectingCharacters(_))
     }
 
     fn player_select_character(
@@ -1063,7 +1055,7 @@ impl SelectingCharacters {
     fn currently_selecting_id(&self) -> PlayerId {
         (self.characters.applies_to_player() as u8).into()
     }
-    
+
     fn player_get_selectable_characters(
         &self,
         id: PlayerId,
@@ -1800,7 +1792,6 @@ mod tests {
                     )
                 );
 
-                assert!(!game.is_selecting_characters());
                 assert_ok!(game.current_player());
                 assert_matches!(game, GameState::Round(_));
                 assert_ok!(game.round());

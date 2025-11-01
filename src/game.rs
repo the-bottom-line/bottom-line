@@ -668,7 +668,7 @@ pub trait TheBottomLine {
     fn player(&self, id: PlayerId) -> Result<&Player, GameError>;
 
     /// Gets a player object based on a given username
-    fn player_by_name(&self, name: &str) -> Option<&Player>;
+    fn player_by_name(&self, name: &str) -> Result<&Player, GameError>;
 
     /// Gets player if one exists with specified character
     fn player_from_character(&self, character: Character) -> Option<&Player>;
@@ -931,16 +931,13 @@ impl TheBottomLine for GameState {
         }
     }
 
-    fn player_by_name(&self, name: &str) -> Option<&Player> {
-        // TODO: Implement for all subclasses
-        let players = match self {
-            Self::SelectingCharacters(s) => &s.players,
-            Self::Round(r) => &r.players,
-            Self::Results(r) => &r.players,
-            Self::Lobby(_) => return None,
-        };
-
-        players.iter().find(|p| p.name == name)
+    fn player_by_name(&self, name: &str) -> Result<&Player, GameError> {
+        match self {
+            Self::SelectingCharacters(s) => s.player_by_name(name),
+            Self::Round(r) => r.player_by_name(name),
+            Self::Results(r) => r.player_by_name(name),
+            Self::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
+        }
     }
 
     fn player_from_character(&self, character: Character) -> Option<&Player> {
@@ -1231,6 +1228,13 @@ impl SelectingCharacters {
             .ok_or(GameError::InvalidPlayerIndex(id.0))
     }
 
+    pub fn player_by_name(&self, name: &str) -> Result<&Player, GameError> {
+        self.players
+            .iter()
+            .find(|p| p.name == name)
+            .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
+    }
+
     fn currently_selecting_id(&self) -> PlayerId {
         (self.characters.applies_to_player() as u8).into()
     }
@@ -1297,6 +1301,13 @@ impl Round {
         self.players.iter().find(|p| p.character == Some(character))
     }
 
+    pub fn player_by_name(&self, name: &str) -> Result<&Player, GameError> {
+        self.players
+            .iter()
+            .find(|p| p.name == name)
+            .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
+    }
+
     pub fn current_player(&self) -> &Player {
         self.player(self.current_player)
             .expect("self.current_player went out of bounds")
@@ -1335,6 +1346,13 @@ impl Results {
         self.players
             .get(usize::from(id))
             .ok_or(GameError::InvalidPlayerIndex(id.0))
+    }
+
+    pub fn player_by_name(&self, name: &str) -> Result<&Player, GameError> {
+        self.players
+            .iter()
+            .find(|p| p.name == name)
+            .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
     }
 
     pub fn score(&self, id: PlayerId) -> Result<f64, GameError> {

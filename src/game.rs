@@ -827,17 +827,9 @@ impl TheBottomLine for GameState {
         &self,
         id: PlayerId,
     ) -> Result<PickableCharacters, GameError> {
-        let selecting = match self {
-            Self::SelectingCharacters(s) => s,
-            _ => return Err(GameError::NotSelectingCharactersState),
-        };
-
-        match selecting.currently_selecting_id() == id {
-            true => match selecting.player(id) {
-                Ok(_) => selecting.characters.peek().map_err(Into::into),
-                Err(e) => Err(e),
-            },
-            false => Err(GameError::NotPlayersTurn),
+        match self {
+            Self::SelectingCharacters(s) => s.player_get_selectable_characters(id),
+            _ => Err(GameError::NotSelectingCharactersState),
         }
     }
 
@@ -1070,6 +1062,19 @@ impl SelectingCharacters {
 
     fn currently_selecting_id(&self) -> PlayerId {
         (self.characters.applies_to_player() as u8).into()
+    }
+    
+    fn player_get_selectable_characters(
+        &self,
+        id: PlayerId,
+    ) -> Result<PickableCharacters, GameError> {
+        match self.currently_selecting_id() == id {
+            true => match self.player(id) {
+                Ok(_) => self.characters.peek().map_err(Into::into),
+                Err(e) => Err(e),
+            },
+            false => Err(GameError::NotPlayersTurn),
+        }
     }
 
     fn player_select_character(

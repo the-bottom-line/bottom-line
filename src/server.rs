@@ -1,9 +1,4 @@
-use crate::{
-    game::GameState,
-    request_handler::{handle_internal_request, handle_request},
-    responses::*,
-    rooms::RoomState,
-};
+use crate::{game::GameState, request_handler::handle_request, responses::*, rooms::RoomState};
 
 use axum::{
     Json, Router,
@@ -157,7 +152,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 match rx.recv().await {
                     Ok(Json(json)) => {
                         tracing::debug!("public recv: {json:?}");
-                        if let Some(external) = handle_internal_request(json, room.clone(), &name) {
+                        if let Some(external) = room.handle_internal_request(json, &name) {
                             for e in external {
                                 // tracing::debug!("unique send: {e:?}");
                                 if send_external(e, sender.clone()).await.is_err() {
@@ -188,8 +183,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     Message::Text(text) => {
                         if let Ok(json) = serde_json::from_str::<ReceiveData>(&text) {
                             tracing::debug!("incoming json: {json:?}");
-                            let Response(public, external) =
-                                handle_request(json, room.clone(), &name);
+                            let Response(public, external) = handle_request(json, &room, &name);
 
                             tracing::debug!("public send: {public:?}");
                             tracing::debug!("direct response: {external:?}");

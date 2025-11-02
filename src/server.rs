@@ -1,8 +1,4 @@
-use crate::{
-    game::GameState,
-    request_handler::{handle_internal_request, handle_request},
-    responses::{Connect, DirectResponse, InternalResponse, ReceiveData, Response, ResponseError},
-};
+use crate::{game::GameState, responses::*, rooms::RoomState};
 
 use axum::{
     Json, Router,
@@ -29,23 +25,6 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 pub struct AppState {
     /// Keys are the name of the channel
     rooms: Mutex<HashMap<String, Arc<RoomState>>>,
-}
-
-pub struct RoomState {
-    /// Previously created in main.
-    tx: broadcast::Sender<Json<InternalResponse>>,
-    pub game: Mutex<GameState>,
-}
-
-impl RoomState {
-    fn new() -> Self {
-        Self {
-            // Create a new channel for every room
-            tx: broadcast::channel(100).0,
-            // Track usernames per room rather than globally.
-            game: Mutex::new(GameState::new()),
-        }
-    }
 }
 
 async fn websocket_handler(
@@ -126,6 +105,14 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                         && lobby.join(connect_username.to_owned())
                     {
                         username = connect_username.clone();
+                    } else {
+                        // TODO: Idk if this sends because I don't .await but also I get an error
+                        // because it stops being sync? idk wtf is going on here
+                        let _ = send_external(
+                            DirectResponse::Error(ResponseError::GameAlreadyStarted),
+                            sender.clone(),
+                        );
+                        return;
                     }
                     break;
                 } else {
@@ -173,12 +160,10 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 match rx.recv().await {
                     Ok(Json(json)) => {
                         tracing::debug!("public recv: {json:?}");
-                        if let Some(external) = handle_internal_request(json, room.clone(), &name) {
-                            for e in external {
-                                // tracing::debug!("unique send: {e:?}");
-                                if send_external(e, sender.clone()).await.is_err() {
-                                    break 'outer;
-                                }
+                        for e in room.handle_internal_request(json, &name) {
+                            // tracing::debug!("unique send: {e:?}");
+                            if send_external(e, sender.clone()).await.is_err() {
+                                break 'outer;
                             }
                         }
                     }
@@ -204,18 +189,21 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     Message::Text(text) => {
                         if let Ok(json) = serde_json::from_str::<ReceiveData>(&text) {
                             tracing::debug!("incoming json: {json:?}");
-                            let Response(public, external) =
-                                handle_request(json, room.clone(), &name);
 
-                            tracing::debug!("public send: {public:?}");
-                            tracing::debug!("direct response: {external:?}");
+                            let direct = match room.handle_request(json, &name) {
+                                Ok(Response(internal, direct)) => {
+                                    tracing::debug!("internal send: {internal:?}");
 
-                            if let Some(public) = public {
-                                let _ = tx.send(public.into());
+                                    let _ = tx.send(Json(internal));
 
-                                if send_external(external, sender.clone()).await.is_err() {
-                                    break;
+                                    direct
                                 }
+                                Err(e) => e.into(),
+                            };
+                            tracing::debug!("direct response: {direct:?}");
+
+                            if send_external(direct, sender.clone()).await.is_err() {
+                                break;
                             }
                         }
                     }

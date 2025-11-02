@@ -603,7 +603,7 @@ impl SelectingCharacters {
         (self.characters.applies_to_player() as u8).into()
     }
 
-    fn player_get_selectable_characters(
+    pub fn player_get_selectable_characters(
         &self,
         id: PlayerId,
     ) -> Result<PickableCharacters, GameError> {

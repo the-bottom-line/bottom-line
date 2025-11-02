@@ -4,5 +4,6 @@ pub mod game;
 pub mod player;
 pub mod request_handler;
 pub mod responses;
+pub mod rooms;
 pub mod server;
 pub mod utility;

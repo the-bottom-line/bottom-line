@@ -105,6 +105,14 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                         && lobby.join(connect_username.to_owned())
                     {
                         username = connect_username.clone();
+                    } else {
+                        // TODO: Idk if this sends because I don't .await but also I get an error
+                        // because it stops being sync? idk wtf is going on here
+                        let _ = send_external(
+                            DirectResponse::Error(ResponseError::GameAlreadyStarted),
+                            sender.clone(),
+                        );
+                        return;
                     }
                     break;
                 } else {

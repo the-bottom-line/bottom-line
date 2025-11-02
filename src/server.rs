@@ -1,7 +1,8 @@
 use crate::{
     game::GameState,
     request_handler::{handle_internal_request, handle_request},
-    responses::{Connect, DirectResponse, InternalResponse, ReceiveData, Response, ResponseError},
+    responses::*,
+    rooms::RoomState,
 };
 
 use axum::{
@@ -29,23 +30,6 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 pub struct AppState {
     /// Keys are the name of the channel
     rooms: Mutex<HashMap<String, Arc<RoomState>>>,
-}
-
-pub struct RoomState {
-    /// Previously created in main.
-    tx: broadcast::Sender<Json<InternalResponse>>,
-    pub game: Mutex<GameState>,
-}
-
-impl RoomState {
-    fn new() -> Self {
-        Self {
-            // Create a new channel for every room
-            tx: broadcast::channel(100).0,
-            // Track usernames per room rather than globally.
-            game: Mutex::new(GameState::new()),
-        }
-    }
 }
 
 async fn websocket_handler(

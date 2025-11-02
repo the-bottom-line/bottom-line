@@ -181,17 +181,21 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     Message::Text(text) => {
                         if let Ok(json) = serde_json::from_str::<ReceiveData>(&text) {
                             tracing::debug!("incoming json: {json:?}");
-                            let Response(public, external) = room.handle_request(json, &name);
 
-                            tracing::debug!("public send: {public:?}");
-                            tracing::debug!("direct response: {external:?}");
+                            let direct = match room.handle_request(json, &name) {
+                                Ok(Response(internal, direct)) => {
+                                    tracing::debug!("internal send: {internal:?}");
 
-                            if let Some(public) = public {
-                                let _ = tx.send(public.into());
+                                    let _ = tx.send(Json(internal));
 
-                                if send_external(external, sender.clone()).await.is_err() {
-                                    break;
+                                    direct
                                 }
+                                Err(e) => e.into(),
+                            };
+                            tracing::debug!("direct response: {direct:?}");
+
+                            if send_external(direct, sender.clone()).await.is_err() {
+                                break;
                             }
                         }
                     }

@@ -126,17 +126,17 @@ pub mod internal {
 pub mod external {
     use either::Either;
 
-    use crate::{game::*, player::*, responses::*};
+    use crate::{errors::GameError, game::*, player::*, responses::*};
 
-    pub fn draw_card(state: &mut GameState, card_type: CardType, player_id: PlayerId) -> Response {
-        let card = match state.player_draw_card(player_id, card_type) {
-            Ok(card) => card.cloned(),
-            Err(e) => return e.into(),
-        };
+    pub fn draw_card(
+        state: &mut GameState,
+        card_type: CardType,
+        player_id: PlayerId,
+    ) -> Result<Response, GameError> {
+        let card = state.player_draw_card(player_id, card_type)?.cloned();
+        let player = state.player(player_id)?;
 
-        let player = state.player(player_id).unwrap();
-
-        Response::new(
+        Ok(Response(
             InternalResponse::DrawnCard {
                 player_id,
                 card_type,
@@ -146,18 +146,18 @@ pub mod external {
                 can_draw_cards: player.can_draw_cards(),
                 can_give_back_cards: player.should_give_back_cards(),
             },
-        )
+        ))
     }
 
-    pub fn put_back_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) -> Response {
-        let card_type = match state.player_give_back_card(player_id, card_idx) {
-            Ok(card_type) => card_type,
-            Err(e) => return e.into(),
-        };
+    pub fn put_back_card(
+        state: &mut GameState,
+        card_idx: usize,
+        player_id: PlayerId,
+    ) -> Result<Response, GameError> {
+        let card_type = state.player_give_back_card(player_id, card_idx)?;
+        let player = state.player(player_id)?;
 
-        let player = state.player(player_id).unwrap();
-
-        Response::new(
+        Ok(Response(
             InternalResponse::PutBackCard {
                 player_id,
                 card_type,
@@ -167,28 +167,31 @@ pub mod external {
                 can_draw_cards: player.can_draw_cards(),
                 can_give_back_cards: player.should_give_back_cards(),
             },
-        )
+        ))
     }
 
-    pub fn play_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) -> Response {
-        match state.player_play_card(player_id, card_idx) {
-            Ok(played_card) => match played_card.used_card {
-                Either::Left(asset) => Response::new(
-                    InternalResponse::BoughtAsset {
-                        player_id,
-                        asset: asset.clone(),
-                    },
-                    DirectResponse::YouBoughtAsset { asset },
-                ),
-                Either::Right(liability) => Response::new(
-                    InternalResponse::IssuedLiability {
-                        player_id,
-                        liability: liability.clone(),
-                    },
-                    DirectResponse::YouIssuedLiability { liability },
-                ),
-            },
-            Err(e) => e.into(),
+    pub fn play_card(
+        state: &mut GameState,
+        card_idx: usize,
+        player_id: PlayerId,
+    ) -> Result<Response, GameError> {
+        let played_card = state.player_play_card(player_id, card_idx)?;
+
+        match played_card.used_card {
+            Either::Left(asset) => Ok(Response(
+                InternalResponse::BoughtAsset {
+                    player_id,
+                    asset: asset.clone(),
+                },
+                DirectResponse::YouBoughtAsset { asset },
+            )),
+            Either::Right(liability) => Ok(Response(
+                InternalResponse::IssuedLiability {
+                    player_id,
+                    liability: liability.clone(),
+                },
+                DirectResponse::YouIssuedLiability { liability },
+            )),
         }
     }
 
@@ -196,33 +199,32 @@ pub mod external {
         state: &mut GameState,
         player_id: PlayerId,
         character: Character,
-    ) -> Response {
+    ) -> Result<Response, GameError> {
         match state.player_select_character(player_id, character) {
-            Ok(_) => Response::new(
+            Ok(_) => Ok(Response(
                 InternalResponse::SelectedCharacter,
                 DirectResponse::YouSelectedCharacter { character },
-            ),
-            Err(e) => e.into(),
+            )),
+            Err(e) => Err(e),
         }
     }
 
-    pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Response {
-        match state.end_player_turn(player_id) {
-            Ok(TurnEnded {
+    pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, GameError> {
+        match state.end_player_turn(player_id)? {
+            TurnEnded {
                 next_player: Some(player_id),
-            }) => Response(
-                Some(InternalResponse::TurnEnded { player_id }),
+            } => Ok(Response(
+                InternalResponse::TurnEnded { player_id },
                 DirectResponse::YouEndedTurn,
-            ),
-            Ok(_) => {
+            )),
+            _ => {
                 // if next_player is none // TODO: Fix for end of round
                 let player_id = state.selecting_characters().unwrap().chairman;
-                Response(
-                    Some(InternalResponse::TurnEnded { player_id }),
+                Ok(Response(
+                    InternalResponse::TurnEnded { player_id },
                     DirectResponse::YouEndedTurn,
-                )
+                ))
             }
-            Err(e) => e.into(),
         }
     }
 }

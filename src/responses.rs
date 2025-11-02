@@ -24,23 +24,11 @@ pub enum ReceiveData {
 }
 
 #[derive(Debug)]
-pub struct Response(pub Option<InternalResponse>, pub DirectResponse);
+pub struct Response(pub InternalResponse, pub DirectResponse);
 
-impl Response {
-    pub fn new(internal: InternalResponse, external: DirectResponse) -> Self {
-        Self(Some(internal), external)
-    }
-}
-
-impl From<DirectResponse> for Response {
-    fn from(external: DirectResponse) -> Self {
-        Self(None, external)
-    }
-}
-
-impl From<GameError> for Response {
+impl From<GameError> for DirectResponse {
     fn from(error: GameError) -> Self {
-        Self(None, DirectResponse::Error(error.into()))
+        DirectResponse::Error(error.into())
     }
 }
 
@@ -174,10 +162,4 @@ pub enum ResponseError {
     InvalidUsername,
     #[error("Data is not valid for this state")]
     InvalidData,
-}
-
-impl<I: Into<ResponseError>> From<I> for DirectResponse {
-    fn from(error: I) -> Self {
-        DirectResponse::Error(error.into())
-    }
 }

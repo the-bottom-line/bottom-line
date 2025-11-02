@@ -26,68 +26,49 @@ impl RoomState {
         }
     }
 
-    pub fn handle_request(&self, msg: ReceiveData, player_name: &str) -> Response {
+    pub fn handle_request(
+        &self,
+        msg: ReceiveData,
+        player_name: &str,
+    ) -> Result<Response, GameError> {
         let state = &mut *self.game.lock().unwrap();
 
         match msg {
             ReceiveData::StartGame => match state {
-                GameState::Lobby(_) => match state.start_game("assets/cards/boardgame.json") {
-                    Ok(_) => {
-                        tracing::debug!("{msg:?}");
-                        Response(
-                            Some(InternalResponse::GameStarted),
-                            DirectResponse::YouStartedGame,
-                        )
-                    }
-                    Err(e) => {
-                        tracing::error!("Failed to start game: {}", e);
-                        e.into()
-                    }
-                },
-                _ => GameError::NotLobbyState.into(),
-            },
-            ReceiveData::SelectCharacter { character } => match state {
-                GameState::SelectingCharacters(_) => {
-                    let player_id = state.player_by_name(player_name).unwrap().id;
-                    external::select_character(state, player_id, character)
+                GameState::Lobby(_) => {
+                    state.start_game("assets/cards/boardgame.json")?;
+                    tracing::debug!("{msg:?}");
+                    Ok(Response(
+                        InternalResponse::GameStarted,
+                        DirectResponse::YouStartedGame,
+                    ))
                 }
-                _ => GameError::NotSelectingCharactersState.into(),
+                _ => Err(GameError::NotLobbyState),
             },
-            ReceiveData::DrawCard { card_type } => match state {
-                GameState::Round(_) => {
-                    let player_id = state.player_by_name(player_name).unwrap().id;
-                    external::draw_card(state, card_type, player_id)
-                }
-                _ => GameError::NotRoundState.into(),
-            },
-            ReceiveData::PutBackCard { card_idx } => match state {
-                GameState::Round(_) => {
-                    let player_id = state.player_by_name(player_name).unwrap().id;
-                    external::put_back_card(state, card_idx, player_id)
-                }
-                _ => GameError::NotRoundState.into(),
-            },
-            ReceiveData::BuyAsset { card_idx } => match state {
-                GameState::Round(_) => {
-                    let player_id = state.player_by_name(player_name).unwrap().id;
-                    external::play_card(state, card_idx, player_id)
-                }
-                _ => GameError::NotRoundState.into(),
-            },
-            ReceiveData::IssueLiability { card_idx } => match state {
-                GameState::Round(_) => {
-                    let player_id = state.player_by_name(player_name).unwrap().id;
-                    external::play_card(state, card_idx, player_id)
-                }
-                _ => GameError::NotRoundState.into(),
-            },
-            ReceiveData::EndTurn => match state {
-                GameState::Round(_) => {
-                    let player_id = state.player_by_name(player_name).unwrap().id;
-                    external::end_turn(state, player_id)
-                }
-                _ => GameError::NotRoundState.into(),
-            },
+            ReceiveData::SelectCharacter { character } => {
+                let player_id = state.player_by_name(player_name)?.id;
+                external::select_character(state, player_id, character)
+            }
+            ReceiveData::DrawCard { card_type } => {
+                let player_id = state.player_by_name(player_name)?.id;
+                external::draw_card(state, card_type, player_id)
+            }
+            ReceiveData::PutBackCard { card_idx } => {
+                let player_id = state.player_by_name(player_name)?.id;
+                external::put_back_card(state, card_idx, player_id)
+            }
+            ReceiveData::BuyAsset { card_idx } => {
+                let player_id = state.player_by_name(player_name)?.id;
+                external::play_card(state, card_idx, player_id)
+            }
+            ReceiveData::IssueLiability { card_idx } => {
+                let player_id = state.player_by_name(player_name)?.id;
+                external::play_card(state, card_idx, player_id)
+            }
+            ReceiveData::EndTurn => {
+                let player_id = state.player_by_name(player_name)?.id;
+                external::end_turn(state, player_id)
+            }
         }
     }
 

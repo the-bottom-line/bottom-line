@@ -4,9 +4,7 @@ use either::Either;
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
-use crate::game::{
-    Asset, AssetPowerup, Color, Deck, Event, Liability, LiabilityType, Market, MarketCondition,
-};
+use crate::{errors::DataParseError, game::*, player::*};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct LoadedCards {
@@ -93,7 +91,7 @@ pub struct GameData {
 }
 
 impl GameData {
-    pub fn new<P: AsRef<Path>>(cards_json_path: P) -> anyhow::Result<Self> {
+    pub fn new<P: AsRef<Path>>(cards_json_path: P) -> Result<GameData, DataParseError> {
         let json = read_to_string(cards_json_path)?;
 
         let cards = serde_json::from_str::<LoadedCards>(&json)?;

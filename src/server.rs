@@ -1,8 +1,4 @@
-use crate::{
-    game::GameState,
-    request_handler::{handle_internal_request, handle_request},
-    responses::{DirectResponse, InternalResponse, ReceiveData, Response, ResponseError},
-};
+use crate::{game::GameState, responses::*, rooms::RoomState};
 
 use axum::{
     Json, Router,
@@ -19,41 +15,16 @@ use futures_util::{
 };
 use serde::Serialize;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     sync::{Arc, Mutex}, // std Mutex used only for the username set
 };
 use tokio::sync::{Mutex as TokioMutex, broadcast}; // async mutex for shared sink
 
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-#[allow(clippy::large_enum_variant)]
-pub enum Game {
-    InLobby { user_set: HashSet<String> },
-    GameStarted { state: GameState },
-}
-
 pub struct AppState {
     /// Keys are the name of the channel
     rooms: Mutex<HashMap<String, Arc<RoomState>>>,
-}
-
-pub struct RoomState {
-    /// Previously created in main.
-    tx: broadcast::Sender<Json<InternalResponse>>,
-    pub game: Mutex<Game>,
-}
-
-impl RoomState {
-    fn new() -> Self {
-        Self {
-            // Create a new channel for every room
-            tx: broadcast::channel(100).0,
-            // Track usernames per room rather than globally.
-            game: Mutex::new(Game::InLobby {
-                user_set: HashSet::new(),
-            }),
-        }
-    }
 }
 
 async fn websocket_handler(
@@ -108,17 +79,9 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
         match message {
             Message::Text(text) => {
                 let (connect_username, connect_channel) = match serde_json::from_str(&text) {
-                    Ok(ReceiveData::Connect { username, channel }) => (username, channel),
+                    Ok(Connect::Connect { username, channel }) => (username, channel),
                     Err(error) => {
                         tracing::error!(%error);
-                        let _ = send_external(
-                            DirectResponse::Error(ResponseError::UsernameAlreadyTaken),
-                            sender.clone(),
-                        )
-                        .await;
-                        break;
-                    }
-                    _ => {
                         let _ = send_external(
                             DirectResponse::Error(ResponseError::InvalidData),
                             sender.clone(),
@@ -138,13 +101,19 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                         .or_insert_with(|| Arc::new(RoomState::new()));
 
                     if let Ok(mut mutex) = room.game.lock()
-                        && let Game::InLobby { user_set } = &mut *mutex
-                        && !user_set.contains(&connect_username)
+                        && let GameState::Lobby(lobby) = &mut *mutex
+                        && lobby.join(connect_username.to_owned())
                     {
-                        user_set.insert(connect_username.to_owned());
                         username = connect_username.clone();
+                    } else {
+                        // TODO: Idk if this sends because I don't .await but also I get an error
+                        // because it stops being sync? idk wtf is going on here
+                        let _ = send_external(
+                            DirectResponse::Error(ResponseError::GameAlreadyStarted),
+                            sender.clone(),
+                        );
+                        return;
                     }
-
                     break;
                 } else {
                     // Only send our client that username is taken.
@@ -191,12 +160,10 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 match rx.recv().await {
                     Ok(Json(json)) => {
                         tracing::debug!("public recv: {json:?}");
-                        if let Some(external) = handle_internal_request(json, room.clone(), &name) {
-                            for e in external {
-                                // tracing::debug!("unique send: {e:?}");
-                                if send_external(e, sender.clone()).await.is_err() {
-                                    break 'outer;
-                                }
+                        for e in room.handle_internal_request(json, &name) {
+                            // tracing::debug!("unique send: {e:?}");
+                            if send_external(e, sender.clone()).await.is_err() {
+                                break 'outer;
                             }
                         }
                     }
@@ -222,18 +189,21 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     Message::Text(text) => {
                         if let Ok(json) = serde_json::from_str::<ReceiveData>(&text) {
                             tracing::debug!("incoming json: {json:?}");
-                            let Response(public, external) =
-                                handle_request(json, room.clone(), &name);
 
-                            tracing::debug!("public send: {public:?}");
-                            tracing::debug!("direct response: {external:?}");
+                            let direct = match room.handle_request(json, &name) {
+                                Ok(Response(internal, direct)) => {
+                                    tracing::debug!("internal send: {internal:?}");
 
-                            if let Some(public) = public {
-                                let _ = tx.send(public.into());
+                                    let _ = tx.send(Json(internal));
 
-                                if send_external(external, sender.clone()).await.is_err() {
-                                    break;
+                                    direct
                                 }
+                                Err(e) => e.into(),
+                            };
+                            tracing::debug!("direct response: {direct:?}");
+
+                            if send_external(direct, sender.clone()).await.is_err() {
+                                break;
                             }
                         }
                     }
@@ -263,8 +233,8 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             .get(&channel)
             .cloned()
             .expect("The room should exist at this point");
-        if let Game::InLobby { user_set } = &mut *room.game.lock().unwrap() {
-            user_set.remove(&username);
+        if let GameState::Lobby(lobby) = &mut *room.game.lock().unwrap() {
+            lobby.leave(&username);
         }
     }
 }
@@ -342,7 +312,7 @@ mod tests {
         for (i, writer) in writers.iter_mut().enumerate() {
             send(
                 writer,
-                ReceiveData::Connect {
+                Connect::Connect {
                     channel: "thing".to_string(),
                     username: format!("user {}", i),
                 },

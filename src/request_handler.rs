@@ -1,6 +1,3 @@
-use crate::{errors::GameError, game::*, player::*, responses::*, rooms::RoomState};
-use either::Either;
-
 pub mod internal {
     use crate::{game::*, player::*, responses::*};
 
@@ -31,37 +28,37 @@ pub mod internal {
         ]
     }
 
-    pub fn selected_character(
+    pub fn selected_character_selecting(
         selecting: &SelectingCharacters,
         username: &str,
     ) -> Vec<UniqueResponse> {
         let player = selecting.player_by_name(username).unwrap();
-        let currently_picking_id = selecting.currently_selecting_id();
+        let currently_picking_id = Some(selecting.currently_selecting_id());
 
-        todo!()
+        let pickable_characters = selecting.player_get_selectable_characters(player.id).ok();
 
-        //     let pickable_characters = state.player_get_selectable_characters(player.id).ok();
+        vec![UniqueResponse::SelectedCharacter {
+            currently_picking_id,
+            pickable_characters,
+        }]
+    }
 
-        //     let selected = UniqueResponse::SelectedCharacter {
-        //         currently_picking_id,
-        //         pickable_characters,
-        //     };
-
-        //     if let GameState::Round(round) = state {
-        //         // started round
-        //         Some(vec![
-        //             selected,
-        //             UniqueResponse::TurnStarts {
-        //                 player_turn: round.current_player().id,
-        //                 player_turn_cash: 1,
-        //                 player_character: round.current_player().character.unwrap(),
-        //                 draws_n_cards: 3,
-        //                 skipped_characters: vec![],
-        //             },
-        //         ])
-        //     } else {
-        //         Some(vec![selected])
-        //     }
+    pub fn selected_character_round(round: &Round) -> Vec<UniqueResponse> {
+        vec![
+            // TODO: probably not send this
+            UniqueResponse::SelectedCharacter {
+                currently_picking_id: None,
+                pickable_characters: None,
+            },
+            UniqueResponse::TurnStarts {
+                player_turn: round.current_player().id,
+                player_turn_cash: 1,
+                // TODO: fix this in player state branch
+                player_character: round.current_player().character.unwrap(),
+                draws_n_cards: 3,
+                skipped_characters: vec![],
+            },
+        ]
     }
 
     pub fn drawn_card(player_id: PlayerId, card_type: CardType) -> Vec<UniqueResponse> {
@@ -89,37 +86,39 @@ pub mod internal {
         }]
     }
 
-    pub fn turn_ended(player_id: PlayerId) -> Vec<UniqueResponse> {
-        todo!()
+    pub fn turn_ended_round(round: &Round, player_id: PlayerId) -> Vec<UniqueResponse> {
+        vec![
+            // TODO: think about whether turn should end after frontend receives TurnStarts?
+            UniqueResponse::TurnEnded { player_id },
+            UniqueResponse::TurnStarts {
+                player_turn: round.current_player().id,
+                player_turn_cash: 1,
+                player_character: round.current_player().character.unwrap(),
+                draws_n_cards: 3,
+                // TODO: implement concept of skipped characters
+                skipped_characters: vec![],
+            },
+        ]
+    }
 
-        // match state {
-        //     GameState::Round(round) => {
-        //         Some(vec![
-        //             UniqueResponse::TurnEnded { player_id },
-        //             UniqueResponse::TurnStarts {
-        //                 player_turn: round.current_player().id,
-        //                 player_turn_cash: 1,
-        //                 player_character: round.current_player().character.unwrap(),
-        //                 draws_n_cards: 3,
-        //                 // TODO: implement concept of skipped characters
-        //                 skipped_characters: vec![],
-        //             },
-        //         ])
-        //     }
-        //     GameState::SelectingCharacters(selecting) => {
-        //         let player = state.player_by_name(player_name).unwrap();
-        //         let pickable_characters =
-        //             state.player_get_selectable_characters(player.id).ok();
-        //         Some(vec![UniqueResponse::SelectingCharacters {
-        //             chairman_id: selecting.chairman,
-        //             pickable_characters,
-        //             // player_info: state.player_info(player.id.into()),
-        //             turn_order: selecting.turn_order(),
-        //         }])
-        //     }
-        //     GameState::Results(_) => todo!(),
-        //     GameState::Lobby(_) => unreachable!(),
-        // }
+    pub fn turn_ended_selecting(
+        selecting: &SelectingCharacters,
+        player_id: PlayerId,
+        username: &str,
+    ) -> Vec<UniqueResponse> {
+        let player = selecting.player_by_name(username).unwrap();
+        let pickable_characters = selecting.player_get_selectable_characters(player.id).ok();
+
+        vec![
+            // TODO: probably not send this?
+            UniqueResponse::TurnEnded { player_id },
+            UniqueResponse::SelectingCharacters {
+                chairman_id: selecting.chairman,
+                pickable_characters,
+                // player_info: state.player_info(player.id.into()),
+                turn_order: selecting.turn_order(),
+            },
+        ]
     }
 }
 
@@ -231,7 +230,7 @@ pub mod external {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::{player::*, responses::*};
 
     #[test]
     fn fmt() {

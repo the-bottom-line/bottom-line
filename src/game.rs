@@ -836,6 +836,12 @@ impl Round {
                     };
                     self.players.iter_mut().for_each(|p| {
                         p.character = None;
+                        // TODO: fix in player state branch
+                        p.cards_drawn.clear();
+                        p.assets_to_play = 1;
+                        p.liabilities_to_play = 1;
+                        p.total_cards_drawn = 0;
+                        p.total_cards_given_back = 0;
                     });
 
                     let characters = ObtainingCharacters::new(self.players.len(), chairman_id);
@@ -1236,20 +1242,33 @@ mod tests {
             .expect("couldn't get current player")
             .id;
 
-        draw_cards(
-            &mut game,
-            current_player,
-            [CardType::Asset, CardType::Asset, CardType::Liability],
-        );
+        play_turn(&mut game, current_player)
+    }
 
-        assert_err!(game.end_player_turn(current_player));
+    #[test]
+    fn play_rounds() {
+        for player_count in 4..=7 {
+            let mut game = pick_with_players(player_count).expect("couldn't pick characters");
 
-        let hand_len = game.round().unwrap().players[usize::from(current_player)]
-            .hand
-            .len();
-        assert_ok!(game.player_give_back_card(current_player, hand_len - 1));
-
-        assert_ok!(game.end_player_turn(current_player));
+            // nr of rounds
+            // with current strategy runs out of assets after 3 rounds
+            for round in 0..3 {
+                for player in 0..player_count {
+                    let current_player = game
+                        .current_player()
+                        .expect("couldn't get current player")
+                        .id;
+    
+                    play_turn(&mut game, current_player);
+                }
+    
+                assert_matches!(game, GameState::SelectingCharacters(_));
+                
+                finish_selecting_characters(&mut game);
+                
+                assert_matches!(game, GameState::Round(_));
+            }  
+        }
     }
 
     #[test]
@@ -1272,9 +1291,95 @@ mod tests {
         }
     }
 
+    fn play_turn(game: &mut GameState, player_id: PlayerId) {
+        draw_cards(
+            game,
+            player_id,
+            [CardType::Asset, CardType::Asset, CardType::Liability],
+        );
+
+        assert_err!(game.end_player_turn(player_id));
+
+        let hand_len = game.round().unwrap().players[usize::from(player_id)]
+            .hand
+            .len();
+        assert_ok!(game.player_give_back_card(player_id, hand_len - 1));
+
+        assert_ok!(game.end_player_turn(player_id));
+    }
+
     fn draw_cards<const N: usize>(game: &mut GameState, id: PlayerId, cards: [CardType; N]) {
         for card_type in cards {
             let _ = game.player_draw_card(id, card_type);
+        }
+    }
+
+    fn finish_selecting_characters(game: &mut GameState) {
+        let player_count = game.selecting_characters().unwrap().players.len();
+
+        let add = match player_count {
+            4..=6 => 1,
+            7 => 0,
+            _ => unreachable!(),
+        };
+
+        #[allow(unused)]
+        let mut closed = None::<Character>;
+        
+        let chairman = game.selecting_characters().unwrap().chairman;
+        let turn_order = game.selecting_characters().unwrap().turn_order();
+        
+        assert_eq!(chairman, turn_order[0]);
+
+        match game.player_get_selectable_characters(chairman) {
+            Ok(PickableCharacters {
+                characters,
+                closed_character,
+            }) => {
+                assert_eq!(characters.len(), player_count + add);
+                assert_some!(closed_character);
+                assert_ok!(game.player_select_character(chairman, characters[0]));
+
+                closed = closed_character;
+            }
+            _ => panic!(),
+        }
+
+        for i in 1..(player_count - 1) {
+            let player = turn_order[i];
+            match game.player_get_selectable_characters(player) {
+                Ok(PickableCharacters {
+                    characters,
+                    closed_character,
+                }) => {
+                    assert_eq!(characters.len(), player_count + add - i);
+                    assert_none!(closed_character);
+                    assert_ok!(game.player_select_character(player, characters[0]));
+                }
+                _ => panic!(),
+            }
+        }
+
+        match game.player_get_selectable_characters(turn_order[player_count - 1]) {
+            Ok(PickableCharacters {
+                characters,
+                closed_character,
+            }) => {
+                assert_eq!(characters.len(), 2 + add);
+                assert_none!(closed_character);
+                assert!(characters.contains(&closed.unwrap()));
+                assert_ok!(
+                    game.player_select_character(
+                        turn_order[player_count - 1],
+                        closed.unwrap()
+                    )
+                );
+
+                assert_ok!(game.current_player());
+                assert_matches!(game, GameState::Round(_));
+                assert_ok!(game.round());
+            }
+            _ => panic!(),
         }
     }
 
@@ -1287,65 +1392,14 @@ mod tests {
 
         game.start_game("assets/cards/boardgame.json")?;
 
-        let add = match player_count {
-            4..=6 => 1,
-            7 => 0,
-            _ => unreachable!(),
-        };
+        assert_matches!(game, GameState::SelectingCharacters(_));
+        assert_eq!(
+            game.selecting_characters().unwrap().players.len(),
+            player_count
+        );
 
-        #[allow(unused)]
-        let mut closed = None::<Character>;
+        finish_selecting_characters(&mut game);
 
-        match game.player_get_selectable_characters(0.into()) {
-            Ok(PickableCharacters {
-                characters,
-                closed_character,
-            }) => {
-                assert_eq!(characters.len(), player_count + add);
-                assert_some!(closed_character);
-                assert_ok!(game.player_select_character(0.into(), characters[0]));
-
-                closed = closed_character;
-            }
-            _ => panic!(),
-        }
-
-        for i in 1..(player_count - 1) {
-            match game.player_get_selectable_characters(PlayerId(i as u8)) {
-                Ok(PickableCharacters {
-                    characters,
-                    closed_character,
-                }) => {
-                    assert_eq!(characters.len(), player_count + add - i);
-                    assert_none!(closed_character);
-                    assert_ok!(game.player_select_character(PlayerId(i as u8), characters[0]));
-                }
-                _ => panic!(),
-            }
-        }
-
-        match game.player_get_selectable_characters(PlayerId((player_count - 1) as u8)) {
-            Ok(PickableCharacters {
-                characters,
-                closed_character,
-            }) => {
-                assert_eq!(characters.len(), 2 + add);
-                assert_none!(closed_character);
-                assert!(characters.contains(&closed.unwrap()));
-                assert_ok!(
-                    game.player_select_character(
-                        PlayerId((player_count - 1) as u8),
-                        closed.unwrap()
-                    )
-                );
-
-                assert_ok!(game.current_player());
-                assert_matches!(game, GameState::Round(_));
-                assert_ok!(game.round());
-
-                Ok(game)
-            }
-            _ => panic!(),
-        }
+        Ok(game)
     }
 }

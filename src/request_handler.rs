@@ -136,10 +136,10 @@ pub mod external {
         let player = state.player(player_id)?;
 
         Ok(Response(
-            InternalResponse::DrawnCard {
+            InternalResponse::DrawnCard(DrawnCard {
                 player_id,
                 card_type,
-            },
+            }),
             DirectResponse::YouDrewCard {
                 card,
                 can_draw_cards: player.can_draw_cards(),
@@ -157,10 +157,10 @@ pub mod external {
         let player = state.player(player_id)?;
 
         Ok(Response(
-            InternalResponse::PutBackCard {
+            InternalResponse::PutBackCard(PutBackCard {
                 player_id,
                 card_type,
-            },
+            }),
             DirectResponse::YouPutBackCard {
                 card_idx,
                 can_draw_cards: player.can_draw_cards(),
@@ -178,17 +178,17 @@ pub mod external {
 
         match played_card.used_card {
             Either::Left(asset) => Ok(Response(
-                InternalResponse::BoughtAsset {
+                InternalResponse::BoughtAsset(BoughtAsset {
                     player_id,
                     asset: asset.clone(),
-                },
+                }),
                 DirectResponse::YouBoughtAsset { asset },
             )),
             Either::Right(liability) => Ok(Response(
-                InternalResponse::IssuedLiability {
+                InternalResponse::IssuedLiability(IssuedLiability {
                     player_id,
                     liability: liability.clone(),
-                },
+                }),
                 DirectResponse::YouIssuedLiability { liability },
             )),
         }
@@ -201,7 +201,7 @@ pub mod external {
     ) -> Result<Response, GameError> {
         match state.player_select_character(player_id, character) {
             Ok(_) => Ok(Response(
-                InternalResponse::SelectedCharacter,
+                InternalResponse::SelectedCharacter(SelectedCharacter),
                 DirectResponse::YouSelectedCharacter { character },
             )),
             Err(e) => Err(e),
@@ -210,17 +210,17 @@ pub mod external {
 
     pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, GameError> {
         match state.end_player_turn(player_id)? {
-            TurnEnded {
+            crate::game::TurnEnded {
                 next_player: Some(player_id),
             } => Ok(Response(
-                InternalResponse::TurnEnded { player_id },
+                InternalResponse::TurnEnded(crate::responses::TurnEnded { player_id }),
                 DirectResponse::YouEndedTurn,
             )),
             _ => {
                 // if next_player is none // TODO: Fix for end of round
                 let player_id = state.selecting_characters().unwrap().chairman;
                 Ok(Response(
-                    InternalResponse::TurnEnded { player_id },
+                    InternalResponse::TurnEnded(crate::responses::TurnEnded { player_id }),
                     DirectResponse::YouEndedTurn,
                 ))
             }

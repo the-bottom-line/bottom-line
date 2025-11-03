@@ -143,9 +143,9 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let mut rx = tx.subscribe();
 
     // announce join to everyone
-    let msg = InternalResponse::PlayerJoined {
+    let msg = InternalResponse::PlayerJoined(PlayerJoined {
         username: username.clone(),
-    };
+    });
     tracing::debug!("{msg:?}");
     let _ = tx.send(msg.into());
 
@@ -221,9 +221,9 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     };
 
     // announce leave
-    let msg = InternalResponse::PlayerLeft {
+    let msg = InternalResponse::PlayerLeft(PlayerLeft {
         username: username.clone(),
-    };
+    });
     tracing::debug!("{msg:?}");
     let _ = tx.send(msg.into());
     // remove username on disconnect

@@ -117,35 +117,62 @@ pub enum UniqueResponse {
     GameEnded,
 }
 
+#[derive(Debug, Clone)]
+pub struct PlayerJoined {
+    pub username: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct PlayerLeft {
+    pub username: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct GameStarted;
+
+#[derive(Debug, Clone)]
+pub struct SelectedCharacter;
+
+#[derive(Debug, Clone)]
+pub struct DrawnCard {
+    pub player_id: PlayerId,
+    pub card_type: CardType,
+}
+
+#[derive(Debug, Clone)]
+pub struct PutBackCard {
+    pub player_id: PlayerId,
+    pub card_type: CardType,
+}
+
+#[derive(Debug, Clone)]
+pub struct BoughtAsset {
+    pub player_id: PlayerId,
+    pub asset: Asset,
+}
+
+#[derive(Debug, Clone)]
+pub struct IssuedLiability {
+    pub player_id: PlayerId,
+    pub liability: Liability,
+}
+
+#[derive(Debug, Clone)]
+pub struct TurnEnded {
+    pub player_id: PlayerId,
+}
+
 #[derive(Clone, Debug)]
 pub enum InternalResponse {
-    PlayerJoined {
-        username: String,
-    },
-    PlayerLeft {
-        username: String,
-    },
-    GameStarted,
-    SelectedCharacter,
-    DrawnCard {
-        player_id: PlayerId,
-        card_type: CardType,
-    },
-    PutBackCard {
-        player_id: PlayerId,
-        card_type: CardType,
-    },
-    BoughtAsset {
-        player_id: PlayerId,
-        asset: Asset,
-    },
-    IssuedLiability {
-        player_id: PlayerId,
-        liability: Liability,
-    },
-    TurnEnded {
-        player_id: PlayerId,
-    },
+    PlayerJoined(PlayerJoined),
+    PlayerLeft(PlayerLeft),
+    GameStarted(GameStarted),
+    SelectedCharacter(SelectedCharacter),
+    DrawnCard(DrawnCard),
+    PutBackCard(PutBackCard),
+    BoughtAsset(BoughtAsset),
+    IssuedLiability(IssuedLiability),
+    TurnEnded(TurnEnded),
 }
 
 #[derive(Debug, Error, Serialize, Deserialize)]

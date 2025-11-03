@@ -39,7 +39,7 @@ impl RoomState {
                     state.start_game("assets/cards/boardgame.json")?;
                     tracing::debug!("{msg:?}");
                     Ok(Response(
-                        InternalResponse::GameStarted,
+                        InternalResponse::GameStarted(GameStarted),
                         DirectResponse::YouStartedGame,
                     ))
                 }
@@ -82,36 +82,44 @@ impl RoomState {
 
         match &*self.game.lock().unwrap() {
             GameState::Lobby(lobby) => match msg {
-                IR::PlayerJoined { username } => internal::players_in_lobby(lobby, username),
-                IR::PlayerLeft { username } => internal::players_in_lobby(lobby, username),
+                IR::PlayerJoined(PlayerJoined { username }) => {
+                    internal::players_in_lobby(lobby, username)
+                }
+                IR::PlayerLeft(PlayerLeft { username }) => {
+                    internal::players_in_lobby(lobby, username)
+                }
                 _ => unreachable!(),
             },
             GameState::SelectingCharacters(selecting) => match msg {
-                IR::GameStarted => internal::game_started(selecting, player_name),
-                IR::SelectedCharacter => {
+                IR::GameStarted(_) => internal::game_started(selecting, player_name),
+                IR::SelectedCharacter(_) => {
                     internal::selected_character_selecting(selecting, player_name)
                 }
-                IR::TurnEnded { player_id } => {
+                IR::TurnEnded(crate::responses::TurnEnded { player_id }) => {
                     internal::turn_ended_selecting(selecting, player_id, player_name)
                 }
                 _ => unreachable!(),
             },
             GameState::Round(round) => match msg {
-                IR::SelectedCharacter => internal::selected_character_round(round),
-                IR::DrawnCard {
+                IR::SelectedCharacter(_) => internal::selected_character_round(round),
+                IR::DrawnCard(DrawnCard {
                     player_id,
                     card_type,
-                } => internal::drawn_card(player_id, card_type),
-                IR::PutBackCard {
+                }) => internal::drawn_card(player_id, card_type),
+                IR::PutBackCard(PutBackCard {
                     player_id,
                     card_type,
-                } => internal::put_back_card(player_id, card_type),
-                IR::BoughtAsset { player_id, asset } => internal::bought_asset(player_id, asset),
-                IR::IssuedLiability {
+                }) => internal::put_back_card(player_id, card_type),
+                IR::BoughtAsset(BoughtAsset { player_id, asset }) => {
+                    internal::bought_asset(player_id, asset)
+                }
+                IR::IssuedLiability(IssuedLiability {
                     player_id,
                     liability,
-                } => internal::issued_liability(player_id, liability),
-                IR::TurnEnded { player_id } => internal::turn_ended_round(round, player_id),
+                }) => internal::issued_liability(player_id, liability),
+                IR::TurnEnded(crate::responses::TurnEnded { player_id }) => {
+                    internal::turn_ended_round(round, player_id)
+                }
                 _ => unreachable!(),
             },
             GameState::Results(results) => todo!(),

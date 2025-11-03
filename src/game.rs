@@ -1258,16 +1258,16 @@ mod tests {
                         .current_player()
                         .expect("couldn't get current player")
                         .id;
-    
+
                     play_turn(&mut game, current_player);
                 }
-    
+
                 assert_matches!(game, GameState::SelectingCharacters(_));
-                
+
                 finish_selecting_characters(&mut game);
-                
+
                 assert_matches!(game, GameState::Round(_));
-            }  
+            }
         }
     }
 
@@ -1325,10 +1325,10 @@ mod tests {
 
         #[allow(unused)]
         let mut closed = None::<Character>;
-        
+
         let chairman = game.selecting_characters().unwrap().chairman;
         let turn_order = game.selecting_characters().unwrap().turn_order();
-        
+
         assert_eq!(chairman, turn_order[0]);
 
         match game.player_get_selectable_characters(chairman) {
@@ -1369,10 +1369,7 @@ mod tests {
                 assert_none!(closed_character);
                 assert!(characters.contains(&closed.unwrap()));
                 assert_ok!(
-                    game.player_select_character(
-                        turn_order[player_count - 1],
-                        closed.unwrap()
-                    )
+                    game.player_select_character(turn_order[player_count - 1], closed.unwrap())
                 );
 
                 assert_ok!(game.current_player());

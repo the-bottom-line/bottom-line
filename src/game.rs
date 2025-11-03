@@ -1251,8 +1251,8 @@ mod tests {
             let mut game = pick_with_players(player_count).expect("couldn't pick characters");
 
             // nr of rounds
-            // with current strategy runs out of assets after 6 rounds
-            for _ in 0..6 {
+            // with current strategy runs out of liabilities after 5 rounds
+            for _ in 0..5 {
                 for _ in 0..player_count {
                     let current_player = game
                         .current_player()

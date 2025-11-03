@@ -50,19 +50,18 @@ pub mod internal {
                 currently_picking_id: None,
                 pickable_characters: None,
             },
-            handle_start_turn(round)
+            handle_start_turn(round),
         ]
-        
     }
-    pub fn handle_start_turn(round: &Round) -> UniqueResponse{
+    pub fn handle_start_turn(round: &Round) -> UniqueResponse {
         let result = round.start_player_turn(round.current_player().id).unwrap();
         UniqueResponse::TurnStarts {
-                player_turn: result.player_turn,
-                player_turn_cash: result.player_turn_cash,
-                player_character: result.player_character,
-                draws_n_cards: result.draws_n_cards,
-                skipped_characters: result.skipped_characters
-            }
+            player_turn: result.player_turn,
+            player_turn_cash: result.player_turn_cash,
+            player_character: result.player_character,
+            draws_n_cards: result.draws_n_cards,
+            skipped_characters: result.skipped_characters,
+        }
     }
 
     pub fn drawn_card(player_id: PlayerId, card_type: CardType) -> Vec<UniqueResponse> {
@@ -94,7 +93,7 @@ pub mod internal {
         vec![
             // TODO: think about whether turn should end after frontend receives TurnStarts?
             UniqueResponse::TurnEnded { player_id },
-            handle_start_turn(round)
+            handle_start_turn(round),
         ]
     }
 

@@ -198,7 +198,7 @@ pub struct TurnStarted {
     pub player_turn_cash: u8,
     pub player_character: Character,
     pub draws_n_cards: u8,
-    pub skipped_characters: Vec<Character>
+    pub skipped_characters: Vec<Character>,
 }
 
 impl TurnEnded {
@@ -489,7 +489,6 @@ impl TheBottomLine for GameState {
             Self::Round(r) => r.start_player_turn(id),
             _ => Err(GameError::NotRoundState),
         }
-        
     }
 
     fn player_info(&self, id: PlayerId) -> Result<Vec<PlayerInfo>, GameError> {
@@ -843,46 +842,44 @@ impl Round {
     pub fn start_player_turn(&self, id: PlayerId) -> Result<TurnStarted, GameError> {
         match self.players.get(usize::from(id)) {
             Some(player) if player.id == self.current_player => {
-                    if let Some(character) = player.character {
-                        Ok(TurnStarted { 
-                    player_turn: player.id, 
-                    player_turn_cash: self.get_player_turn_cash(),
-                    player_character: character,
-                    draws_n_cards: 3, 
-                    skipped_characters: self.get_skipped_characters()})
-                    }else{
-                        Err(GameError::NoCharacterSelected)
-                    }
-                    
-                
+                if let Some(character) = player.character {
+                    Ok(TurnStarted {
+                        player_turn: player.id,
+                        player_turn_cash: self.get_player_turn_cash(),
+                        player_character: character,
+                        draws_n_cards: 3,
+                        skipped_characters: self.get_skipped_characters(),
+                    })
+                } else {
+                    Err(GameError::NoCharacterSelected)
+                }
             }
             Some(_) => Err(GameError::NotPlayersTurn),
             _ => Err(GameError::InvalidPlayerIndex(id.0)),
         }
     }
 
-    fn get_player_turn_cash(&self) -> u8{
+    fn get_player_turn_cash(&self) -> u8 {
         1
-         // TODO: Implement actual cash logic
+        // TODO: Implement actual cash logic
     }
 
     fn get_skipped_characters(&self) -> Vec<Character> {
-         let mut cs: Vec<Character> = [].to_vec();
-         let mut past_current_character = false;
-         for c in Character::CHARACTERS.into_iter().rev() {
-            if let Some(cp) = self.player_from_character(c){
+        let mut cs: Vec<Character> = [].to_vec();
+        let mut past_current_character = false;
+        for c in Character::CHARACTERS.into_iter().rev() {
+            if let Some(cp) = self.player_from_character(c) {
                 if past_current_character {
                     return cs;
-                }else if cp.id == self.current_player {
+                } else if cp.id == self.current_player {
                     past_current_character = true;
-                } 
-            }else if past_current_character {
+                }
+            } else if past_current_character {
                 cs.push(c);
             }
-         }
+        }
         cs
     }
-
 
     fn end_player_turn(&mut self, id: PlayerId) -> Result<Either<TurnEnded, GameState>, GameError> {
         match self.player(id) {
@@ -1322,16 +1319,16 @@ mod tests {
                         .current_player()
                         .expect("couldn't get current player")
                         .id;
-    
+
                     play_turn(&mut game, current_player);
                 }
-    
+
                 assert_matches!(game, GameState::SelectingCharacters(_));
-                
+
                 finish_selecting_characters(&mut game);
-                
+
                 assert_matches!(game, GameState::Round(_));
-            }  
+            }
         }
     }
 
@@ -1389,10 +1386,10 @@ mod tests {
 
         #[allow(unused)]
         let mut closed = None::<Character>;
-        
+
         let chairman = game.selecting_characters().unwrap().chairman;
         let turn_order = game.selecting_characters().unwrap().turn_order();
-        
+
         assert_eq!(chairman, turn_order[0]);
 
         match game.player_get_selectable_characters(chairman) {
@@ -1433,10 +1430,7 @@ mod tests {
                 assert_none!(closed_character);
                 assert!(characters.contains(&closed.unwrap()));
                 assert_ok!(
-                    game.player_select_character(
-                        turn_order[player_count - 1],
-                        closed.unwrap()
-                    )
+                    game.player_select_character(turn_order[player_count - 1], closed.unwrap())
                 );
 
                 assert_ok!(game.current_player());

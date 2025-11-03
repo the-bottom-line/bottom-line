@@ -192,6 +192,15 @@ pub struct TurnEnded {
     pub next_player: Option<PlayerId>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TurnStarted {
+    pub player_turn: PlayerId,
+    pub player_turn_cash: u8,
+    pub player_character: Character,
+    pub draws_n_cards: u8,
+    pub skipped_characters: Vec<Character>
+}
+
 impl TurnEnded {
     pub fn new(next_player: Option<PlayerId>) -> Self {
         Self { next_player }
@@ -264,6 +273,9 @@ pub trait TheBottomLine {
 
     /// Ends player's turn
     fn end_player_turn(&mut self, id: PlayerId) -> Result<TurnEnded, GameError>;
+
+    /// Handles start logic of a players turn
+    fn start_player_turn(&mut self, id: PlayerId) -> Result<TurnStarted, GameError>;
 
     /// Gets a list of players with publicly available information, besides the main player
     fn player_info(&self, id: PlayerId) -> Result<Vec<PlayerInfo>, GameError>;
@@ -470,6 +482,14 @@ impl TheBottomLine for GameState {
                 Ok(TurnEnded::new(None))
             }
         }
+    }
+
+    fn start_player_turn(&mut self, id: PlayerId) -> Result<TurnStarted, GameError> {
+        match self {
+            Self::Round(r) => r.start_player_turn(id),
+            _ => Err(GameError::NotRoundState),
+        }
+        
     }
 
     fn player_info(&self, id: PlayerId) -> Result<Vec<PlayerInfo>, GameError> {
@@ -819,6 +839,50 @@ impl Round {
             _ => Err(GameError::InvalidPlayerIndex(id.0)),
         }
     }
+
+    pub fn start_player_turn(&self, id: PlayerId) -> Result<TurnStarted, GameError> {
+        match self.players.get(usize::from(id)) {
+            Some(player) if player.id == self.current_player => {
+                    if let Some(character) = player.character {
+                        Ok(TurnStarted { 
+                    player_turn: player.id, 
+                    player_turn_cash: self.get_player_turn_cash(),
+                    player_character: character,
+                    draws_n_cards: 3, 
+                    skipped_characters: self.get_skipped_characters()})
+                    }else{
+                        Err(GameError::NoCharacterSelected)
+                    }
+                    
+                
+            }
+            Some(_) => Err(GameError::NotPlayersTurn),
+            _ => Err(GameError::InvalidPlayerIndex(id.0)),
+        }
+    }
+
+    fn get_player_turn_cash(&self) -> u8{
+        1
+         // TODO: Implement actual cash logic
+    }
+
+    fn get_skipped_characters(&self) -> Vec<Character> {
+         let mut cs: Vec<Character> = [].to_vec();
+         let mut past_current_character = false;
+         for c in Character::CHARACTERS.into_iter().rev() {
+            if let Some(cp) = self.player_from_character(c){
+                if past_current_character {
+                    return cs;
+                }else if cp.id == self.current_player {
+                    past_current_character = true;
+                } 
+            }else if past_current_character {
+                cs.push(c);
+            }
+         }
+        cs
+    }
+
 
     fn end_player_turn(&mut self, id: PlayerId) -> Result<Either<TurnEnded, GameState>, GameError> {
         match self.player(id) {

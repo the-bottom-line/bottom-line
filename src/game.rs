@@ -292,7 +292,22 @@ impl GameState {
         }
     }
 
+    // TODO: use internally inside TheBottomLine functions
+    pub fn lobby_mut(&mut self) -> Result<&mut Lobby, GameError> {
+        match self {
+            Self::Lobby(l) => Ok(l),
+            _ => Err(GameError::NotLobbyState),
+        }
+    }
+
     pub fn selecting_characters(&self) -> Result<&SelectingCharacters, GameError> {
+        match self {
+            Self::SelectingCharacters(s) => Ok(s),
+            _ => Err(GameError::NotSelectingCharactersState),
+        }
+    }
+
+    pub fn selecting_characters_mut(&mut self) -> Result<&mut SelectingCharacters, GameError> {
         match self {
             Self::SelectingCharacters(s) => Ok(s),
             _ => Err(GameError::NotSelectingCharactersState),
@@ -306,7 +321,21 @@ impl GameState {
         }
     }
 
+    pub fn round_mut(&mut self) -> Result<&mut Round, GameError> {
+        match self {
+            Self::Round(r) => Ok(r),
+            _ => Err(GameError::NotRoundState),
+        }
+    }
+
     pub fn results(&self) -> Result<&Results, GameError> {
+        match self {
+            Self::Results(r) => Ok(r),
+            _ => Err(GameError::NotResultsState),
+        }
+    }
+
+    pub fn results_mut(&mut self) -> Result<&mut Results, GameError> {
         match self {
             Self::Results(r) => Ok(r),
             _ => Err(GameError::NotResultsState),

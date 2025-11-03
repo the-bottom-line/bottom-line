@@ -1251,9 +1251,9 @@ mod tests {
             let mut game = pick_with_players(player_count).expect("couldn't pick characters");
 
             // nr of rounds
-            // with current strategy runs out of assets after 3 rounds
-            for round in 0..3 {
-                for player in 0..player_count {
+            // with current strategy runs out of liabilities after 5 rounds
+            for _ in 0..5 {
+                for _ in 0..player_count {
                     let current_player = game
                         .current_player()
                         .expect("couldn't get current player")
@@ -1295,7 +1295,7 @@ mod tests {
         draw_cards(
             game,
             player_id,
-            [CardType::Asset, CardType::Asset, CardType::Liability],
+            [CardType::Asset, CardType::Liability, CardType::Asset],
         );
 
         assert_err!(game.end_player_turn(player_id));

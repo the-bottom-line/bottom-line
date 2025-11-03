@@ -504,19 +504,19 @@
             {
                 "liability_type" : "Trade Credit",
                 "gold_value" : 1,
-                "copies" : 8,
+                "copies" : 4,
                 "card_image_url" : "liabilities/tradeCredit_1.webp"
             },
             {
                 "liability_type" : "Trade Credit",
                 "gold_value" : 2,
-                "copies" : 8,
+                "copies" : 4,
                 "card_image_url" : "liabilities/tradeCredit_2.webp"
             },
             {
                 "liability_type" : "Trade Credit",
                 "gold_value" : 3,
-                "copies" : 4,
+                "copies" : 2,
                 "card_image_url" : "liabilities/tradeCredit_3.webp"
             },
             {
@@ -552,13 +552,13 @@
             {
                 "liability_type" : "Bonds",
                 "gold_value" : 2,
-                "copies" : 11,
+                "copies" : 8,
                 "card_image_url" : "liabilities/bonds_2.webp"
             },
             {
                 "liability_type" : "Bonds",
                 "gold_value" : 3,
-                "copies" : 4,
+                "copies" : 2,
                 "card_image_url" : "liabilities/bonds_3.webp"
             },
             {

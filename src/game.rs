@@ -223,6 +223,9 @@ pub trait TheBottomLine {
     /// Gets player if one exists with specified character
     fn player_from_character(&self, character: Character) -> Option<&Player>;
 
+    /// Gets a list of current players if not in lobby state
+    fn players(&self) -> Result<&[Player], GameError>;
+
     /// Gets list of selectable caracters if its the players turn
     fn player_get_selectable_characters(
         &self,
@@ -742,13 +745,13 @@ pub struct Round {
 }
 
 impl Round {
-    fn player(&self, id: PlayerId) -> Result<&Player, GameError> {
+    pub fn player(&self, id: PlayerId) -> Result<&Player, GameError> {
         self.players
             .get(usize::from(id))
             .ok_or(GameError::InvalidPlayerIndex(id.0))
     }
 
-    fn player_from_character(&self, character: Character) -> Option<&Player> {
+    pub fn player_from_character(&self, character: Character) -> Option<&Player> {
         self.players.iter().find(|p| p.character == Some(character))
     }
 
@@ -764,7 +767,7 @@ impl Round {
             .expect("self.current_player went out of bounds")
     }
 
-    fn next_player(&self) -> Option<&Player> {
+    pub fn next_player(&self) -> Option<&Player> {
         let current_character = self.current_player().character;
         self.players
             .iter()
@@ -787,7 +790,7 @@ impl Round {
             .collect()
     }
 
-    fn player_play_card(
+    pub fn player_play_card(
         &mut self,
         id: PlayerId,
         card_idx: usize,
@@ -816,7 +819,7 @@ impl Round {
         }
     }
 
-    fn player_draw_card(
+    pub fn player_draw_card(
         &mut self,
         id: PlayerId,
         card_type: CardType,
@@ -839,7 +842,7 @@ impl Round {
         }
     }
 
-    fn player_give_back_card(
+    pub fn player_give_back_card(
         &mut self,
         id: PlayerId,
         card_idx: usize,

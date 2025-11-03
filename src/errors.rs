@@ -16,10 +16,24 @@ pub enum GameError {
     InvalidPlayerCount(u8),
     #[error("Player index {0} is invalid")]
     InvalidPlayerIndex(u8),
+    #[error("Player index {0} is invalid")]
+    InvalidPlayerName(String),
     #[error("Not player's turn")]
     NotPlayersTurn,
     #[error("Player should still give back at least one card")]
     PlayerShouldGiveBackCard,
+    #[error("Action only allowed in Lobby state")]
+    NotLobbyState,
+    #[error("Action only allowed in Selecting Characters state")]
+    NotSelectingCharactersState,
+    #[error("Action only allowed in Round state")]
+    NotRoundState,
+    #[error("Action only allowed in Results state")]
+    NotResultsState,
+    #[error("Action unavailable in lobby state")]
+    NotAvailableInLobbyState,
+    #[error("Action unavailable in results state")]
+    NotAvailableInResultsState,
 }
 
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
@@ -54,4 +68,12 @@ pub enum SelectableCharactersError {
     NotPickingCharacters,
     #[error("Character is not availalble to pick")]
     UnavailableCharacter,
+}
+
+#[derive(Debug, Error)]
+pub enum DataParseError {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error(transparent)]
+    Serde(#[from] serde_json::Error),
 }

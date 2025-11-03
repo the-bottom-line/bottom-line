@@ -1,398 +1,10 @@
-use std::{collections::HashSet, sync::Arc, vec};
+use std::{collections::HashSet, path::Path, sync::Arc, vec};
 
 use either::Either;
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
-use crate::{cards::GameData, game_errors::*, utility::serde_asset_liability};
-
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct PlayerId(u8);
-
-impl<I: Into<u8>> From<I> for PlayerId {
-    fn from(value: I) -> Self {
-        Self(value.into())
-    }
-}
-
-impl From<PlayerId> for usize {
-    fn from(value: PlayerId) -> Self {
-        value.0 as usize
-    }
-}
-
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub enum Color {
-    Red,
-    Green,
-    Purple,
-    Yellow,
-    Blue,
-}
-
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Character {
-    Shareholder,
-    Banker,
-    Regulator,
-    CEO,
-    CFO,
-    CSO,
-    HeadRnD,
-    Stakeholder,
-}
-
-impl Character {
-    pub const CHARACTERS: [Character; 8] = [
-        Self::Shareholder,
-        Self::Banker,
-        Self::Regulator,
-        Self::CEO,
-        Self::CFO,
-        Self::CSO,
-        Self::HeadRnD,
-        Self::Stakeholder,
-    ];
-
-    pub fn color(&self) -> Option<Color> {
-        use Color::*;
-
-        match self {
-            Self::Shareholder => None,
-            Self::Banker => None,
-            Self::Regulator => None,
-            Self::CEO => Some(Yellow),
-            Self::CFO => Some(Blue),
-            Self::CSO => Some(Green),
-            Self::HeadRnD => Some(Purple),
-            Self::Stakeholder => Some(Red),
-        }
-    }
-
-    pub fn next(&self) -> Option<Self> {
-        use Character::*;
-
-        match self {
-            Shareholder => Some(Banker),
-            Banker => Some(Regulator),
-            Regulator => Some(CEO),
-            CEO => Some(CFO),
-            CFO => Some(CSO),
-            CSO => Some(HeadRnD),
-            HeadRnD => Some(Stakeholder),
-            Stakeholder => None,
-        }
-    }
-
-    pub fn first(characters: &[Self]) -> Option<Self> {
-        characters.iter().max().copied()
-    }
-
-    pub fn playable_assets(&self) -> usize {
-        match self {
-            Self::CEO => 3,
-            _ => 1,
-        }
-    }
-
-    pub fn playable_liabilities(&self) -> usize {
-        match self {
-            Self::CFO => 3,
-            _ => 1,
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
-pub enum AssetPowerup {
-    #[serde(rename = "At the end of the game, for one color, turn - into 0 or 0 into +")]
-    MinusIntoPlus,
-    #[serde(rename = "At the end of the game, turn silver into gold on one asset card")]
-    SilverIntoGold,
-    #[serde(rename = "At the end of the game, count one of your assets as any color")]
-    CountAsAnyColor,
-}
-
-impl std::fmt::Display for AssetPowerup {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::MinusIntoPlus => write!(
-                f,
-                "At the end of the game, for one color, turn - into 0 or 0 into +"
-            ),
-            Self::SilverIntoGold => write!(
-                f,
-                "At the end of the game, turn silver into gold on one asset card"
-            ),
-            Self::CountAsAnyColor => write!(
-                f,
-                "At the end of the game, count one of your assets as any color"
-            ),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Asset {
-    pub title: String,
-    pub gold_value: u8,
-    pub silver_value: u8,
-    pub color: Color,
-    pub ability: Option<AssetPowerup>,
-    pub image_front_url: String,
-    pub image_back_url: Arc<String>,
-}
-
-impl std::fmt::Display for Asset {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}\ngold: {}\nsilver: {}\ncolor: {:?}",
-            self.title, self.gold_value, self.silver_value, self.color
-        )
-    }
-}
-
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
-pub enum LiabilityType {
-    #[serde(rename = "Trade Credit")]
-    TradeCredit,
-    #[serde(rename = "Bank Loan")]
-    BankLoan,
-    Bonds,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Liability {
-    pub value: u8,
-    pub rfr_type: LiabilityType,
-    pub image_front_url: String,
-    pub image_back_url: Arc<String>,
-}
-
-impl Liability {
-    pub fn rfr_percentage(&self) -> u8 {
-        match self.rfr_type {
-            LiabilityType::TradeCredit => 1,
-            LiabilityType::BankLoan => 2,
-            LiabilityType::Bonds => 3,
-        }
-    }
-}
-
-impl std::fmt::Display for Liability {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let title = serde_json::to_string(&self.rfr_type).unwrap();
-        write!(
-            f,
-            "{title} - {}%\nvalue: {}\n",
-            self.rfr_percentage(),
-            self.value
-        )
-    }
-}
-
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum CardType {
-    Asset,
-    Liability,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PlayerInfo {
-    pub name: String,
-    pub id: PlayerId,
-    pub hand: Vec<CardType>,
-    pub assets: Vec<Asset>,
-    pub liabilities: Vec<Liability>,
-    pub cash: u8,
-    pub character: Option<Character>,
-}
-
-impl From<&Player> for PlayerInfo {
-    fn from(player: &Player) -> Self {
-        let hand = player
-            .hand
-            .iter()
-            .map(|e| match e {
-                Either::Left(_) => CardType::Asset,
-                Either::Right(_) => CardType::Liability,
-            })
-            .collect();
-
-        Self {
-            hand,
-            name: player.name.clone(),
-            assets: player.assets.clone(),
-            liabilities: player.liabilities.clone(),
-            id: player.id,
-            cash: player.cash,
-            character: player.character,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Player {
-    pub id: PlayerId,
-    pub name: String,
-    pub cash: u8,
-    pub assets: Vec<Asset>,
-    pub liabilities: Vec<Liability>,
-    pub character: Option<Character>,
-    #[serde(with = "serde_asset_liability::vec")]
-    pub hand: Vec<Either<Asset, Liability>>,
-    pub cards_drawn: Vec<usize>,
-    pub assets_to_play: u8,
-    pub liabilities_to_play: u8,
-}
-
-impl Player {
-    pub fn new(
-        name: &str,
-        id: u8,
-        assets: [Asset; 2],
-        liabilities: [Liability; 2],
-        cash: u8,
-    ) -> Player {
-        let hand = assets
-            .into_iter()
-            .map(Either::Left)
-            .chain(liabilities.into_iter().map(Either::Right))
-            .collect();
-
-        Player {
-            id: PlayerId(id),
-            name: name.to_string(),
-            cash,
-            assets: vec![],
-            liabilities: vec![],
-            character: None,
-            hand,
-            cards_drawn: vec![],
-            assets_to_play: 1,
-            liabilities_to_play: 1,
-        }
-    }
-
-    pub fn total_gold(&self) -> u8 {
-        self.assets.iter().map(|a| a.gold_value).sum()
-    }
-
-    pub fn total_silver(&self) -> u8 {
-        self.assets.iter().map(|a| a.silver_value).sum()
-    }
-
-    pub fn info(&self) -> PlayerInfo {
-        self.into()
-    }
-
-    fn update_cards_drawn(&mut self, card_idx: usize) {
-        self.cards_drawn = self
-            .cards_drawn
-            .iter()
-            .copied()
-            .filter(|&i| i != card_idx)
-            .collect();
-    }
-
-    fn can_play_asset(&self) -> bool {
-        match self.character {
-            Some(_) => self.assets_to_play > 0,
-            None => false,
-        }
-    }
-
-    fn can_play_liability(&self) -> bool {
-        match self.character {
-            Some(_) => self.liabilities_to_play > 0,
-            None => false,
-        }
-    }
-
-    /// Plays card in players hand with index `card_idx`. If that index is valid, the card is played
-    /// if
-    pub fn play_card(
-        &mut self,
-        card_idx: usize,
-    ) -> Result<Either<Asset, Liability>, PlayCardError> {
-        use PlayCardError::*;
-
-        if let Some(card) = self.hand.get(card_idx) {
-            match card {
-                Either::Left(a) if self.can_play_asset() && self.cash >= a.gold_value => {
-                    let asset = self.hand.remove(card_idx).left().unwrap();
-                    self.cash -= asset.gold_value;
-                    self.assets_to_play -= 1;
-                    self.assets.push(asset.clone());
-                    self.update_cards_drawn(card_idx);
-                    Ok(Either::Left(asset))
-                }
-                Either::Left(_) if !self.can_play_asset() => Err(ExceedsMaximumAssets),
-                Either::Left(a) if self.cash < a.gold_value => Err(CannotAffordAsset {
-                    cash: self.cash,
-                    cost: a.gold_value,
-                }),
-                Either::Right(_) if self.can_play_liability() => {
-                    let liability = self.hand.remove(card_idx).right().unwrap();
-                    self.liabilities_to_play -= 1;
-                    self.liabilities.push(liability.clone());
-                    self.update_cards_drawn(card_idx);
-                    Ok(Either::Right(liability))
-                }
-                Either::Right(_) if !self.can_play_liability() => Err(ExceedsMaximumLiabilities),
-                _ => unreachable!(),
-            }
-        } else {
-            Err(InvalidCardIndex(card_idx as u8))
-        }
-    }
-
-    pub fn draw_card(&mut self, card: Either<Asset, Liability>) {
-        self.cards_drawn.push(self.hand.len());
-        self.hand.push(card);
-    }
-
-    pub fn give_back_card(
-        &mut self,
-        card_idx: usize,
-    ) -> Result<Either<Asset, Liability>, GiveBackCardError> {
-        match self.hand.get(card_idx) {
-            Some(_) => {
-                self.update_cards_drawn(card_idx);
-                Ok(self.hand.remove(card_idx))
-            }
-            None => Err(GiveBackCardError::InvalidCardIndex(card_idx as u8)),
-        }
-    }
-
-    pub fn should_give_back_card(&self) -> bool {
-        let limit = match self.character {
-            Some(Character::HeadRnD) => 4,
-            Some(_) => 2,
-            _ => 0,
-        };
-
-        self.cards_drawn.len() > limit
-    }
-
-    pub fn select_character(&mut self, character: Character) {
-        use Character::*;
-
-        self.character = Some(character);
-
-        match character {
-            Shareholder => {}
-            Banker => {}
-            Regulator => {}
-            CEO => {}
-            CFO => {}
-            CSO => {}
-            HeadRnD => {}
-            Stakeholder => {}
-        }
-    }
-}
+use crate::{cards::GameData, errors::*, player::*, utility::serde_asset_liability};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
@@ -414,7 +26,7 @@ pub enum MarketCondition {
     Zero,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Market {
     pub title: String,
     pub rfr: u8,
@@ -454,9 +66,22 @@ impl<T> Deck<T> {
         self.deck.pop().unwrap()
     }
 
+    pub fn put_back(&mut self, card: T) {
+        self.deck.insert(0, card);
+    }
+
     pub fn shuffle(&mut self) {
         let mut rng = rand::rng();
         self.deck.shuffle(&mut rng);
+    }
+}
+
+impl<T> Default for Deck<T> {
+    fn default() -> Self {
+        Self {
+            deck: Default::default(),
+            image_back_url: Default::default(),
+        }
     }
 }
 
@@ -523,7 +148,7 @@ impl ObtainingCharacters {
         }
     }
 
-    fn pick(&mut self, character: Character) -> Result<(), SelectableCharactersError> {
+    pub fn pick(&mut self, character: Character) -> Result<(), SelectableCharactersError> {
         match self.peek() {
             Ok(PickableCharacters { mut characters, .. }) => {
                 match characters.iter().position(|&c| c == character) {
@@ -542,6 +167,10 @@ impl ObtainingCharacters {
 
     pub fn applies_to_player(&self) -> usize {
         (self.draw_idx + self.chairman_id) % self.player_count
+    }
+
+    pub fn open_characters(&self) -> &[Character] {
+        &self.open_characters
     }
 }
 
@@ -570,164 +199,687 @@ impl TurnEnded {
 }
 
 pub trait TheBottomLine {
-    /// Returns the ID of the player that's currently picking
-    fn currently_selecting_id(&self) -> Option<PlayerId>;
+    /// Join the lobby if game is in lobby state
+    fn join(&mut self, username: String) -> Result<bool, GameError>;
 
-    /// Checks if the game is in a selecting characters phase, which happens before each round
-    /// starts.
-    fn is_selecting_characters(&self) -> bool;
+    /// Leave the lobby if game is in lobby state
+    fn leave(&mut self, username: &str) -> Result<bool, GameError>;
+
+    /// Starts the game when the game is in lobby state and between 4 and 7 players are present
+    fn start_game<P: AsRef<Path>>(&mut self, data_path: P) -> Result<(), GameError>;
 
     /// Gets the character of the current turn.
-    fn current_player(&self) -> Option<&Player>;
+    fn current_player(&self) -> Result<&Player, GameError>;
 
     /// Gets the character of the next turn
     fn next_player(&self) -> Option<&Player>;
 
+    /// Get player based on player ID
+    fn player(&self, id: PlayerId) -> Result<&Player, GameError>;
+
     /// Gets a player object based on a given username
-    fn player_by_name(&self, name: &str) -> Option<&Player>;
+    fn player_by_name(&self, name: &str) -> Result<&Player, GameError>;
 
     /// Gets player if one exists with specified character
     fn player_from_character(&self, character: Character) -> Option<&Player>;
 
-    fn chairman(&self) -> &Player;
-
     /// Gets list of selectable caracters if its the players turn
     fn player_get_selectable_characters(
         &self,
-        player_idx: usize,
+        id: PlayerId,
     ) -> Result<PickableCharacters, GameError>;
 
     /// Assigns a character role to a specific player. Returns a set of pickable characters for the
     /// next player to choose from
     fn player_select_character(
         &mut self,
-        player_idx: usize,
+        id: PlayerId,
         character: Character,
     ) -> Result<(), GameError>;
 
     /// Gets the list of open characters visible to everyone if there are any.
-    fn open_characters(&self) -> &[Character];
+    fn open_characters(&self) -> Result<&[Character], GameError>;
 
     /// Attempts to play a card (either an asset or liability) for player with `player_idx`. If
     /// playing this card triggers a market change, returns an object with a list of events and
     /// a new market.
     fn player_play_card(
         &mut self,
-        player_idx: usize,
+        id: PlayerId,
         card_idx: usize,
     ) -> Result<PlayerPlayedCard, GameError>;
 
     fn player_draw_card(
         &mut self,
-        player_idx: usize,
+        id: PlayerId,
         card_type: CardType,
     ) -> Result<Either<&Asset, &Liability>, GameError>;
 
     /// When the player grabs 3 cards, the player should give back one.
     fn player_give_back_card(
         &mut self,
-        player_idx: usize,
+        id: PlayerId,
         card_idx: usize,
     ) -> Result<CardType, GameError>;
 
     /// Ends player's turn
-    fn end_player_turn(&mut self, player_idx: usize) -> Result<TurnEnded, GameError>;
+    fn end_player_turn(&mut self, id: PlayerId) -> Result<TurnEnded, GameError>;
 
     /// Gets a list of players with publicly available information, besides the main player
-    fn player_info(&self, player_idx: usize) -> Vec<PlayerInfo>;
+    fn player_info(&self, id: PlayerId) -> Result<Vec<PlayerInfo>, GameError>;
 
     /// Gets a list of `PlayerId`s in the order of their respective turns.
-    fn turn_order(&self) -> Vec<PlayerId>;
+    fn turn_order(&self) -> Result<Vec<PlayerId>, GameError>;
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GameState {
-    assets: Deck<Asset>,
-    liabilities: Deck<Liability>,
-    market_deck: Deck<Either<Market, Event>>,
-    characters: ObtainingCharacters,
-    players: Vec<Player>,
-    current_player: Option<PlayerId>,
-    chairman: PlayerId,
-    current_market: Market,
-    current_events: Vec<Event>,
-    highest_amount_of_assets: u8,
+#[derive(Debug, Clone)]
+pub enum GameState {
+    Lobby(Lobby),
+    SelectingCharacters(SelectingCharacters),
+    Round(Round),
+    Results(Results),
 }
 
 impl GameState {
-    pub fn new(player_names: &[String], mut game_data: GameData) -> Result<Self, GameError> {
-        game_data.shuffle_all();
-
-        let current_market = Self::get_first_market(&mut game_data.market_deck)
-            .expect("The default deck should have a market");
-
-        let players = Self::get_players(
-            player_names,
-            &mut game_data.assets,
-            &mut game_data.liabilities,
-        )?;
-
-        let characters = ObtainingCharacters::new(player_names.len(), players.first().unwrap().id);
-
-        Ok(GameState {
-            players,
-            characters,
-            assets: game_data.assets,
-            liabilities: game_data.liabilities,
-            market_deck: game_data.market_deck,
-            current_market,
-            current_player: None,
-            current_events: vec![],
-            chairman: PlayerId(0),
-            highest_amount_of_assets: 0,
-        })
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    /// Grab market card if available and reshuffles the rest of the deck.
-    fn get_first_market(deck: &mut Deck<Either<Market, Event>>) -> Option<Market> {
-        let mut rng = rand::rng();
+    pub fn lobby(&self) -> Result<&Lobby, GameError> {
+        match self {
+            Self::Lobby(l) => Ok(l),
+            _ => Err(GameError::NotLobbyState),
+        }
+    }
 
-        if let Some(pos) = deck.deck.iter().position(|c| c.is_left()) {
-            let market = deck.deck.swap_remove(pos).left();
-            deck.deck.shuffle(&mut rng);
-            market
+    pub fn selecting_characters(&self) -> Result<&SelectingCharacters, GameError> {
+        match self {
+            Self::SelectingCharacters(s) => Ok(s),
+            _ => Err(GameError::NotSelectingCharactersState),
+        }
+    }
+
+    pub fn round(&self) -> Result<&Round, GameError> {
+        match self {
+            Self::Round(r) => Ok(r),
+            _ => Err(GameError::NotRoundState),
+        }
+    }
+
+    pub fn results(&self) -> Result<&Results, GameError> {
+        match self {
+            Self::Results(r) => Ok(r),
+            _ => Err(GameError::NotResultsState),
+        }
+    }
+}
+
+impl Default for GameState {
+    fn default() -> Self {
+        Self::Lobby(Lobby::default())
+    }
+}
+
+impl TheBottomLine for GameState {
+    fn join(&mut self, username: String) -> Result<bool, GameError> {
+        match self {
+            Self::Lobby(lobby) => Ok(lobby.join(username)),
+            _ => Err(GameError::NotLobbyState),
+        }
+    }
+
+    fn leave(&mut self, username: &str) -> Result<bool, GameError> {
+        match self {
+            Self::Lobby(lobby) => Ok(lobby.leave(username)),
+            _ => Err(GameError::NotLobbyState),
+        }
+    }
+
+    fn start_game<P: AsRef<Path>>(&mut self, data_path: P) -> Result<(), GameError> {
+        match self {
+            Self::Lobby(lobby) => {
+                *self = lobby.start_game(data_path)?;
+                Ok(())
+            }
+            _ => Err(GameError::NotLobbyState),
+        }
+    }
+
+    fn player_select_character(
+        &mut self,
+        id: PlayerId,
+        character: Character,
+    ) -> Result<(), GameError> {
+        let selecting = match self {
+            Self::SelectingCharacters(s) => s,
+            _ => return Err(GameError::NotSelectingCharactersState),
+        };
+
+        if let Some(state) = selecting.player_select_character(id, character)? {
+            *self = state;
+        };
+
+        Ok(())
+    }
+
+    fn player_get_selectable_characters(
+        &self,
+        id: PlayerId,
+    ) -> Result<PickableCharacters, GameError> {
+        match self {
+            Self::SelectingCharacters(s) => s.player_get_selectable_characters(id),
+            _ => Err(GameError::NotSelectingCharactersState),
+        }
+    }
+
+    fn open_characters(&self) -> Result<&[Character], GameError> {
+        match self {
+            Self::SelectingCharacters(s) => Ok(s.open_characters()),
+            Self::Round(r) => Ok(r.open_characters()),
+            GameState::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
+            GameState::Results(_) => Err(GameError::NotAvailableInResultsState),
+        }
+    }
+
+    fn player(&self, id: PlayerId) -> Result<&Player, GameError> {
+        match self {
+            Self::SelectingCharacters(s) => s.player(id),
+            Self::Round(r) => r.player(id),
+            Self::Results(r) => r.player(id),
+            Self::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
+        }
+    }
+
+    fn current_player(&self) -> Result<&Player, GameError> {
+        match self {
+            Self::Round(r) => Ok(r.current_player()),
+            _ => Err(GameError::NotRoundState),
+        }
+    }
+
+    fn next_player(&self) -> Option<&Player> {
+        match self {
+            Self::Round(r) => r.next_player(),
+            _ => None,
+        }
+    }
+
+    fn player_by_name(&self, name: &str) -> Result<&Player, GameError> {
+        match self {
+            Self::SelectingCharacters(s) => s.player_by_name(name),
+            Self::Round(r) => r.player_by_name(name),
+            Self::Results(r) => r.player_by_name(name),
+            Self::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
+        }
+    }
+
+    fn player_from_character(&self, character: Character) -> Option<&Player> {
+        let players = match self {
+            Self::SelectingCharacters(s) => &s.players,
+            Self::Round(r) => &r.players,
+            Self::Results(r) => &r.players,
+            Self::Lobby(_) => return None,
+        };
+
+        players.iter().find(|p| p.character == Some(character))
+    }
+
+    fn player_play_card(
+        &mut self,
+        id: PlayerId,
+        card_idx: usize,
+    ) -> Result<PlayerPlayedCard, GameError> {
+        match self {
+            Self::Round(r) => r.player_play_card(id, card_idx),
+            _ => Err(GameError::NotRoundState),
+        }
+    }
+
+    fn player_draw_card(
+        &mut self,
+        id: PlayerId,
+        card_type: CardType,
+    ) -> Result<Either<&Asset, &Liability>, GameError> {
+        match self {
+            Self::Round(r) => r.player_draw_card(id, card_type),
+            _ => Err(GameError::NotRoundState),
+        }
+    }
+
+    fn player_give_back_card(
+        &mut self,
+        id: PlayerId,
+        card_idx: usize,
+    ) -> Result<CardType, GameError> {
+        match self {
+            Self::Round(r) => r.player_give_back_card(id, card_idx),
+            _ => Err(GameError::NotRoundState),
+        }
+    }
+
+    fn end_player_turn(&mut self, id: PlayerId) -> Result<TurnEnded, GameError> {
+        let round = match self {
+            Self::Round(r) => r,
+            _ => return Err(GameError::NotRoundState),
+        };
+
+        match round.end_player_turn(id)? {
+            Either::Left(te) => Ok(te),
+            Either::Right(state) => {
+                *self = state;
+                Ok(TurnEnded::new(None))
+            }
+        }
+    }
+
+    fn player_info(&self, id: PlayerId) -> Result<Vec<PlayerInfo>, GameError> {
+        match self {
+            Self::SelectingCharacters(s) => Ok(s.player_info(id)),
+            Self::Round(r) => Ok(r.player_info(id)),
+            Self::Results(r) => Ok(r.player_info(id)),
+            Self::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
+        }
+    }
+
+    fn turn_order(&self) -> Result<Vec<PlayerId>, GameError> {
+        match self {
+            Self::SelectingCharacters(s) => Ok(s.turn_order()),
+            _ => Err(GameError::NotSelectingCharactersState),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Lobby {
+    players: HashSet<String>,
+}
+
+impl Lobby {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn players(&self) -> &HashSet<String> {
+        &self.players
+    }
+
+    pub fn join(&mut self, username: String) -> bool {
+        self.players.insert(username)
+    }
+
+    pub fn leave(&mut self, username: &str) -> bool {
+        self.players.remove(username)
+    }
+
+    pub fn can_start(&self) -> bool {
+        (4..=7).contains(&self.players.len())
+    }
+
+    fn start_game<P: AsRef<Path>>(&mut self, data_path: P) -> Result<GameState, GameError> {
+        if self.can_start() {
+            let mut data = GameData::new(data_path).expect("Path for game data is invalid");
+            data.shuffle_all();
+
+            let mut assets = data.assets;
+            let mut liabilities = data.liabilities;
+            let mut markets = data.market_deck;
+
+            let players = self.init_players(&mut assets, &mut liabilities);
+            let current_market =
+                Lobby::initial_market(&mut markets).expect("No markets in deck for some reason");
+
+            let chairman = players.first().unwrap().id;
+            let characters = ObtainingCharacters::new(players.len(), chairman);
+
+            let selecting = GameState::SelectingCharacters(SelectingCharacters {
+                players,
+                characters,
+                assets,
+                liabilities,
+                markets,
+                chairman,
+                current_market,
+                current_events: Vec::new(),
+            });
+
+            Ok(selecting)
         } else {
-            None
+            Err(GameError::InvalidPlayerCount(self.players().len() as u8))
         }
     }
 
-    fn get_players(
-        player_names: &[String],
+    pub fn init_players(
+        &self,
         assets: &mut Deck<Asset>,
-        liabilites: &mut Deck<Liability>,
-    ) -> Result<Vec<Player>, GameError> {
-        let player_count = player_names.len();
-        if !(4..=7).contains(&player_count) {
-            return Err(GameError::InvalidPlayerCount(player_count as u8));
-        }
-
-        let players = player_names
+        liabilities: &mut Deck<Liability>,
+    ) -> Vec<Player> {
+        self.players
             .iter()
             .zip(0u8..)
             .map(|(name, i)| {
                 let assets = [assets.draw(), assets.draw()];
-                let liabilities = [liabilites.draw(), liabilites.draw()];
+                let liabilities = [liabilities.draw(), liabilities.draw()];
                 Player::new(name, i, assets, liabilities, 1)
             })
-            .collect();
-
-        Ok(players)
+            .collect()
     }
 
-    fn check_new_market(&self) -> bool {
+    /// Grab market card if available and reshuffles the rest of the deck.
+    fn initial_market(markets: &mut Deck<Either<Market, Event>>) -> Option<Market> {
+        match markets.deck.iter().position(|c| c.is_left()) {
+            Some(pos) => markets.deck.swap_remove(pos).left(),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SelectingCharacters {
+    players: Vec<Player>,
+    characters: ObtainingCharacters,
+    assets: Deck<Asset>,
+    liabilities: Deck<Liability>,
+    markets: Deck<Either<Market, Event>>,
+    pub chairman: PlayerId,
+    current_market: Market,
+    current_events: Vec<Event>,
+}
+
+impl SelectingCharacters {
+    fn player(&self, id: PlayerId) -> Result<&Player, GameError> {
+        self.players
+            .get(usize::from(id))
+            .ok_or(GameError::InvalidPlayerIndex(id.0))
+    }
+
+    pub fn player_by_name(&self, name: &str) -> Result<&Player, GameError> {
+        self.players
+            .iter()
+            .find(|p| p.name == name)
+            .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
+    }
+
+    pub fn currently_selecting_id(&self) -> PlayerId {
+        (self.characters.applies_to_player() as u8).into()
+    }
+
+    pub fn player_get_selectable_characters(
+        &self,
+        id: PlayerId,
+    ) -> Result<PickableCharacters, GameError> {
+        match self.currently_selecting_id() == id {
+            true => match self.player(id) {
+                Ok(_) => self.characters.peek().map_err(Into::into),
+                Err(e) => Err(e),
+            },
+            false => Err(GameError::NotPlayersTurn),
+        }
+    }
+
+    fn player_select_character(
+        &mut self,
+        id: PlayerId,
+        character: Character,
+    ) -> Result<Option<GameState>, GameError> {
+        let currently_selecting_id = self.currently_selecting_id();
+
+        match self.players.get_mut(usize::from(id)) {
+            Some(p) if p.id == currently_selecting_id => {
+                self.characters.pick(character)?;
+
+                p.select_character(character);
+
+                // Start round when no more characters can be picked
+                if self.characters.peek().is_err() {
+                    let current_player = self
+                        .players
+                        .iter()
+                        .min_by(|p1, p2| p1.character.cmp(&p2.character))
+                        .map(|p| p.id)
+                        .unwrap();
+
+                    let players = std::mem::take(&mut self.players);
+                    let assets = std::mem::take(&mut self.assets);
+                    let liabilities = std::mem::take(&mut self.liabilities);
+                    let markets = std::mem::take(&mut self.markets);
+                    let current_market = std::mem::take(&mut self.current_market);
+                    let current_events = std::mem::take(&mut self.current_events);
+                    let open_characters = self.characters.open_characters().to_vec();
+
+                    let state = GameState::Round(Round {
+                        current_player,
+                        players,
+                        assets,
+                        liabilities,
+                        markets,
+                        chairman: self.chairman,
+                        current_market,
+                        current_events,
+                        open_characters,
+                    });
+
+                    Ok(Some(state))
+                } else {
+                    Ok(None)
+                }
+            }
+            Some(_) => Err(GameError::NotPlayersTurn),
+            None => Err(GameError::InvalidPlayerIndex(id.0)),
+        }
+    }
+
+    pub fn open_characters(&self) -> &[Character] {
+        self.characters.open_characters()
+    }
+
+    pub fn turn_order(&self) -> Vec<PlayerId> {
+        let start = usize::from(self.chairman) as u8;
+        let limit = self.players.len() as u8;
+        (start..limit).chain(0..start).map(Into::into).collect()
+    }
+
+    pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
+        self.players
+            .iter()
+            .flat_map(|p| p.id.ne(&id).then_some(p.info()))
+            .collect()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Round {
+    current_player: PlayerId,
+    players: Vec<Player>,
+    assets: Deck<Asset>,
+    liabilities: Deck<Liability>,
+    markets: Deck<Either<Market, Event>>,
+    pub chairman: PlayerId,
+    current_market: Market,
+    current_events: Vec<Event>,
+    open_characters: Vec<Character>,
+}
+
+impl Round {
+    fn player(&self, id: PlayerId) -> Result<&Player, GameError> {
+        self.players
+            .get(usize::from(id))
+            .ok_or(GameError::InvalidPlayerIndex(id.0))
+    }
+
+    fn player_from_character(&self, character: Character) -> Option<&Player> {
+        self.players.iter().find(|p| p.character == Some(character))
+    }
+
+    pub fn player_by_name(&self, name: &str) -> Result<&Player, GameError> {
+        self.players
+            .iter()
+            .find(|p| p.name == name)
+            .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
+    }
+
+    pub fn current_player(&self) -> &Player {
+        self.player(self.current_player)
+            .expect("self.current_player went out of bounds")
+    }
+
+    fn next_player(&self) -> Option<&Player> {
+        let current_character = self.current_player().character;
+        self.players
+            .iter()
+            .filter(|p| p.character > current_character)
+            .min_by(|p1, p2| p1.character.cmp(&p2.character))
+    }
+
+    pub fn open_characters(&self) -> &[Character] {
+        &self.open_characters
+    }
+
+    pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
+        self.players
+            .iter()
+            .flat_map(|p| p.id.ne(&id).then_some(p.info()))
+            .collect()
+    }
+
+    fn player_play_card(
+        &mut self,
+        id: PlayerId,
+        card_idx: usize,
+    ) -> Result<PlayerPlayedCard, GameError> {
+        match self.players.get_mut(usize::from(id)) {
+            Some(player) if player.id == self.current_player => {
+                let current_assets = player.assets.len();
+                match player.play_card(card_idx)? {
+                    Either::Left(asset) => {
+                        let market = match self.check_new_market(current_assets) {
+                            true => Some(self.new_market()),
+                            false => None,
+                        };
+                        let used_card = Either::Left(asset.clone());
+                        Ok(PlayerPlayedCard { market, used_card })
+                    }
+                    Either::Right(liability) => {
+                        let market = None;
+                        let used_card = Either::Right(liability);
+                        Ok(PlayerPlayedCard { market, used_card })
+                    }
+                }
+            }
+            Some(_) => Err(GameError::NotPlayersTurn),
+            _ => Err(GameError::InvalidPlayerIndex(id.0)),
+        }
+    }
+
+    fn player_draw_card(
+        &mut self,
+        id: PlayerId,
+        card_type: CardType,
+    ) -> Result<Either<&Asset, &Liability>, GameError> {
+        match self.players.get_mut(usize::from(id)) {
+            Some(player) if player.id == self.current_player => {
+                if player.can_draw_cards() {
+                    let card = match card_type {
+                        CardType::Asset => Either::Left(self.assets.draw()),
+                        CardType::Liability => Either::Right(self.liabilities.draw()),
+                    };
+                    player.draw_card(card);
+                    Ok(player.hand.last().unwrap().as_ref())
+                } else {
+                    Err(DrawCardError::MaximumCardsDrawn(player.total_cards_drawn).into())
+                }
+            }
+            Some(_) => Err(GameError::NotPlayersTurn),
+            _ => Err(GameError::InvalidPlayerIndex(id.0)),
+        }
+    }
+
+    fn player_give_back_card(
+        &mut self,
+        id: PlayerId,
+        card_idx: usize,
+    ) -> Result<CardType, GameError> {
+        match self.players.get_mut(usize::from(id)) {
+            Some(player) if player.id == self.current_player => {
+                if player.should_give_back_cards() {
+                    match player.give_back_card(card_idx)? {
+                        Either::Left(asset) => {
+                            self.assets.put_back(asset);
+                            Ok(CardType::Asset)
+                        }
+                        Either::Right(liability) => {
+                            self.liabilities.put_back(liability);
+                            Ok(CardType::Liability)
+                        }
+                    }
+                } else {
+                    Err(GiveBackCardError::Unnecessary.into())
+                }
+            }
+            Some(_) => Err(GameError::NotPlayersTurn),
+            _ => Err(GameError::InvalidPlayerIndex(id.0)),
+        }
+    }
+
+    fn end_player_turn(&mut self, id: PlayerId) -> Result<Either<TurnEnded, GameState>, GameError> {
+        match self.player(id) {
+            Ok(current)
+                if current.id == self.current_player && !current.should_give_back_cards() =>
+            {
+                if let Some(player) = self.next_player() {
+                    self.current_player = player.id;
+                    Ok(Either::Left(TurnEnded::new(Some(self.current_player))))
+                } else {
+                    let maybe_ceo = self.player_from_character(Character::CEO);
+                    let chairman_id = match maybe_ceo.map(|p| p.id) {
+                        Some(id) => id,
+                        None => self.chairman,
+                    };
+                    self.players.iter_mut().for_each(|p| {
+                        p.character = None;
+                        // TODO: fix in player state branch
+                        p.cards_drawn.clear();
+                        p.assets_to_play = 1;
+                        p.liabilities_to_play = 1;
+                        p.total_cards_drawn = 0;
+                        p.total_cards_given_back = 0;
+                    });
+
+                    let characters = ObtainingCharacters::new(self.players.len(), chairman_id);
+                    let players = std::mem::take(&mut self.players);
+                    let assets = std::mem::take(&mut self.assets);
+                    let liabilities = std::mem::take(&mut self.liabilities);
+                    let markets = std::mem::take(&mut self.markets);
+                    let current_market = std::mem::take(&mut self.current_market);
+                    let current_events = std::mem::take(&mut self.current_events);
+
+                    let state = GameState::SelectingCharacters(SelectingCharacters {
+                        players,
+                        characters,
+                        assets,
+                        liabilities,
+                        markets,
+                        chairman: chairman_id,
+                        current_market,
+                        current_events,
+                    });
+
+                    Ok(Either::Right(state))
+                }
+            }
+            Ok(_) => Err(GameError::NotPlayersTurn),
+            Err(e) => Err(e),
+        }
+    }
+
+    fn check_new_market(&self, player_assets: usize) -> bool {
         let max_asset_count = self
             .players
             .iter()
-            .map(|player| player.assets.len() as u8)
+            .map(|player| player.assets.len())
             .max()
             .unwrap_or_default();
 
-        max_asset_count > self.highest_amount_of_assets
+        max_asset_count > player_assets
     }
 
     /// Starts a new market. Automatically triggers if any player gets the first, second, third, fourth, fifth, seventh or eight asset. Loops through the deck and fetches events as they come.
@@ -735,7 +887,7 @@ impl GameState {
         let mut events = vec![];
 
         loop {
-            match self.market_deck.draw() {
+            match self.markets.draw() {
                 Either::Left(new_market) => {
                     self.current_market = new_market.clone();
                     break MarketChange { events, new_market };
@@ -749,235 +901,64 @@ impl GameState {
     }
 }
 
-impl TheBottomLine for GameState {
-    fn currently_selecting_id(&self) -> Option<PlayerId> {
-        match self.current_player() {
-            Some(_) => None,
-            None => Some(PlayerId(self.characters.applies_to_player() as u8)),
-        }
+#[derive(Debug, Clone)]
+pub struct Results {
+    players: Vec<Player>,
+    final_market: Market,
+    // TODO: implement events
+    _final_events: Vec<Event>,
+}
+
+impl Results {
+    pub fn player(&self, id: PlayerId) -> Result<&Player, GameError> {
+        self.players
+            .get(usize::from(id))
+            .ok_or(GameError::InvalidPlayerIndex(id.0))
     }
 
-    fn is_selecting_characters(&self) -> bool {
-        self.characters.draw_idx < self.players.len()
-    }
-
-    fn player_select_character(
-        &mut self,
-        player_idx: usize,
-        character: Character,
-    ) -> Result<(), GameError> {
-        use SelectableCharactersError::*;
-
-        match self.players.get(player_idx) {
-            Some(_) => {
-                match (
-                    self.is_selecting_characters(),
-                    player_idx == self.characters.applies_to_player(),
-                ) {
-                    (true, true) => {
-                        self.players
-                            .get_mut(player_idx)
-                            .unwrap()
-                            .select_character(character);
-
-                        let res = self.characters.pick(character).map_err(Into::into);
-
-                        // Set current player when character picking has ended, or in other words
-                        // when the round has started.
-                        if !self.is_selecting_characters() {
-                            self.current_player = self
-                                .players
-                                .iter()
-                                .min_by(|p1, p2| p1.character.cmp(&p2.character))
-                                .map(|p| p.id);
-                        }
-
-                        res
-                    }
-                    (true, false) => Err(GameError::NotPlayersTurn),
-                    _ => Err(NotPickingCharacters.into()),
-                }
-            }
-            None => Err(GameError::InvalidPlayerIndex(player_idx as u8)),
-        }
-    }
-
-    fn player_get_selectable_characters(
-        &self,
-        player_idx: usize,
-    ) -> Result<PickableCharacters, GameError> {
-        match (
-            self.is_selecting_characters(),
-            player_idx == self.characters.applies_to_player(),
-        ) {
-            (true, true) => match self.players.get(player_idx) {
-                Some(_) => self.characters.peek().map_err(Into::into),
-                None => Err(GameError::InvalidPlayerIndex(player_idx as u8)),
-            },
-            (true, false) => Err(GameError::NotPlayersTurn),
-            _ => Err(SelectableCharactersError::NotPickingCharacters.into()),
-        }
-    }
-
-    fn open_characters(&self) -> &[Character] {
-        &self.characters.open_characters
-    }
-
-    fn current_player(&self) -> Option<&Player> {
-        if let Some(id) = self.current_player {
-            self.players.get(usize::from(id))
-        } else {
-            None
-        }
-    }
-
-    fn next_player(&self) -> Option<&Player> {
-        if let Some(current) = self.current_player() {
-            self.players
-                .iter()
-                .filter(|p| p.character > current.character)
-                .min_by(|p1, p2| p1.character.cmp(&p2.character))
-        } else {
-            None
-        }
-    }
-
-    fn player_by_name(&self, name: &str) -> Option<&Player> {
-        self.players.iter().find(|p| p.name == name)
-    }
-
-    fn player_from_character(&self, character: Character) -> Option<&Player> {
-        self.players.iter().find(|p| p.character == Some(character))
-    }
-
-    fn chairman(&self) -> &Player {
-        &self.players[usize::from(self.chairman)]
-    }
-
-    fn player_play_card(
-        &mut self,
-        idx: usize,
-        card_idx: usize,
-    ) -> Result<PlayerPlayedCard, GameError> {
-        let current_character = self.current_player().unwrap().character;
-
-        if let Some(player) = self.players.get_mut(idx) {
-            if player.character == current_character {
-                match player.play_card(card_idx)? {
-                    Either::Left(asset) => {
-                        let market = match self.check_new_market() {
-                            true => Some(self.new_market()),
-                            false => None,
-                        };
-                        let used_card = Either::Left(asset.clone());
-                        Ok(PlayerPlayedCard { market, used_card })
-                    }
-                    Either::Right(liability) => {
-                        let market = None;
-                        let used_card = Either::Right(liability);
-                        Ok(PlayerPlayedCard { market, used_card })
-                    }
-                }
-            } else {
-                Err(GameError::NotPlayersTurn)
-            }
-        } else {
-            Err(GameError::InvalidPlayerIndex(idx as u8))
-        }
-    }
-
-    fn player_draw_card(
-        &mut self,
-        player_idx: usize,
-        card_type: CardType,
-    ) -> Result<Either<&Asset, &Liability>, GameError> {
-        if let Some(player) = self.players.get_mut(player_idx) {
-            if self.current_player == Some(player.id) {
-                if player.cards_drawn.len() < 3 {
-                    let card = match card_type {
-                        CardType::Asset => Either::Left(self.assets.draw()),
-                        CardType::Liability => Either::Right(self.liabilities.draw()),
-                    };
-                    player.draw_card(card);
-                    Ok(player.hand.last().unwrap().as_ref())
-                } else {
-                    Err(DrawCardError::MaximumCardsDrawn(player.cards_drawn.len() as u8).into())
-                }
-            } else {
-                Err(GameError::NotPlayersTurn)
-            }
-        } else {
-            Err(GameError::InvalidPlayerIndex(player_idx as u8))
-        }
-    }
-
-    fn player_give_back_card(
-        &mut self,
-        player_idx: usize,
-        card_idx: usize,
-    ) -> Result<CardType, GameError> {
-        if let Some(player) = self.players.get_mut(player_idx) {
-            if self.current_player == Some(player.id) {
-                if player.should_give_back_card() {
-                    match player.give_back_card(card_idx)? {
-                        Either::Left(asset) => {
-                            self.assets.deck.insert(0, asset);
-                            Ok(CardType::Asset)
-                        }
-                        Either::Right(liability) => {
-                            self.liabilities.deck.insert(0, liability);
-                            Ok(CardType::Liability)
-                        }
-                    }
-                } else {
-                    Err(GiveBackCardError::Unnecessary.into())
-                }
-            } else {
-                Err(GameError::NotPlayersTurn)
-            }
-        } else {
-            Err(GameError::InvalidPlayerIndex(player_idx as u8))
-        }
-    }
-
-    fn end_player_turn(&mut self, player_idx: usize) -> Result<TurnEnded, GameError> {
-        if let Some(player) = self.players.get(player_idx) {
-            if self.current_player == Some(player.id) && !player.should_give_back_card() {
-                if let Some(player) = self.next_player() {
-                    self.current_player = Some(player.id);
-                    Ok(TurnEnded::new(self.current_player))
-                } else {
-                    let maybe_ceo = self.player_from_character(Character::CEO);
-                    let chairman_id = match maybe_ceo.map(|p| p.id) {
-                        Some(id) => id,
-                        None => self.chairman,
-                    };
-                    self.current_player = None;
-                    self.players.iter_mut().for_each(|p| {
-                        p.character = None;
-                    });
-                    self.characters = ObtainingCharacters::new(self.players.len(), chairman_id);
-                    Ok(TurnEnded::new(None))
-                }
-            } else {
-                Err(GameError::PlayerShouldGiveBackCard)
-            }
-        } else {
-            Err(GameError::InvalidPlayerIndex(player_idx as u8))
-        }
-    }
-
-    fn player_info(&self, player_idx: usize) -> Vec<PlayerInfo> {
+    pub fn player_by_name(&self, name: &str) -> Result<&Player, GameError> {
         self.players
             .iter()
-            .flat_map(|p| p.id.0.ne(&(player_idx as u8)).then_some(p.info()))
-            .collect()
+            .find(|p| p.name == name)
+            .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
     }
 
-    fn turn_order(&self) -> Vec<PlayerId> {
-        let start = usize::from(self.chairman) as u8;
-        let limit = self.players.len() as u8;
-        (start..limit).chain(0..start).map(Into::into).collect()
+    pub fn score(&self, id: PlayerId) -> Result<f64, GameError> {
+        let player = self.player(id)?;
+
+        let gold = player.total_gold() as f64;
+        let silver = player.total_silver() as f64;
+
+        let trade_credit = player.trade_credit() as f64;
+        let bank_loan = player.bank_loan() as f64;
+        let bonds = player.bonds() as f64;
+        let debt = trade_credit + bank_loan + bonds;
+
+        let beta = silver / gold;
+
+        // TODO: end of game bonuses
+        let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / gold;
+
+        let wacc = self.final_market.rfr as f64 + drp + beta * self.final_market.mrp as f64;
+
+        let red = player.color_value(Color::Red, &self.final_market);
+        let green = player.color_value(Color::Green, &self.final_market);
+        let yellow = player.color_value(Color::Yellow, &self.final_market);
+        let purple = player.color_value(Color::Purple, &self.final_market);
+        let blue = player.color_value(Color::Blue, &self.final_market);
+
+        let fcf = red + green + yellow + purple + blue;
+
+        let score = (fcf / (10.0 * wacc)) + (debt / 3.0) + player.cash as f64;
+
+        Ok(score)
+    }
+
+    pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
+        self.players
+            .iter()
+            .flat_map(|p| p.id.ne(&id).then_some(p.info()))
+            .collect()
     }
 }
 
@@ -986,26 +967,14 @@ mod tests {
     use super::*;
     use claim::*;
     use itertools::Itertools;
-    use once_cell::sync::Lazy;
-
-    static GAME_DATA: Lazy<GameData> =
-        Lazy::new(|| GameData::new("assets/cards/boardgame.json").expect("this should exist"));
-
-    #[test]
-    fn chairman() {
-        for i in 4..=7 {
-            let game = pick_with_players(i).expect("couldn't pick characters");
-
-            assert_eq!(game.chairman, game.chairman().id);
-        }
-    }
 
     #[test]
     fn all_unique_ids() {
         for i in 4..=7 {
             let game = pick_with_players(i).expect("couldn't pick characters");
+            let round = game.round().unwrap();
 
-            assert!(game.players.iter().map(|p| p.id).all_unique());
+            assert!(round.players.iter().map(|p| p.id).all_unique());
         }
     }
 
@@ -1013,8 +982,9 @@ mod tests {
     fn ids_sorted() {
         for i in 4..=7 {
             let game = pick_with_players(i).expect("couldn't pick characters");
+            let round = game.round().unwrap();
 
-            assert!(game.players.iter().map(|p| p.id).is_sorted());
+            assert!(round.players.iter().map(|p| p.id).is_sorted());
         }
     }
 
@@ -1022,8 +992,10 @@ mod tests {
     fn player_from_character() {
         for i in 4..=7 {
             let game = pick_with_players(i).expect("couldn't pick characters");
+            let round = game.round().unwrap();
 
-            game.players
+            round
+                .players
                 .iter()
                 .map(|p| {
                     (
@@ -1045,8 +1017,10 @@ mod tests {
     fn player_by_name() {
         for i in 4..=7 {
             let game = pick_with_players(i).expect("couldn't pick characters");
+            let round = game.round().unwrap();
 
-            game.players
+            round
+                .players
                 .iter()
                 .map(|p| (p.name.as_str(), p.id))
                 .for_each(|(name, id)| {
@@ -1072,11 +1046,11 @@ mod tests {
                         .id;
 
                     card_types.into_iter().for_each(|card_type| {
-                        assert_ok!(game.player_draw_card(current_player.into(), card_type));
+                        assert_ok!(game.player_draw_card(current_player, card_type));
                     });
 
                     assert_matches!(
-                        game.player_draw_card(current_player.into(), too_many),
+                        game.player_draw_card(current_player, too_many),
                         Err(GameError::DrawCard(DrawCardError::MaximumCardsDrawn(_)))
                     );
                 });
@@ -1088,7 +1062,7 @@ mod tests {
         let mut game = pick_with_players(4).expect("couldn't pick characters");
 
         assert_matches!(
-            game.player_draw_card(usize::MAX, CardType::Asset),
+            game.player_draw_card(u8::MAX.into(), CardType::Asset),
             Err(GameError::InvalidPlayerIndex(_))
         );
     }
@@ -1100,7 +1074,7 @@ mod tests {
         let next_player = game.next_player().expect("couldn't get next player");
 
         assert_matches!(
-            game.player_draw_card(next_player.id.into(), CardType::Asset),
+            game.player_draw_card(next_player.id, CardType::Asset),
             Err(GameError::NotPlayersTurn)
         )
     }
@@ -1109,6 +1083,7 @@ mod tests {
     fn player_play_card() {
         for i in 4..=7 {
             let mut game = pick_with_players(i).expect("couldn't pick characters");
+            // let round = game.round().unwrap();
             let current_player = game
                 .current_player()
                 .expect("couldn't get current player")
@@ -1121,26 +1096,78 @@ mod tests {
             );
 
             // so player can always afford the asset
-            game.players[usize::from(current_player)].cash = 50;
+            match &mut game {
+                GameState::Round(r) => {
+                    r.players[usize::from(current_player)].cash = 50;
+                }
+                _ => panic!("Not round even though that's expected"),
+            };
 
-            // first buy asset, then issue liability
-            for _ in 0..2 {
-                let hand_len = game.players[usize::from(current_player)].hand.len();
-                assert_ok!(game.player_play_card(current_player.into(), hand_len - 1));
+            // test issuing liability
+            let player = &game.round().unwrap().player(current_player).unwrap();
+            let hand_len = player.hand.len();
+            let liability_value = player.hand[hand_len - 1]
+                .as_ref()
+                .right()
+                .expect("Couldn't get liability")
+                .value;
+            let cash_before = player.cash;
 
-                assert_eq!(
-                    hand_len - 1,
-                    game.players[usize::from(current_player)].hand.len()
-                );
-            }
+            assert_ok!(game.player_play_card(current_player, hand_len - 1));
+            assert_eq!(
+                cash_before + liability_value,
+                game.round().unwrap().player(current_player).unwrap().cash
+            );
 
-            let hand_len = game.players[usize::from(current_player)].hand.len();
+            assert_eq!(
+                hand_len - 1,
+                game.round()
+                    .unwrap()
+                    .player(current_player)
+                    .unwrap()
+                    .hand
+                    .len()
+            );
+
+            // test buying asset
+            let player = &game.round().unwrap().player(current_player).unwrap();
+            let hand_len = player.hand.len();
+            let liability_value = player.hand[hand_len - 1]
+                .as_ref()
+                .left()
+                .expect("Couldn't get asset")
+                .gold_value;
+            let cash_before = player.cash;
+
+            assert_ok!(game.player_play_card(current_player, hand_len - 1));
+            assert_eq!(
+                cash_before - liability_value,
+                game.round().unwrap().player(current_player).unwrap().cash
+            );
+
+            assert_eq!(
+                hand_len - 1,
+                game.round()
+                    .unwrap()
+                    .player(current_player)
+                    .unwrap()
+                    .hand
+                    .len()
+            );
+
+            let hand_len = game
+                .round()
+                .unwrap()
+                .player(current_player)
+                .unwrap()
+                .hand
+                .len();
             assert_matches!(
-                game.player_play_card(current_player.into(), hand_len - 1),
+                game.player_play_card(current_player, hand_len - 1),
                 Err(GameError::PlayCard(PlayCardError::ExceedsMaximumAssets))
             );
             assert_matches!(
-                game.player_play_card(current_player.into(), hand_len - 2),
+                game.player_play_card(current_player, hand_len - 2),
                 // Assumes a starter hand has 2 assets and then 2 liabilities
                 Err(GameError::PlayCard(
                     PlayCardError::ExceedsMaximumLiabilities
@@ -1154,7 +1181,7 @@ mod tests {
         let mut game = pick_with_players(4).expect("couldn't pick characters");
 
         assert_matches!(
-            game.player_play_card(usize::MAX, 0),
+            game.player_play_card(u8::MAX.into(), 0),
             Err(GameError::InvalidPlayerIndex(_))
         )
     }
@@ -1166,7 +1193,7 @@ mod tests {
         let next_player = game.next_player().expect("couldn't get next player");
 
         assert_matches!(
-            game.player_play_card(next_player.id.into(), 0),
+            game.player_play_card(next_player.id, 0),
             Err(GameError::NotPlayersTurn)
         )
     }
@@ -1179,7 +1206,7 @@ mod tests {
             .expect("couldn't get current player")
             .id;
 
-        assert_ok!(game.end_player_turn(current_player.into()));
+        assert_ok!(game.end_player_turn(current_player));
     }
 
     #[test]
@@ -1191,13 +1218,20 @@ mod tests {
             .id;
 
         // so player can always afford the asset
-        game.players[usize::from(current_player)].cash = 50;
+        match &mut game {
+            GameState::Round(r) => {
+                r.players[usize::from(current_player)].cash = 50;
+            }
+            _ => panic!("Not round even though that's expected"),
+        };
 
-        let hand_len = game.players[usize::from(current_player)].hand.len();
-        assert_ok!(game.player_play_card(current_player.into(), hand_len - 1));
-        assert_ok!(game.player_play_card(current_player.into(), 0));
+        let hand_len = game.round().unwrap().players[usize::from(current_player)]
+            .hand
+            .len();
+        assert_ok!(game.player_play_card(current_player, hand_len - 1));
+        assert_ok!(game.player_play_card(current_player, 0));
 
-        assert_ok!(game.end_player_turn(current_player.into()));
+        assert_ok!(game.end_player_turn(current_player));
     }
 
     #[test]
@@ -1208,18 +1242,33 @@ mod tests {
             .expect("couldn't get current player")
             .id;
 
-        draw_cards(
-            &mut game,
-            current_player,
-            [CardType::Asset, CardType::Asset, CardType::Liability],
-        );
+        play_turn(&mut game, current_player)
+    }
 
-        assert_err!(game.end_player_turn(current_player.into()));
+    #[test]
+    fn play_rounds() {
+        for player_count in 4..=7 {
+            let mut game = pick_with_players(player_count).expect("couldn't pick characters");
 
-        let hand_len = game.players[usize::from(current_player)].hand.len();
-        assert_ok!(game.player_give_back_card(current_player.into(), hand_len - 1));
-
-        assert_ok!(game.end_player_turn(current_player.into()));
+            // nr of rounds
+            // with current strategy runs out of assets after 3 rounds
+            for round in 0..3 {
+                for player in 0..player_count {
+                    let current_player = game
+                        .current_player()
+                        .expect("couldn't get current player")
+                        .id;
+    
+                    play_turn(&mut game, current_player);
+                }
+    
+                assert_matches!(game, GameState::SelectingCharacters(_));
+                
+                finish_selecting_characters(&mut game);
+                
+                assert_matches!(game, GameState::Round(_));
+            }  
+        }
     }
 
     #[test]
@@ -1242,18 +1291,31 @@ mod tests {
         }
     }
 
+    fn play_turn(game: &mut GameState, player_id: PlayerId) {
+        draw_cards(
+            game,
+            player_id,
+            [CardType::Asset, CardType::Asset, CardType::Liability],
+        );
+
+        assert_err!(game.end_player_turn(player_id));
+
+        let hand_len = game.round().unwrap().players[usize::from(player_id)]
+            .hand
+            .len();
+        assert_ok!(game.player_give_back_card(player_id, hand_len - 1));
+
+        assert_ok!(game.end_player_turn(player_id));
+    }
+
     fn draw_cards<const N: usize>(game: &mut GameState, id: PlayerId, cards: [CardType; N]) {
         for card_type in cards {
-            let _ = game.player_draw_card(id.into(), card_type);
+            let _ = game.player_draw_card(id, card_type);
         }
     }
 
-    fn pick_with_players(player_count: usize) -> Result<GameState, GameError> {
-        let names = (0..player_count)
-            .map(|i| format!("Player {i}"))
-            .collect::<Vec<_>>();
-
-        let mut game = GameState::new(&names, GAME_DATA.clone())?;
+    fn finish_selecting_characters(game: &mut GameState) {
+        let player_count = game.selecting_characters().unwrap().players.len();
 
         let add = match player_count {
             4..=6 => 1,
@@ -1263,15 +1325,20 @@ mod tests {
 
         #[allow(unused)]
         let mut closed = None::<Character>;
+        
+        let chairman = game.selecting_characters().unwrap().chairman;
+        let turn_order = game.selecting_characters().unwrap().turn_order();
+        
+        assert_eq!(chairman, turn_order[0]);
 
-        match game.player_get_selectable_characters(0) {
+        match game.player_get_selectable_characters(chairman) {
             Ok(PickableCharacters {
                 characters,
                 closed_character,
             }) => {
                 assert_eq!(characters.len(), player_count + add);
                 assert_some!(closed_character);
-                assert_ok!(game.player_select_character(0, characters[0]));
+                assert_ok!(game.player_select_character(chairman, characters[0]));
 
                 closed = closed_character;
             }
@@ -1279,20 +1346,21 @@ mod tests {
         }
 
         for i in 1..(player_count - 1) {
-            match game.player_get_selectable_characters(i) {
+            let player = turn_order[i];
+            match game.player_get_selectable_characters(player) {
                 Ok(PickableCharacters {
                     characters,
                     closed_character,
                 }) => {
                     assert_eq!(characters.len(), player_count + add - i);
                     assert_none!(closed_character);
-                    assert_ok!(game.player_select_character(i, characters[0]));
+                    assert_ok!(game.player_select_character(player, characters[0]));
                 }
                 _ => panic!(),
             }
         }
 
-        match game.player_get_selectable_characters(player_count - 1) {
+        match game.player_get_selectable_characters(turn_order[player_count - 1]) {
             Ok(PickableCharacters {
                 characters,
                 closed_character,
@@ -1300,14 +1368,38 @@ mod tests {
                 assert_eq!(characters.len(), 2 + add);
                 assert_none!(closed_character);
                 assert!(characters.contains(&closed.unwrap()));
-                assert_ok!(game.player_select_character(player_count - 1, closed.unwrap()));
+                assert_ok!(
+                    game.player_select_character(
+                        turn_order[player_count - 1],
+                        closed.unwrap()
+                    )
+                );
 
-                assert!(!game.is_selecting_characters());
-                assert_some!(game.current_player());
-
-                Ok(game)
+                assert_ok!(game.current_player());
+                assert_matches!(game, GameState::Round(_));
+                assert_ok!(game.round());
             }
             _ => panic!(),
         }
+    }
+
+    fn pick_with_players(player_count: usize) -> Result<GameState, GameError> {
+        let mut game = GameState::new();
+
+        (0..player_count)
+            .map(|i| format!("Player {i}"))
+            .for_each(|name| assert_matches!(game.join(name), Ok(true)));
+
+        game.start_game("assets/cards/boardgame.json")?;
+
+        assert_matches!(game, GameState::SelectingCharacters(_));
+        assert_eq!(
+            game.selecting_characters().unwrap().players.len(),
+            player_count
+        );
+
+        finish_selecting_characters(&mut game);
+
+        Ok(game)
     }
 }

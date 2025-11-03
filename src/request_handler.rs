@@ -1,267 +1,236 @@
-use std::sync::Arc;
+pub mod internal {
+    use crate::{game::*, player::*, responses::*};
 
-use crate::{
-    cards::GameData,
-    game::*,
-    responses::*,
-    server::{Game, RoomState},
-};
-use either::Either;
+    pub fn players_in_lobby(lobby: &Lobby, changed_player: String) -> Vec<UniqueResponse> {
+        let usernames = lobby.players().clone();
+        vec![UniqueResponse::PlayersInLobby {
+            changed_player,
+            usernames,
+        }]
+    }
 
-pub fn handle_internal_request(
-    msg: InternalResponse,
-    room_state: Arc<RoomState>,
-    player_name: &str,
-) -> Option<Vec<UniqueResponse>> {
-    match &*room_state.game.lock().unwrap() {
-        Game::GameStarted { state } => {
-            let player = state.player_by_name(player_name).unwrap();
-            match msg {
-                InternalResponse::GameStarted => {
-                    let pickable_characters = state
-                        .player_get_selectable_characters(player.id.into())
-                        .ok();
-                    Some(vec![
-                        UniqueResponse::StartGame {
-                            id: player.id,
-                            hand: player.hand.clone(),
-                            cash: player.cash,
-                            open_characters: state.open_characters().to_vec(),
-                            player_info: state.player_info(player.id.into()),
-                        },
-                        UniqueResponse::SelectingCharacters {
-                            chairman_id: state.chairman().id,
-                            pickable_characters,
-                            turn_order: state.turn_order(),
-                        },
-                    ])
-                }
-                InternalResponse::SelectedCharacter => {
-                    let pickable_characters = state
-                        .player_get_selectable_characters(player.id.into())
-                        .ok();
+    pub fn game_started(selecting: &SelectingCharacters, username: &str) -> Vec<UniqueResponse> {
+        let player = selecting.player_by_name(username).unwrap();
 
-                    let currently_picking_id = state.currently_selecting_id();
+        vec![
+            UniqueResponse::StartGame {
+                id: player.id,
+                hand: player.hand.clone(),
+                cash: player.cash,
+                open_characters: selecting.open_characters().to_vec(),
+                player_info: selecting.player_info(player.id),
+            },
+            UniqueResponse::SelectingCharacters {
+                chairman_id: selecting.chairman,
+                pickable_characters: selecting.player_get_selectable_characters(player.id).ok(),
+                turn_order: selecting.turn_order(),
+            },
+        ]
+    }
 
-                    let selected = UniqueResponse::SelectedCharacter {
-                        currently_picking_id,
-                        pickable_characters,
-                    };
+    pub fn selected_character_selecting(
+        selecting: &SelectingCharacters,
+        username: &str,
+    ) -> Vec<UniqueResponse> {
+        let player = selecting.player_by_name(username).unwrap();
+        let currently_picking_id = Some(selecting.currently_selecting_id());
 
-                    if let Some(player) = state.current_player() {
-                        // starting round
-                        Some(vec![
-                            selected,
-                            UniqueResponse::TurnStarts {
-                                player_turn: player.id,
-                                player_turn_cash: 1,
-                                player_character: player.character.unwrap(),
-                                draws_n_cards: 3,
-                                skipped_characters: vec![],
-                            },
-                        ])
-                    } else {
-                        Some(vec![selected])
-                    }
-                }
-                InternalResponse::DrawnCard {
-                    player_id,
-                    card_type,
-                } => Some(vec![UniqueResponse::DrewCard {
-                    player_id,
-                    card_type,
-                }]),
-                InternalResponse::PutBackCard {
-                    player_id,
-                    card_type,
-                } => Some(vec![UniqueResponse::PutBackCard {
-                    player_id,
-                    card_type,
-                }]),
-                InternalResponse::BoughtAsset { player_id, asset } => {
-                    Some(vec![UniqueResponse::BoughtAsset { player_id, asset }])
-                }
-                InternalResponse::IssuedLiability {
-                    player_id,
-                    liability,
-                } => Some(vec![UniqueResponse::IssuedLiability {
-                    player_id,
-                    liability,
-                }]),
-                InternalResponse::TurnEnded { player_id } => {
-                    if let Some(player) = state.current_player() {
-                        Some(vec![
-                            UniqueResponse::TurnEnded { player_id },
-                            UniqueResponse::TurnStarts {
-                                player_turn: player.id,
-                                player_turn_cash: 1,
-                                player_character: player.character.unwrap(),
-                                draws_n_cards: 3,
-                                skipped_characters: vec![],
-                            },
-                        ])
-                    } else {
-                        let pickable_characters = state
-                            .player_get_selectable_characters(player.id.into())
-                            .ok();
-                        Some(vec![UniqueResponse::SelectingCharacters {
-                            chairman_id: state.chairman().id,
-                            pickable_characters,
-                            // player_info: state.player_info(player.id.into()),
-                            turn_order: state.turn_order(),
-                        }])
-                    }
-                }
-                InternalResponse::PlayerJoined { .. } => None,
-                InternalResponse::PlayerLeft { .. } => None,
-            }
-        }
-        Game::InLobby { user_set } => match msg {
-            InternalResponse::PlayerJoined { username }
-            | InternalResponse::PlayerLeft { username } => {
-                Some(vec![UniqueResponse::PlayersInLobby {
-                    changed_player: username,
-                    usernames: user_set.clone(),
-                }])
-            }
-            _ => None,
-        },
+        let pickable_characters = selecting.player_get_selectable_characters(player.id).ok();
+
+        vec![UniqueResponse::SelectedCharacter {
+            currently_picking_id,
+            pickable_characters,
+        }]
+    }
+
+    pub fn selected_character_round(round: &Round) -> Vec<UniqueResponse> {
+        vec![
+            // TODO: probably not send this
+            UniqueResponse::SelectedCharacter {
+                currently_picking_id: None,
+                pickable_characters: None,
+            },
+            UniqueResponse::TurnStarts {
+                player_turn: round.current_player().id,
+                player_turn_cash: 1,
+                // TODO: fix this in player state branch
+                player_character: round.current_player().character.unwrap(),
+                draws_n_cards: 3,
+                skipped_characters: vec![],
+            },
+        ]
+    }
+
+    pub fn drawn_card(player_id: PlayerId, card_type: CardType) -> Vec<UniqueResponse> {
+        vec![UniqueResponse::DrewCard {
+            player_id,
+            card_type,
+        }]
+    }
+
+    pub fn put_back_card(player_id: PlayerId, card_type: CardType) -> Vec<UniqueResponse> {
+        vec![UniqueResponse::PutBackCard {
+            player_id,
+            card_type,
+        }]
+    }
+
+    pub fn bought_asset(player_id: PlayerId, asset: Asset) -> Vec<UniqueResponse> {
+        vec![UniqueResponse::BoughtAsset { player_id, asset }]
+    }
+
+    pub fn issued_liability(player_id: PlayerId, liability: Liability) -> Vec<UniqueResponse> {
+        vec![UniqueResponse::IssuedLiability {
+            player_id,
+            liability,
+        }]
+    }
+
+    pub fn turn_ended_round(round: &Round, player_id: PlayerId) -> Vec<UniqueResponse> {
+        vec![
+            // TODO: think about whether turn should end after frontend receives TurnStarts?
+            UniqueResponse::TurnEnded { player_id },
+            UniqueResponse::TurnStarts {
+                player_turn: round.current_player().id,
+                player_turn_cash: 1,
+                player_character: round.current_player().character.unwrap(),
+                draws_n_cards: 3,
+                // TODO: implement concept of skipped characters
+                skipped_characters: vec![],
+            },
+        ]
+    }
+
+    pub fn turn_ended_selecting(
+        selecting: &SelectingCharacters,
+        player_id: PlayerId,
+        username: &str,
+    ) -> Vec<UniqueResponse> {
+        let player = selecting.player_by_name(username).unwrap();
+        let pickable_characters = selecting.player_get_selectable_characters(player.id).ok();
+
+        vec![
+            // TODO: probably not send this?
+            UniqueResponse::TurnEnded { player_id },
+            UniqueResponse::SelectingCharacters {
+                chairman_id: selecting.chairman,
+                pickable_characters,
+                // player_info: state.player_info(player.id.into()),
+                turn_order: selecting.turn_order(),
+            },
+        ]
     }
 }
 
-pub fn handle_request(msg: ReceiveData, room_state: Arc<RoomState>, player_name: &str) -> Response {
-    let mut game = room_state.game.lock().unwrap();
-    match &mut *game {
-        crate::server::Game::GameStarted { state } => {
-            let playerid = state.player_by_name(player_name).unwrap().id;
-            match msg {
-                ReceiveData::Connect { .. } => {
-                    DirectResponse::Error(ResponseError::GameAlreadyStarted).into()
-                }
-                ReceiveData::StartGame => {
-                    DirectResponse::Error(ResponseError::GameAlreadyStarted).into()
-                }
-                ReceiveData::DrawCard { card_type } => draw_card(state, card_type, playerid),
-                ReceiveData::PutBackCard { card_idx } => put_back_card(state, card_idx, playerid),
-                ReceiveData::BuyAsset {
-                    card_idx: asset_idx,
-                } => play_card(state, asset_idx, playerid),
-                ReceiveData::IssueLiability {
-                    card_idx: liability_idx,
-                } => play_card(state, liability_idx, playerid),
-                ReceiveData::SelectCharacter { character } => {
-                    select_character(state, character, playerid)
-                }
-                ReceiveData::EndTurn => end_turn(state, playerid),
-            }
-        }
-        crate::server::Game::InLobby { user_set } => match msg {
-            ReceiveData::StartGame => {
-                let names = user_set.iter().cloned().collect::<Vec<_>>();
-                let data = GameData::new("assets/cards/boardgame.json").expect("this should exist");
-                match GameState::new(&names, data) {
-                    Ok(state) => {
-                        *game = Game::GameStarted { state };
-                        tracing::debug!("{msg:?}");
-                        Response(
-                            Some(InternalResponse::GameStarted),
-                            DirectResponse::YouStartedGame,
-                        )
-                    }
-                    Err(e) => {
-                        tracing::error!("Failed to start game: {}", e);
-                        e.into()
-                    }
-                }
-            }
-            _ => DirectResponse::Error(ResponseError::GameNotYetStarted).into(),
-        },
-    }
-}
+pub mod external {
+    use either::Either;
 
-fn draw_card(state: &mut GameState, card_type: CardType, player_id: PlayerId) -> Response {
-    match state.player_draw_card(player_id.into(), card_type) {
-        Ok(card) => Response::new(
+    use crate::{errors::GameError, game::*, player::*, responses::*};
+
+    pub fn draw_card(
+        state: &mut GameState,
+        card_type: CardType,
+        player_id: PlayerId,
+    ) -> Result<Response, GameError> {
+        let card = state.player_draw_card(player_id, card_type)?.cloned();
+        let player = state.player(player_id)?;
+
+        Ok(Response(
             InternalResponse::DrawnCard {
                 player_id,
                 card_type,
             },
             DirectResponse::YouDrewCard {
-                card: card.cloned(),
+                card,
+                can_draw_cards: player.can_draw_cards(),
+                can_give_back_cards: player.should_give_back_cards(),
             },
-        ),
-        Err(e) => e.into(),
+        ))
     }
-}
 
-fn put_back_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) -> Response {
-    match state.player_give_back_card(player_id.into(), card_idx) {
-        Ok(card_type) => Response::new(
+    pub fn put_back_card(
+        state: &mut GameState,
+        card_idx: usize,
+        player_id: PlayerId,
+    ) -> Result<Response, GameError> {
+        let card_type = state.player_give_back_card(player_id, card_idx)?;
+        let player = state.player(player_id)?;
+
+        Ok(Response(
             InternalResponse::PutBackCard {
                 player_id,
                 card_type,
             },
-            DirectResponse::YouPutBackCard { card_idx },
-        ),
-        Err(e) => e.into(),
+            DirectResponse::YouPutBackCard {
+                card_idx,
+                can_draw_cards: player.can_draw_cards(),
+                can_give_back_cards: player.should_give_back_cards(),
+            },
+        ))
     }
-}
 
-fn play_card(state: &mut GameState, card_idx: usize, player_id: PlayerId) -> Response {
-    match state.player_play_card(player_id.into(), card_idx) {
-        Ok(played_card) => match played_card.used_card {
-            Either::Left(asset) => Response::new(
+    pub fn play_card(
+        state: &mut GameState,
+        card_idx: usize,
+        player_id: PlayerId,
+    ) -> Result<Response, GameError> {
+        let played_card = state.player_play_card(player_id, card_idx)?;
+
+        match played_card.used_card {
+            Either::Left(asset) => Ok(Response(
                 InternalResponse::BoughtAsset {
                     player_id,
                     asset: asset.clone(),
                 },
                 DirectResponse::YouBoughtAsset { asset },
-            ),
-            Either::Right(liability) => Response::new(
+            )),
+            Either::Right(liability) => Ok(Response(
                 InternalResponse::IssuedLiability {
                     player_id,
                     liability: liability.clone(),
                 },
                 DirectResponse::YouIssuedLiability { liability },
-            ),
-        },
-        Err(e) => e.into(),
-    }
-}
-
-fn select_character(state: &mut GameState, character: Character, player_id: PlayerId) -> Response {
-    match state.player_select_character(player_id.into(), character) {
-        Ok(_) => Response::new(
-            InternalResponse::SelectedCharacter,
-            DirectResponse::YouSelectedCharacter { character },
-        ),
-        Err(e) => e.into(),
-    }
-}
-
-fn end_turn(state: &mut GameState, player_id: PlayerId) -> Response {
-    match state.end_player_turn(player_id.into()) {
-        Ok(TurnEnded {
-            next_player: Some(player_id),
-        }) => Response(
-            Some(InternalResponse::TurnEnded { player_id }),
-            DirectResponse::YouEndedTurn,
-        ),
-        Ok(_) => {
-            // if next_player is none // TODO: Fix for end of round
-            let player_id = state.chairman().id;
-            Response(
-                Some(InternalResponse::TurnEnded { player_id }),
-                DirectResponse::YouEndedTurn,
-            )
+            )),
         }
-        Err(e) => e.into(),
+    }
+
+    pub fn select_character(
+        state: &mut GameState,
+        player_id: PlayerId,
+        character: Character,
+    ) -> Result<Response, GameError> {
+        match state.player_select_character(player_id, character) {
+            Ok(_) => Ok(Response(
+                InternalResponse::SelectedCharacter,
+                DirectResponse::YouSelectedCharacter { character },
+            )),
+            Err(e) => Err(e),
+        }
+    }
+
+    pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, GameError> {
+        match state.end_player_turn(player_id)? {
+            TurnEnded {
+                next_player: Some(player_id),
+            } => Ok(Response(
+                InternalResponse::TurnEnded { player_id },
+                DirectResponse::YouEndedTurn,
+            )),
+            _ => {
+                // if next_player is none // TODO: Fix for end of round
+                let player_id = state.selecting_characters().unwrap().chairman;
+                Ok(Response(
+                    InternalResponse::TurnEnded { player_id },
+                    DirectResponse::YouEndedTurn,
+                ))
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::{player::*, responses::*};
 
     #[test]
     fn fmt() {
@@ -277,7 +246,11 @@ mod tests {
         println!("json: {json}");
         println!("json2: {json2}");
 
-        let send = DirectResponse::YouPutBackCard { card_idx: 123 };
+        let send = DirectResponse::YouPutBackCard {
+            card_idx: 123,
+            can_draw_cards: true,
+            can_give_back_cards: true,
+        };
 
         let sjson = serde_json::to_string(&send).unwrap();
 

@@ -1,14 +1,19 @@
 use std::collections::HashSet;
 
-use crate::{game::*, game_errors::GameError, utility::serde_asset_liability};
+use crate::{errors::GameError, game::*, player::*, utility::serde_asset_liability};
 use either::Either;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "action", content = "data")]
-pub enum ReceiveData {
+pub enum Connect {
     Connect { username: String, channel: String },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "action", content = "data")]
+pub enum ReceiveData {
     StartGame,
     SelectCharacter { character: Character },
     DrawCard { card_type: CardType },
@@ -19,23 +24,11 @@ pub enum ReceiveData {
 }
 
 #[derive(Debug)]
-pub struct Response(pub Option<InternalResponse>, pub DirectResponse);
+pub struct Response(pub InternalResponse, pub DirectResponse);
 
-impl Response {
-    pub fn new(internal: InternalResponse, external: DirectResponse) -> Self {
-        Self(Some(internal), external)
-    }
-}
-
-impl From<DirectResponse> for Response {
-    fn from(external: DirectResponse) -> Self {
-        Self(None, external)
-    }
-}
-
-impl From<GameError> for Response {
+impl From<GameError> for DirectResponse {
     fn from(error: GameError) -> Self {
-        Self(None, DirectResponse::Error(error.into()))
+        DirectResponse::Error(error.into())
     }
 }
 
@@ -50,9 +43,13 @@ pub enum DirectResponse {
     YouDrewCard {
         #[serde(with = "serde_asset_liability::value")]
         card: Either<Asset, Liability>,
+        can_draw_cards: bool,
+        can_give_back_cards: bool,
     },
     YouPutBackCard {
         card_idx: usize,
+        can_draw_cards: bool,
+        can_give_back_cards: bool,
     },
     YouBoughtAsset {
         asset: Asset,
@@ -165,10 +162,4 @@ pub enum ResponseError {
     InvalidUsername,
     #[error("Data is not valid for this state")]
     InvalidData,
-}
-
-impl<I: Into<ResponseError>> From<I> for DirectResponse {
-    fn from(error: I) -> Self {
-        DirectResponse::Error(error.into())
-    }
 }

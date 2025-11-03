@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::{errors::GameError, game::*, player::*, utility::serde_asset_liability};
 use either::Either;
@@ -117,62 +117,13 @@ pub enum UniqueResponse {
     GameEnded,
 }
 
-#[derive(Debug, Clone)]
-pub struct PlayerJoined {
-    pub username: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct PlayerLeft {
-    pub username: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct GameStarted;
-
-#[derive(Debug, Clone)]
-pub struct SelectedCharacter;
-
-#[derive(Debug, Clone)]
-pub struct DrawnCard {
-    pub player_id: PlayerId,
-    pub card_type: CardType,
-}
-
-#[derive(Debug, Clone)]
-pub struct PutBackCard {
-    pub player_id: PlayerId,
-    pub card_type: CardType,
-}
-
-#[derive(Debug, Clone)]
-pub struct BoughtAsset {
-    pub player_id: PlayerId,
-    pub asset: Asset,
-}
-
-#[derive(Debug, Clone)]
-pub struct IssuedLiability {
-    pub player_id: PlayerId,
-    pub liability: Liability,
-}
-
-#[derive(Debug, Clone)]
-pub struct TurnEnded {
-    pub player_id: PlayerId,
-}
-
 #[derive(Clone, Debug)]
-pub enum InternalResponse {
-    PlayerJoined(PlayerJoined),
-    PlayerLeft(PlayerLeft),
-    GameStarted(GameStarted),
-    SelectedCharacter(SelectedCharacter),
-    DrawnCard(DrawnCard),
-    PutBackCard(PutBackCard),
-    BoughtAsset(BoughtAsset),
-    IssuedLiability(IssuedLiability),
-    TurnEnded(TurnEnded),
+pub struct InternalResponse(pub HashMap<String, Vec<UniqueResponse>>);
+
+impl InternalResponse {
+    pub fn get_responses(&self, name: &str) -> Option<&[UniqueResponse]> {
+        self.0.get(name).map(AsRef::as_ref)
+    }
 }
 
 #[derive(Debug, Error, Serialize, Deserialize)]

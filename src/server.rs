@@ -1,7 +1,7 @@
 use crate::{game::GameState, responses::*, rooms::RoomState};
 
 use axum::{
-    Json, Router,
+    Router,
     extract::{
         State,
         ws::{Message, WebSocket, WebSocketUpgrade},
@@ -105,6 +105,24 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                         && lobby.join(connect_username.to_owned())
                     {
                         username = connect_username.clone();
+
+                        // announce join to everyone
+                        let internal = lobby
+                            .players()
+                            .iter()
+                            .map(|name| {
+                                (
+                                    name.clone(),
+                                    vec![UniqueResponse::PlayersInLobby {
+                                        changed_player: username.clone(),
+                                        usernames: lobby.players().clone(),
+                                    }],
+                                )
+                            })
+                            .collect();
+
+                        tracing::debug!("{internal:?}");
+                        let _ = room.tx.send(InternalResponse(internal));
                     } else {
                         // TODO: Idk if this sends because I don't .await but also I get an error
                         // because it stops being sync? idk wtf is going on here
@@ -142,31 +160,25 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     // subscribe to broadcast channel
     let mut rx = tx.subscribe();
 
-    // announce join to everyone
-    let msg = InternalResponse::PlayerJoined(PlayerJoined {
-        username: username.clone(),
-    });
-    tracing::debug!("{msg:?}");
-    let _ = tx.send(msg.into());
-
     // task: forward broadcast messages to this client
     let mut send_task = {
         let name = username.clone();
-        let room = room.clone();
         let sender = sender.clone();
 
         tokio::spawn(async move {
             'outer: loop {
                 match rx.recv().await {
-                    Ok(Json(json)) => {
-                        tracing::debug!("public recv: {json:?}");
-                        for e in room.handle_internal_request(json, &name) {
-                            // tracing::debug!("unique send: {e:?}");
-                            if send_external(e, sender.clone()).await.is_err() {
-                                break 'outer;
+                    Ok(msg) => match msg.get_responses(&name) {
+                        Some(responses) => {
+                            for r in responses {
+                                tracing::debug!("unique send: {r:?}");
+                                if send_external(r, sender.clone()).await.is_err() {
+                                    break 'outer;
+                                }
                             }
                         }
-                    }
+                        None => continue,
+                    },
                     // If we lagged behind, just continue
                     Err(broadcast::error::RecvError::Lagged(_)) => continue,
                     // channel closed
@@ -194,7 +206,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                                 Ok(Response(internal, direct)) => {
                                     tracing::debug!("internal send: {internal:?}");
 
-                                    let _ = tx.send(Json(internal));
+                                    let _ = tx.send(internal);
 
                                     direct
                                 }
@@ -221,21 +233,29 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     };
 
     // announce leave
-    let msg = InternalResponse::PlayerLeft(PlayerLeft {
-        username: username.clone(),
-    });
-    tracing::debug!("{msg:?}");
-    let _ = tx.send(msg.into());
-    // remove username on disconnect
-    {
-        let rooms = state.rooms.lock().unwrap();
-        let room = rooms
-            .get(&channel)
-            .cloned()
-            .expect("The room should exist at this point");
-        if let GameState::Lobby(lobby) = &mut *room.game.lock().unwrap() {
+    match room.game.lock().unwrap().lobby_mut().ok() {
+        Some(lobby) => {
+            let internal = lobby
+                .players()
+                .iter()
+                .map(|name| {
+                    (
+                        name.clone(),
+                        vec![UniqueResponse::PlayersInLobby {
+                            changed_player: username.clone(),
+                            usernames: lobby.players().clone(),
+                        }],
+                    )
+                })
+                .collect();
+
+            tracing::debug!("{internal:?}");
+            let _ = tx.send(InternalResponse(internal));
+
+            // remove username on disconnect
             lobby.leave(&username);
         }
+        None => {}
     }
 }
 

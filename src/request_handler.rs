@@ -1,230 +1,280 @@
-pub mod internal {
-    use crate::{game::*, player::*, responses::*};
+use either::Either;
 
-    pub fn players_in_lobby(lobby: &Lobby, changed_player: String) -> Vec<UniqueResponse> {
-        let usernames = lobby.players().clone();
-        vec![UniqueResponse::PlayersInLobby {
-            changed_player,
-            usernames,
-        }]
-    }
+use crate::{errors::GameError, game::*, player::*, responses::*};
 
-    pub fn game_started(selecting: &SelectingCharacters, username: &str) -> Vec<UniqueResponse> {
-        let player = selecting.player_by_name(username).unwrap();
+pub fn start_game(state: &mut GameState) -> Result<Response, GameError> {
+    state.start_game("assets/cards/boardgame.json")?;
 
-        vec![
-            UniqueResponse::StartGame {
-                id: player.id,
-                hand: player.hand.clone(),
-                cash: player.cash,
-                open_characters: selecting.open_characters().to_vec(),
-                player_info: selecting.player_info(player.id),
-            },
-            UniqueResponse::SelectingCharacters {
-                chairman_id: selecting.chairman,
-                pickable_characters: selecting.player_get_selectable_characters(player.id).ok(),
-                turn_order: selecting.turn_order(),
-            },
-        ]
-    }
+    tracing::debug!("Started Game");
 
-    pub fn selected_character_selecting(
-        selecting: &SelectingCharacters,
-        username: &str,
-    ) -> Vec<UniqueResponse> {
-        let player = selecting.player_by_name(username).unwrap();
-        let currently_picking_id = Some(selecting.currently_selecting_id());
+    let selecting = state.selecting_characters()?;
 
-        let pickable_characters = selecting.player_get_selectable_characters(player.id).ok();
+    let internal = selecting
+        .players()
+        .iter()
+        .map(|p| {
+            (
+                p.name.clone(),
+                vec![
+                    UniqueResponse::StartGame {
+                        id: p.id,
+                        hand: p.hand.clone(),
+                        cash: p.cash,
+                        open_characters: selecting.open_characters().to_vec(),
+                        player_info: selecting.player_info(p.id),
+                    },
+                    UniqueResponse::SelectingCharacters {
+                        chairman_id: selecting.chairman,
+                        pickable_characters: selecting.player_get_selectable_characters(p.id).ok(),
+                        turn_order: selecting.turn_order(),
+                    },
+                ],
+            )
+        })
+        .collect();
 
-        vec![UniqueResponse::SelectedCharacter {
-            currently_picking_id,
-            pickable_characters,
-        }]
-    }
+    Ok(Response(
+        InternalResponse(internal),
+        DirectResponse::YouStartedGame,
+    ))
+}
 
-    pub fn selected_character_round(round: &Round) -> Vec<UniqueResponse> {
-        vec![
-            // TODO: probably not send this
-            UniqueResponse::SelectedCharacter {
-                currently_picking_id: None,
-                pickable_characters: None,
-            },
-            UniqueResponse::TurnStarts {
-                player_turn: round.current_player().id,
-                player_turn_cash: 1,
-                // TODO: fix this in player state branch
-                player_character: round.current_player().character.unwrap(),
-                draws_n_cards: 3,
-                skipped_characters: vec![],
-            },
-        ]
-    }
+pub fn draw_card(
+    state: &mut GameState,
+    card_type: CardType,
+    player_id: PlayerId,
+) -> Result<Response, GameError> {
+    let round = state.round_mut()?;
+    let card = round.player_draw_card(player_id, card_type)?.cloned();
+    let player = round.player(player_id)?;
 
-    pub fn drawn_card(player_id: PlayerId, card_type: CardType) -> Vec<UniqueResponse> {
-        vec![UniqueResponse::DrewCard {
-            player_id,
-            card_type,
-        }]
-    }
+    let internal = round
+        .players()
+        .iter()
+        .filter(|p| player_id != p.id)
+        .map(|p| {
+            (
+                p.name.clone(),
+                vec![UniqueResponse::DrewCard {
+                    player_id,
+                    card_type: card_type,
+                }],
+            )
+        })
+        .collect();
 
-    pub fn put_back_card(player_id: PlayerId, card_type: CardType) -> Vec<UniqueResponse> {
-        vec![UniqueResponse::PutBackCard {
-            player_id,
-            card_type,
-        }]
-    }
+    Ok(Response(
+        InternalResponse(internal),
+        DirectResponse::YouDrewCard {
+            card,
+            can_draw_cards: player.can_draw_cards(),
+            can_give_back_cards: player.should_give_back_cards(),
+        },
+    ))
+}
 
-    pub fn bought_asset(player_id: PlayerId, asset: Asset) -> Vec<UniqueResponse> {
-        vec![UniqueResponse::BoughtAsset { player_id, asset }]
-    }
+pub fn put_back_card(
+    state: &mut GameState,
+    card_idx: usize,
+    player_id: PlayerId,
+) -> Result<Response, GameError> {
+    let round = state.round_mut()?;
+    let card_type = round.player_give_back_card(player_id, card_idx)?;
+    let player = round.player(player_id)?;
 
-    pub fn issued_liability(player_id: PlayerId, liability: Liability) -> Vec<UniqueResponse> {
-        vec![UniqueResponse::IssuedLiability {
-            player_id,
-            liability,
-        }]
-    }
+    let internal = round
+        .players()
+        .iter()
+        .filter(|p| player_id != p.id)
+        .map(|p| {
+            (
+                p.name.clone(),
+                vec![UniqueResponse::PutBackCard {
+                    player_id,
+                    card_type: card_type,
+                }],
+            )
+        })
+        .collect();
 
-    pub fn turn_ended_round(round: &Round, player_id: PlayerId) -> Vec<UniqueResponse> {
-        vec![
-            // TODO: think about whether turn should end after frontend receives TurnStarts?
-            UniqueResponse::TurnEnded { player_id },
-            UniqueResponse::TurnStarts {
-                player_turn: round.current_player().id,
-                player_turn_cash: 1,
-                player_character: round.current_player().character.unwrap(),
-                draws_n_cards: 3,
-                // TODO: implement concept of skipped characters
-                skipped_characters: vec![],
-            },
-        ]
-    }
+    Ok(Response(
+        InternalResponse(internal),
+        DirectResponse::YouPutBackCard {
+            card_idx,
+            can_draw_cards: player.can_draw_cards(),
+            can_give_back_cards: player.should_give_back_cards(),
+        },
+    ))
+}
 
-    pub fn turn_ended_selecting(
-        selecting: &SelectingCharacters,
-        player_id: PlayerId,
-        username: &str,
-    ) -> Vec<UniqueResponse> {
-        let player = selecting.player_by_name(username).unwrap();
-        let pickable_characters = selecting.player_get_selectable_characters(player.id).ok();
+pub fn play_card(
+    state: &mut GameState,
+    card_idx: usize,
+    player_id: PlayerId,
+) -> Result<Response, GameError> {
+    let round = state.round_mut()?;
+    let played_card = round.player_play_card(player_id, card_idx)?;
 
-        vec![
-            // TODO: probably not send this?
-            UniqueResponse::TurnEnded { player_id },
-            UniqueResponse::SelectingCharacters {
-                chairman_id: selecting.chairman,
-                pickable_characters,
-                // player_info: state.player_info(player.id.into()),
-                turn_order: selecting.turn_order(),
-            },
-        ]
+    match played_card.used_card {
+        Either::Left(asset) => {
+            let internal = round
+                .players()
+                .iter()
+                .filter(|p| p.id != player_id)
+                .map(|p| {
+                    (
+                        p.name.clone(),
+                        vec![UniqueResponse::BoughtAsset {
+                            player_id,
+                            asset: asset.clone(),
+                        }],
+                    )
+                })
+                .collect();
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouBoughtAsset { asset },
+            ))
+        }
+        Either::Right(liability) => {
+            let internal = round
+                .players()
+                .iter()
+                .filter(|p| p.id != player_id)
+                .map(|p| {
+                    (
+                        p.name.clone(),
+                        vec![UniqueResponse::IssuedLiability {
+                            player_id,
+                            liability: liability.clone(),
+                        }],
+                    )
+                })
+                .collect();
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouIssuedLiability { liability },
+            ))
+        }
     }
 }
 
-pub mod external {
-    use either::Either;
+pub fn select_character(
+    state: &mut GameState,
+    player_id: PlayerId,
+    character: Character,
+) -> Result<Response, GameError> {
+    match state.player_select_character(player_id, character) {
+        Ok(_) => {
+            match state {
+                GameState::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
+                GameState::SelectingCharacters(selecting) => {
+                    let internal = selecting
+                        .players()
+                        .iter()
+                        .filter(|p| p.id != player_id)
+                        .map(|p| {
+                            (
+                                p.name.clone(),
+                                vec![UniqueResponse::SelectedCharacter {
+                                    currently_picking_id: Some(selecting.currently_selecting_id()),
+                                    pickable_characters: selecting
+                                        .player_get_selectable_characters(p.id)
+                                        .ok(),
+                                }],
+                            )
+                        })
+                        .collect();
 
-    use crate::{errors::GameError, game::*, player::*, responses::*};
-
-    pub fn draw_card(
-        state: &mut GameState,
-        card_type: CardType,
-        player_id: PlayerId,
-    ) -> Result<Response, GameError> {
-        let card = state.player_draw_card(player_id, card_type)?.cloned();
-        let player = state.player(player_id)?;
-
-        Ok(Response(
-            InternalResponse::DrawnCard(DrawnCard {
-                player_id,
-                card_type,
-            }),
-            DirectResponse::YouDrewCard {
-                card,
-                can_draw_cards: player.can_draw_cards(),
-                can_give_back_cards: player.should_give_back_cards(),
-            },
-        ))
-    }
-
-    pub fn put_back_card(
-        state: &mut GameState,
-        card_idx: usize,
-        player_id: PlayerId,
-    ) -> Result<Response, GameError> {
-        let card_type = state.player_give_back_card(player_id, card_idx)?;
-        let player = state.player(player_id)?;
-
-        Ok(Response(
-            InternalResponse::PutBackCard(PutBackCard {
-                player_id,
-                card_type,
-            }),
-            DirectResponse::YouPutBackCard {
-                card_idx,
-                can_draw_cards: player.can_draw_cards(),
-                can_give_back_cards: player.should_give_back_cards(),
-            },
-        ))
-    }
-
-    pub fn play_card(
-        state: &mut GameState,
-        card_idx: usize,
-        player_id: PlayerId,
-    ) -> Result<Response, GameError> {
-        let played_card = state.player_play_card(player_id, card_idx)?;
-
-        match played_card.used_card {
-            Either::Left(asset) => Ok(Response(
-                InternalResponse::BoughtAsset(BoughtAsset {
-                    player_id,
-                    asset: asset.clone(),
-                }),
-                DirectResponse::YouBoughtAsset { asset },
-            )),
-            Either::Right(liability) => Ok(Response(
-                InternalResponse::IssuedLiability(IssuedLiability {
-                    player_id,
-                    liability: liability.clone(),
-                }),
-                DirectResponse::YouIssuedLiability { liability },
-            )),
-        }
-    }
-
-    pub fn select_character(
-        state: &mut GameState,
-        player_id: PlayerId,
-        character: Character,
-    ) -> Result<Response, GameError> {
-        match state.player_select_character(player_id, character) {
-            Ok(_) => Ok(Response(
-                InternalResponse::SelectedCharacter(SelectedCharacter),
-                DirectResponse::YouSelectedCharacter { character },
-            )),
-            Err(e) => Err(e),
-        }
-    }
-
-    pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, GameError> {
-        match state.end_player_turn(player_id)? {
-            crate::game::TurnEnded {
-                next_player: Some(player_id),
-            } => Ok(Response(
-                InternalResponse::TurnEnded(crate::responses::TurnEnded { player_id }),
-                DirectResponse::YouEndedTurn,
-            )),
-            _ => {
-                // if next_player is none // TODO: Fix for end of round
-                let player_id = state.selecting_characters().unwrap().chairman;
-                Ok(Response(
-                    InternalResponse::TurnEnded(crate::responses::TurnEnded { player_id }),
-                    DirectResponse::YouEndedTurn,
-                ))
+                    Ok(Response(
+                        InternalResponse(internal),
+                        DirectResponse::YouSelectedCharacter { character },
+                    ))
+                }
+                GameState::Round(round) => {
+                    // TODO: turn is the same for everyone. Simplify maybe
+                    let internal = round
+                        .players()
+                        .iter()
+                        // .filter(|p| p.id != player_id)
+                        .map(|p| {
+                            (
+                                p.name.clone(),
+                                vec![UniqueResponse::TurnStarts {
+                                    player_turn: round.current_player().id,
+                                    player_turn_cash: 1,
+                                    // TODO: fix this in player state branch
+                                    player_character: round.current_player().character.unwrap(),
+                                    draws_n_cards: 3,
+                                    skipped_characters: vec![],
+                                }],
+                            )
+                        })
+                        .collect();
+                    Ok(Response(
+                        InternalResponse(internal),
+                        DirectResponse::YouSelectedCharacter { character },
+                    ))
+                }
+                GameState::Results(_) => Err(GameError::NotAvailableInResultsState),
             }
         }
+        Err(e) => Err(e),
+    }
+}
+
+pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, GameError> {
+    state.end_player_turn(player_id)?;
+
+    match state {
+        GameState::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
+        GameState::SelectingCharacters(selecting) => {
+            let internal = selecting
+                .players()
+                .iter()
+                .map(|p| {
+                    (
+                        p.name.clone(),
+                        vec![UniqueResponse::SelectingCharacters {
+                            chairman_id: selecting.chairman,
+                            pickable_characters: selecting
+                                .player_get_selectable_characters(p.id)
+                                .ok(),
+                            // player_info: state.player_info(player.id.into()),
+                            turn_order: selecting.turn_order(),
+                        }],
+                    )
+                })
+                .collect();
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouEndedTurn,
+            ))
+        }
+        GameState::Round(round) => {
+            let internal = round
+                .players()
+                .iter()
+                .map(|p| {
+                    (
+                        p.name.clone(),
+                        vec![UniqueResponse::TurnStarts {
+                            player_turn: round.current_player().id,
+                            player_turn_cash: 1,
+                            player_character: round.current_player().character.unwrap(),
+                            draws_n_cards: 3,
+                            // TODO: implement concept of skipped characters
+                            skipped_characters: vec![],
+                        }],
+                    )
+                })
+                .collect();
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouEndedTurn,
+            ))
+        }
+        GameState::Results(_) => Err(GameError::NotAvailableInResultsState),
     }
 }
 

@@ -453,6 +453,15 @@ impl TheBottomLine for GameState {
         players.iter().find(|p| p.character == Some(character))
     }
 
+    fn players(&self) -> Result<&[Player], GameError> {
+        match self {
+            GameState::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
+            GameState::SelectingCharacters(selecting) => Ok(selecting.players()),
+            GameState::Round(round) => Ok(round.players()),
+            GameState::Results(results) => Ok(results.players()),
+        }
+    }
+
     fn player_play_card(
         &mut self,
         id: PlayerId,
@@ -628,6 +637,10 @@ impl SelectingCharacters {
             .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
     }
 
+    pub fn players(&self) -> &[Player] {
+        &self.players
+    }
+
     pub fn currently_selecting_id(&self) -> PlayerId {
         (self.characters.applies_to_player() as u8).into()
     }
@@ -757,6 +770,10 @@ impl Round {
             .iter()
             .filter(|p| p.character > current_character)
             .min_by(|p1, p2| p1.character.cmp(&p2.character))
+    }
+
+    pub fn players(&self) -> &[Player] {
+        &self.players
     }
 
     pub fn open_characters(&self) -> &[Character] {
@@ -950,6 +967,10 @@ impl Results {
             .iter()
             .find(|p| p.name == name)
             .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
+    }
+
+    pub fn players(&self) -> &[Player] {
+        &self.players
     }
 
     pub fn score(&self, id: PlayerId) -> Result<f64, GameError> {

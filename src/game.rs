@@ -192,15 +192,6 @@ pub struct TurnEnded {
     pub next_player: Option<PlayerId>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TurnStarted {
-    pub player_turn: PlayerId,
-    pub player_turn_cash: u8,
-    pub player_character: Character,
-    pub draws_n_cards: u8,
-    pub skipped_characters: Vec<Character>,
-}
-
 impl TurnEnded {
     pub fn new(next_player: Option<PlayerId>) -> Self {
         Self { next_player }
@@ -276,9 +267,6 @@ pub trait TheBottomLine {
 
     /// Ends player's turn
     fn end_player_turn(&mut self, id: PlayerId) -> Result<TurnEnded, GameError>;
-
-    /// Handles start logic of a players turn
-    fn start_player_turn(&mut self, id: PlayerId) -> Result<TurnStarted, GameError>;
 
     /// Gets a list of players with publicly available information, besides the main player
     fn player_info(&self, id: PlayerId) -> Result<Vec<PlayerInfo>, GameError>;
@@ -525,13 +513,6 @@ impl TheBottomLine for GameState {
         }
     }
 
-    fn start_player_turn(&mut self, id: PlayerId) -> Result<TurnStarted, GameError> {
-        match self {
-            Self::Round(r) => r.start_player_turn(id),
-            _ => Err(GameError::NotRoundState),
-        }
-    }
-
     fn player_info(&self, id: PlayerId) -> Result<Vec<PlayerInfo>, GameError> {
         match self {
             Self::SelectingCharacters(s) => Ok(s.player_info(id)),
@@ -702,6 +683,8 @@ impl SelectingCharacters {
                         .map(|p| p.id)
                         .unwrap();
 
+                    self.players[usize::from(current_player)].start_turn();
+
                     let players = std::mem::take(&mut self.players);
                     let assets = std::mem::take(&mut self.assets);
                     let liabilities = std::mem::take(&mut self.liabilities);
@@ -790,6 +773,14 @@ impl Round {
         let current_character = self.current_player().character;
         self.players
             .iter()
+            .filter(|p| p.character > current_character)
+            .min_by(|p1, p2| p1.character.cmp(&p2.character))
+    }
+
+    pub fn next_player_mut(&mut self) -> Option<&mut Player> {
+        let current_character = self.current_player().character;
+        self.players
+            .iter_mut()
             .filter(|p| p.character > current_character)
             .min_by(|p1, p2| p1.character.cmp(&p2.character))
     }
@@ -888,32 +879,18 @@ impl Round {
         }
     }
 
-    pub fn start_player_turn(&self, id: PlayerId) -> Result<TurnStarted, GameError> {
-        match self.players.get(usize::from(id)) {
+    pub fn player_start_turn(&mut self, id: PlayerId) -> Result<(), GameError> {
+        match self.players.get_mut(usize::from(id)) {
             Some(player) if player.id == self.current_player => {
-                if let Some(character) = player.character {
-                    Ok(TurnStarted {
-                        player_turn: player.id,
-                        player_turn_cash: self.get_player_turn_cash(),
-                        player_character: character,
-                        draws_n_cards: 3,
-                        skipped_characters: self.get_skipped_characters(),
-                    })
-                } else {
-                    Err(GameError::NoCharacterSelected)
-                }
+                player.start_turn();
+                Ok(())
             }
             Some(_) => Err(GameError::NotPlayersTurn),
             _ => Err(GameError::InvalidPlayerIndex(id.0)),
         }
     }
 
-    fn get_player_turn_cash(&self) -> u8 {
-        1
-        // TODO: Implement actual cash logic
-    }
-
-    fn get_skipped_characters(&self) -> Vec<Character> {
+    pub fn skipped_characters(&self) -> Vec<Character> {
         let mut cs: Vec<Character> = [].to_vec();
         let mut past_current_character = false;
         for c in Character::CHARACTERS.into_iter().rev() {
@@ -935,7 +912,8 @@ impl Round {
             Ok(current)
                 if current.id == self.current_player && !current.should_give_back_cards() =>
             {
-                if let Some(player) = self.next_player() {
+                if let Some(player) = self.next_player_mut() {
+                    player.start_turn();
                     self.current_player = player.id;
                     Ok(Either::Left(TurnEnded::new(Some(self.current_player))))
                 } else {

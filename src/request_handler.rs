@@ -47,26 +47,6 @@ pub fn draw_card(
     let round = state.round_mut()?;
     let card = round.player_draw_card(player_id, card_type)?.cloned();
     let player = round.player(player_id)?;
-    pub fn selected_character_round(round: &Round) -> Vec<UniqueResponse> {
-        vec![
-            // TODO: probably not send this
-            UniqueResponse::SelectedCharacter {
-                currently_picking_id: None,
-                pickable_characters: None,
-            },
-            handle_start_turn(round),
-        ]
-    }
-    pub fn handle_start_turn(round: &Round) -> UniqueResponse {
-        let result = round.start_player_turn(round.current_player().id).unwrap();
-        UniqueResponse::TurnStarts {
-            player_turn: result.player_turn,
-            player_turn_cash: result.player_turn_cash,
-            player_character: result.player_character,
-            draws_n_cards: result.draws_n_cards,
-            skipped_characters: result.skipped_characters,
-        }
-    }
 
     let internal = round
         .players()
@@ -126,13 +106,6 @@ pub fn put_back_card(
         },
     ))
 }
-    pub fn turn_ended_round(round: &Round, player_id: PlayerId) -> Vec<UniqueResponse> {
-        vec![
-            // TODO: think about whether turn should end after frontend receives TurnStarts?
-            UniqueResponse::TurnEnded { player_id },
-            handle_start_turn(round),
-        ]
-    }
 
 pub fn play_card(
     state: &mut GameState,
@@ -186,6 +159,19 @@ pub fn play_card(
     }
 }
 
+fn turn_starts(round: &Round) -> UniqueResponse {
+    let current_player = round.current_player();
+
+    UniqueResponse::TurnStarts {
+        player_turn: current_player.id,
+        player_turn_cash: current_player.turn_cash(),
+        // TODO: fix in player state branch
+        player_character: current_player.character.unwrap(),
+        draws_n_cards: current_player.draws_n_cards(),
+        skipped_characters: round.skipped_characters(),
+    }
+}
+
 pub fn select_character(
     state: &mut GameState,
     player_id: PlayerId,
@@ -224,19 +210,7 @@ pub fn select_character(
                         .players()
                         .iter()
                         // .filter(|p| p.id != player_id)
-                        .map(|p| {
-                            (
-                                p.name.clone(),
-                                vec![UniqueResponse::TurnStarts {
-                                    player_turn: round.current_player().id,
-                                    player_turn_cash: 1,
-                                    // TODO: fix this in player state branch
-                                    player_character: round.current_player().character.unwrap(),
-                                    draws_n_cards: 3,
-                                    skipped_characters: vec![],
-                                }],
-                            )
-                        })
+                        .map(|p| (p.name.clone(), vec![turn_starts(round)]))
                         .collect();
                     Ok(Response(
                         InternalResponse(internal),
@@ -282,19 +256,7 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
             let internal = round
                 .players()
                 .iter()
-                .map(|p| {
-                    (
-                        p.name.clone(),
-                        vec![UniqueResponse::TurnStarts {
-                            player_turn: round.current_player().id,
-                            player_turn_cash: 1,
-                            player_character: round.current_player().character.unwrap(),
-                            draws_n_cards: 3,
-                            // TODO: implement concept of skipped characters
-                            skipped_characters: vec![],
-                        }],
-                    )
-                })
+                .map(|p| (p.name.clone(), vec![turn_starts(round)]))
                 .collect();
             Ok(Response(
                 InternalResponse(internal),

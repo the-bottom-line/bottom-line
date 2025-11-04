@@ -173,6 +173,28 @@ impl Player {
         }
     }
 
+    pub fn turn_cash(&self) -> u8 {
+        // TODO: Implement actual cash logic
+        1
+    }
+
+    pub fn draws_n_cards(&self) -> u8 {
+        self.character
+            .map(|c| c.draws_n_cards())
+            .unwrap_or_default()
+    }
+
+    pub fn start_turn(&mut self) {
+        self.cash += self.turn_cash();
+        // TODO: reconcile with character abilities after player state branch finishes
+        self.assets_to_play = 1;
+        self.liabilities_to_play = 1;
+
+        self.cards_drawn.clear();
+        self.total_cards_drawn = 0;
+        self.total_cards_given_back = 0;
+    }
+
     pub fn total_gold(&self) -> u8 {
         self.assets.iter().map(|a| a.gold_value).sum()
     }
@@ -433,6 +455,14 @@ impl Character {
         match self {
             Self::CFO => 3,
             _ => 1,
+        }
+    }
+
+    pub fn draws_n_cards(&self) -> u8 {
+        // TODO: fix head rnd ability when ready
+        match self {
+            Self::HeadRnD => 3,
+            _ => 3,
         }
     }
 }

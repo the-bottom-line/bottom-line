@@ -19,6 +19,8 @@ pub enum GameError {
     #[error("Player index {0} is invalid")]
     InvalidPlayerName(String),
     #[error("Not player's turn")]
+    NoCharacterSelected,
+    #[error("Player has no character selected")]
     NotPlayersTurn,
     #[error("Player should still give back at least one card")]
     PlayerShouldGiveBackCard,

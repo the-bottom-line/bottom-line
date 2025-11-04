@@ -50,15 +50,18 @@ pub mod internal {
                 currently_picking_id: None,
                 pickable_characters: None,
             },
-            UniqueResponse::TurnStarts {
-                player_turn: round.current_player().id,
-                player_turn_cash: 1,
-                // TODO: fix this in player state branch
-                player_character: round.current_player().character.unwrap(),
-                draws_n_cards: 3,
-                skipped_characters: vec![],
-            },
+            handle_start_turn(round),
         ]
+    }
+    pub fn handle_start_turn(round: &Round) -> UniqueResponse {
+        let result = round.start_player_turn(round.current_player().id).unwrap();
+        UniqueResponse::TurnStarts {
+            player_turn: result.player_turn,
+            player_turn_cash: result.player_turn_cash,
+            player_character: result.player_character,
+            draws_n_cards: result.draws_n_cards,
+            skipped_characters: result.skipped_characters,
+        }
     }
 
     pub fn drawn_card(player_id: PlayerId, card_type: CardType) -> Vec<UniqueResponse> {
@@ -90,14 +93,7 @@ pub mod internal {
         vec![
             // TODO: think about whether turn should end after frontend receives TurnStarts?
             UniqueResponse::TurnEnded { player_id },
-            UniqueResponse::TurnStarts {
-                player_turn: round.current_player().id,
-                player_turn_cash: 1,
-                player_character: round.current_player().character.unwrap(),
-                draws_n_cards: 3,
-                // TODO: implement concept of skipped characters
-                skipped_characters: vec![],
-            },
+            handle_start_turn(round),
         ]
     }
 

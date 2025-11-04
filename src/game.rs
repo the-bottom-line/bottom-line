@@ -1,9 +1,4 @@
-use std::{
-    collections::HashSet,
-    path::Path,
-    sync::Arc,
-    vec,
-};
+use std::{collections::HashSet, path::Path, sync::Arc, vec};
 
 use either::Either;
 use rand::seq::SliceRandom;
@@ -362,7 +357,7 @@ impl TheBottomLine for GameState {
         match self {
             Self::Lobby(lobby) => match lobby.join(username) {
                 Ok(player) => Ok(player.id),
-                Err(e) => Err(e.into())
+                Err(e) => Err(e.into()),
             },
             _ => Err(GameError::NotLobbyState),
         }
@@ -551,15 +546,15 @@ impl Lobby {
     pub fn len(&self) -> usize {
         self.players.len()
     }
-    
+
     pub fn player(&self, id: PlayerId) -> Option<&LobbyPlayer> {
         self.players.get(usize::from(id))
     }
-    
+
     pub fn players(&self) -> &[LobbyPlayer] {
         &self.players
     }
-    
+
     pub fn usernames(&self) -> Vec<String> {
         self.players.iter().map(|p| &p.name).cloned().collect()
     }
@@ -574,7 +569,7 @@ impl Lobby {
                 };
                 self.players.push(player);
                 Ok(&self.players[self.players.len() - 1])
-            },
+            }
         }
     }
 
@@ -582,12 +577,13 @@ impl Lobby {
         match self.players.iter().position(|p| p.name == username) {
             Some(pos) => {
                 self.players.remove(pos);
-                self.players.iter_mut()
+                self.players
+                    .iter_mut()
                     .zip(0u8..)
                     .for_each(|(p, id)| p.id = PlayerId(id));
                 true
-            },
-            None => false
+            }
+            None => false,
         }
     }
 

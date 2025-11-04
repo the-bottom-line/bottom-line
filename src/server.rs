@@ -87,7 +87,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                             sender.clone(),
                         )
                         .await;
-                    continue;
+                        continue;
                     }
                 };
 
@@ -161,7 +161,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 
             tracing::debug!(
                 "{username}: {:?}",
-                internal.get(&username).cloned().unwrap_or_else(|| vec![])
+                internal.get(&username).cloned().unwrap_or_else(Vec::new)
             );
             let _ = room.tx.send(InternalResponse(internal));
         }

@@ -57,7 +57,7 @@ pub fn draw_card(
                 p.name.clone(),
                 vec![UniqueResponse::DrewCard {
                     player_id,
-                    card_type: card_type,
+                    card_type,
                 }],
             )
         })
@@ -91,7 +91,7 @@ pub fn put_back_card(
                 p.name.clone(),
                 vec![UniqueResponse::PutBackCard {
                     player_id,
-                    card_type: card_type,
+                    card_type,
                 }],
             )
         })

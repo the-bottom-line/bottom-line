@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::{errors::GameError, game::*, player::*, utility::serde_asset_liability};
 use either::Either;
@@ -118,34 +118,12 @@ pub enum UniqueResponse {
 }
 
 #[derive(Clone, Debug)]
-pub enum InternalResponse {
-    PlayerJoined {
-        username: String,
-    },
-    PlayerLeft {
-        username: String,
-    },
-    GameStarted,
-    SelectedCharacter,
-    DrawnCard {
-        player_id: PlayerId,
-        card_type: CardType,
-    },
-    PutBackCard {
-        player_id: PlayerId,
-        card_type: CardType,
-    },
-    BoughtAsset {
-        player_id: PlayerId,
-        asset: Asset,
-    },
-    IssuedLiability {
-        player_id: PlayerId,
-        liability: Liability,
-    },
-    TurnEnded {
-        player_id: PlayerId,
-    },
+pub struct InternalResponse(pub HashMap<String, Vec<UniqueResponse>>);
+
+impl InternalResponse {
+    pub fn get_responses(&self, name: &str) -> Option<&[UniqueResponse]> {
+        self.0.get(name).map(AsRef::as_ref)
+    }
 }
 
 #[derive(Debug, Error, Serialize, Deserialize)]

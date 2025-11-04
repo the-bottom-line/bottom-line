@@ -192,15 +192,6 @@ pub struct TurnEnded {
     pub next_player: Option<PlayerId>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TurnStarted {
-    pub player_turn: PlayerId,
-    pub player_turn_cash: u8,
-    pub player_character: Character,
-    pub draws_n_cards: u8,
-    pub skipped_characters: Vec<Character>,
-}
-
 impl TurnEnded {
     pub fn new(next_player: Option<PlayerId>) -> Self {
         Self { next_player }
@@ -231,6 +222,9 @@ pub trait TheBottomLine {
 
     /// Gets player if one exists with specified character
     fn player_from_character(&self, character: Character) -> Option<&Player>;
+
+    /// Gets a list of current players if not in lobby state
+    fn players(&self) -> Result<&[Player], GameError>;
 
     /// Gets list of selectable caracters if its the players turn
     fn player_get_selectable_characters(
@@ -274,9 +268,6 @@ pub trait TheBottomLine {
     /// Ends player's turn
     fn end_player_turn(&mut self, id: PlayerId) -> Result<TurnEnded, GameError>;
 
-    /// Handles start logic of a players turn
-    fn start_player_turn(&mut self, id: PlayerId) -> Result<TurnStarted, GameError>;
-
     /// Gets a list of players with publicly available information, besides the main player
     fn player_info(&self, id: PlayerId) -> Result<Vec<PlayerInfo>, GameError>;
 
@@ -304,7 +295,22 @@ impl GameState {
         }
     }
 
+    // TODO: use internally inside TheBottomLine functions
+    pub fn lobby_mut(&mut self) -> Result<&mut Lobby, GameError> {
+        match self {
+            Self::Lobby(l) => Ok(l),
+            _ => Err(GameError::NotLobbyState),
+        }
+    }
+
     pub fn selecting_characters(&self) -> Result<&SelectingCharacters, GameError> {
+        match self {
+            Self::SelectingCharacters(s) => Ok(s),
+            _ => Err(GameError::NotSelectingCharactersState),
+        }
+    }
+
+    pub fn selecting_characters_mut(&mut self) -> Result<&mut SelectingCharacters, GameError> {
         match self {
             Self::SelectingCharacters(s) => Ok(s),
             _ => Err(GameError::NotSelectingCharactersState),
@@ -318,7 +324,21 @@ impl GameState {
         }
     }
 
+    pub fn round_mut(&mut self) -> Result<&mut Round, GameError> {
+        match self {
+            Self::Round(r) => Ok(r),
+            _ => Err(GameError::NotRoundState),
+        }
+    }
+
     pub fn results(&self) -> Result<&Results, GameError> {
+        match self {
+            Self::Results(r) => Ok(r),
+            _ => Err(GameError::NotResultsState),
+        }
+    }
+
+    pub fn results_mut(&mut self) -> Result<&mut Results, GameError> {
         match self {
             Self::Results(r) => Ok(r),
             _ => Err(GameError::NotResultsState),
@@ -436,6 +456,15 @@ impl TheBottomLine for GameState {
         players.iter().find(|p| p.character == Some(character))
     }
 
+    fn players(&self) -> Result<&[Player], GameError> {
+        match self {
+            GameState::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
+            GameState::SelectingCharacters(selecting) => Ok(selecting.players()),
+            GameState::Round(round) => Ok(round.players()),
+            GameState::Results(results) => Ok(results.players()),
+        }
+    }
+
     fn player_play_card(
         &mut self,
         id: PlayerId,
@@ -481,13 +510,6 @@ impl TheBottomLine for GameState {
                 *self = state;
                 Ok(TurnEnded::new(None))
             }
-        }
-    }
-
-    fn start_player_turn(&mut self, id: PlayerId) -> Result<TurnStarted, GameError> {
-        match self {
-            Self::Round(r) => r.start_player_turn(id),
-            _ => Err(GameError::NotRoundState),
         }
     }
 
@@ -618,6 +640,10 @@ impl SelectingCharacters {
             .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
     }
 
+    pub fn players(&self) -> &[Player] {
+        &self.players
+    }
+
     pub fn currently_selecting_id(&self) -> PlayerId {
         (self.characters.applies_to_player() as u8).into()
     }
@@ -656,6 +682,8 @@ impl SelectingCharacters {
                         .min_by(|p1, p2| p1.character.cmp(&p2.character))
                         .map(|p| p.id)
                         .unwrap();
+
+                    self.players[usize::from(current_player)].start_turn();
 
                     let players = std::mem::take(&mut self.players);
                     let assets = std::mem::take(&mut self.assets);
@@ -719,13 +747,13 @@ pub struct Round {
 }
 
 impl Round {
-    fn player(&self, id: PlayerId) -> Result<&Player, GameError> {
+    pub fn player(&self, id: PlayerId) -> Result<&Player, GameError> {
         self.players
             .get(usize::from(id))
             .ok_or(GameError::InvalidPlayerIndex(id.0))
     }
 
-    fn player_from_character(&self, character: Character) -> Option<&Player> {
+    pub fn player_from_character(&self, character: Character) -> Option<&Player> {
         self.players.iter().find(|p| p.character == Some(character))
     }
 
@@ -741,12 +769,24 @@ impl Round {
             .expect("self.current_player went out of bounds")
     }
 
-    fn next_player(&self) -> Option<&Player> {
+    pub fn next_player(&self) -> Option<&Player> {
         let current_character = self.current_player().character;
         self.players
             .iter()
             .filter(|p| p.character > current_character)
             .min_by(|p1, p2| p1.character.cmp(&p2.character))
+    }
+
+    pub fn next_player_mut(&mut self) -> Option<&mut Player> {
+        let current_character = self.current_player().character;
+        self.players
+            .iter_mut()
+            .filter(|p| p.character > current_character)
+            .min_by(|p1, p2| p1.character.cmp(&p2.character))
+    }
+
+    pub fn players(&self) -> &[Player] {
+        &self.players
     }
 
     pub fn open_characters(&self) -> &[Character] {
@@ -760,7 +800,7 @@ impl Round {
             .collect()
     }
 
-    fn player_play_card(
+    pub fn player_play_card(
         &mut self,
         id: PlayerId,
         card_idx: usize,
@@ -789,7 +829,7 @@ impl Round {
         }
     }
 
-    fn player_draw_card(
+    pub fn player_draw_card(
         &mut self,
         id: PlayerId,
         card_type: CardType,
@@ -812,7 +852,7 @@ impl Round {
         }
     }
 
-    fn player_give_back_card(
+    pub fn player_give_back_card(
         &mut self,
         id: PlayerId,
         card_idx: usize,
@@ -839,32 +879,18 @@ impl Round {
         }
     }
 
-    pub fn start_player_turn(&self, id: PlayerId) -> Result<TurnStarted, GameError> {
-        match self.players.get(usize::from(id)) {
+    pub fn player_start_turn(&mut self, id: PlayerId) -> Result<(), GameError> {
+        match self.players.get_mut(usize::from(id)) {
             Some(player) if player.id == self.current_player => {
-                if let Some(character) = player.character {
-                    Ok(TurnStarted {
-                        player_turn: player.id,
-                        player_turn_cash: self.get_player_turn_cash(),
-                        player_character: character,
-                        draws_n_cards: 3,
-                        skipped_characters: self.get_skipped_characters(),
-                    })
-                } else {
-                    Err(GameError::NoCharacterSelected)
-                }
+                player.start_turn();
+                Ok(())
             }
             Some(_) => Err(GameError::NotPlayersTurn),
             _ => Err(GameError::InvalidPlayerIndex(id.0)),
         }
     }
 
-    fn get_player_turn_cash(&self) -> u8 {
-        1
-        // TODO: Implement actual cash logic
-    }
-
-    fn get_skipped_characters(&self) -> Vec<Character> {
+    pub fn skipped_characters(&self) -> Vec<Character> {
         let mut cs: Vec<Character> = [].to_vec();
         let mut past_current_character = false;
         for c in Character::CHARACTERS.into_iter().rev() {
@@ -886,7 +912,8 @@ impl Round {
             Ok(current)
                 if current.id == self.current_player && !current.should_give_back_cards() =>
             {
-                if let Some(player) = self.next_player() {
+                if let Some(player) = self.next_player_mut() {
+                    player.start_turn();
                     self.current_player = player.id;
                     Ok(Either::Left(TurnEnded::new(Some(self.current_player))))
                 } else {
@@ -982,6 +1009,10 @@ impl Results {
             .iter()
             .find(|p| p.name == name)
             .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
+    }
+
+    pub fn players(&self) -> &[Player] {
+        &self.players
     }
 
     pub fn score(&self, id: PlayerId) -> Result<f64, GameError> {

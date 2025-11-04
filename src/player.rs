@@ -16,6 +16,123 @@ pub struct LobbyPlayer {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SelectingCharactersPlayer {
+    pub id: PlayerId,
+    pub name: String,
+    pub cash: u8,
+    pub assets: Vec<Asset>,
+    pub liabilities: Vec<Liability>,
+    pub character: Option<Character>,
+    #[serde(with = "serde_asset_liability::vec")]
+    pub hand: Vec<Either<Asset, Liability>>,
+}
+
+impl SelectingCharactersPlayer {
+    pub fn new(
+        name: &str,
+        id: u8,
+        assets: [Asset; 2],
+        liabilities: [Liability; 2],
+        cash: u8,
+    ) -> Self {
+        let hand = assets
+            .into_iter()
+            .map(Either::Left)
+            .chain(liabilities.into_iter().map(Either::Right))
+            .collect();
+
+        SelectingCharactersPlayer {
+            id: PlayerId(id),
+            name: name.to_string(),
+            cash,
+            assets: vec![],
+            liabilities: vec![],
+            character: None,
+            hand,
+        }
+    }
+}
+
+impl From<RoundPlayer> for SelectingCharactersPlayer {
+    fn from(player: RoundPlayer) -> Self {
+        Self {
+            id: player.id,
+            name: player.name,
+            cash: player.cash,
+            assets: player.assets,
+            liabilities: player.liabilities,
+            character: None,
+            hand: player.hand,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoundPlayer {
+    pub id: PlayerId,
+    pub name: String,
+    pub cash: u8,
+    pub assets: Vec<Asset>,
+    pub liabilities: Vec<Liability>,
+    pub character: Character,
+    #[serde(with = "serde_asset_liability::vec")]
+    pub hand: Vec<Either<Asset, Liability>>,
+    pub cards_drawn: Vec<usize>,
+    pub assets_to_play: u8,
+    pub liabilities_to_play: u8,
+    pub total_cards_drawn: u8,
+    pub total_cards_given_back: u8,
+}
+
+impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
+    type Error = GameError;
+
+    fn try_from(player: SelectingCharactersPlayer) -> Result<Self, Self::Error> {
+        match player.character {
+            Some(character) => Ok(Self {
+                id: player.id,
+                name: player.name,
+                cash: player.cash,
+                assets: player.assets,
+                liabilities: player.liabilities,
+                character,
+                hand: player.hand,
+                cards_drawn: Vec::new(),
+                assets_to_play: character.playable_assets(),
+                liabilities_to_play: character.playable_liabilities(),
+                total_cards_drawn: 0,
+                total_cards_given_back: 0,
+            }),
+            None => Err(GameError::PlayerMissingCharacter),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResultsPlayer {
+    pub id: PlayerId,
+    pub name: String,
+    pub cash: u8,
+    pub assets: Vec<Asset>,
+    pub liabilities: Vec<Liability>,
+    #[serde(with = "serde_asset_liability::vec")]
+    pub hand: Vec<Either<Asset, Liability>>,
+}
+
+impl From<RoundPlayer> for ResultsPlayer {
+    fn from(player: RoundPlayer) -> Self {
+        Self {
+            id: player.id,
+            name: player.name,
+            cash: player.cash,
+            assets: player.assets,
+            liabilities: player.liabilities,
+            hand: player.hand,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Player {
     pub id: PlayerId,
     pub name: String,
@@ -349,6 +466,19 @@ pub enum CardType {
     Liability,
 }
 
+pub trait GetPlayerInfo {
+    fn info(&self) -> PlayerInfo;
+}
+
+impl<T> GetPlayerInfo for T
+where
+    for<'a> PlayerInfo: From<&'a T>,
+{
+    fn info(&self) -> PlayerInfo {
+        PlayerInfo::from(self)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerInfo {
     pub name: String,
@@ -358,6 +488,30 @@ pub struct PlayerInfo {
     pub liabilities: Vec<Liability>,
     pub cash: u8,
     pub character: Option<Character>,
+}
+
+impl Default for PlayerInfo {
+    fn default() -> Self {
+        Self {
+            name: Default::default(),
+            id: PlayerId(0),
+            hand: Default::default(),
+            assets: Default::default(),
+            liabilities: Default::default(),
+            cash: Default::default(),
+            character: Default::default(),
+        }
+    }
+}
+
+impl From<&LobbyPlayer> for PlayerInfo {
+    fn from(player: &LobbyPlayer) -> Self {
+        Self {
+            name: player.name.clone(),
+            id: player.id,
+            ..Default::default()
+        }
+    }
 }
 
 impl From<&Player> for PlayerInfo {
@@ -450,16 +604,18 @@ impl Character {
         characters.iter().max().copied()
     }
 
-    pub fn playable_assets(&self) -> usize {
+    pub fn playable_assets(&self) -> u8 {
+        // TODO: fix for CEO when ready
         match self {
-            Self::CEO => 3,
+            Self::CEO => 1,
             _ => 1,
         }
     }
 
-    pub fn playable_liabilities(&self) -> usize {
+    pub fn playable_liabilities(&self) -> u8 {
+        // TODO: fix for CFO when ready
         match self {
-            Self::CFO => 3,
+            Self::CFO => 1,
             _ => 1,
         }
     }

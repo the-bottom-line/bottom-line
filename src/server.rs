@@ -396,10 +396,10 @@ mod tests {
                 selected = Some(dbg!(i));
             }
         }
-        
+
         for _ in 1..readers.len() {
             let chosen = selected.unwrap();
-    
+
             for (i, (reader, writer)) in readers
                 .iter_mut()
                 .zip(&mut writers)
@@ -408,29 +408,29 @@ mod tests {
             {
                 let response = receive(reader).await;
                 assert_matches!(response, UniqueResponse::SelectedCharacter { .. });
-    
+
                 if let UniqueResponse::SelectedCharacter {
                     pickable_characters: Some(p),
                     ..
                 } = response
                 {
                     assert_none!(p.closed_character);
-    
+
                     let character = p.characters[0];
                     send(writer, ReceiveData::SelectCharacter { character }).await;
-    
+
                     let response = receive(reader).await;
                     assert_matches!(
                         response,
                         DirectResponse::YouSelectedCharacter { character }
                             if character == p.characters[0]
                     );
-    
+
                     selected = Some(dbg!(i));
                 }
             }
         }
-        
+
         for reader in readers.iter_mut() {
             let response = receive(reader).await;
             assert_matches!(response, UniqueResponse::TurnStarts { .. });

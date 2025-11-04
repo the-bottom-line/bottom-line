@@ -208,15 +208,11 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 
                             let direct = match room.handle_request(json, &name) {
                                 Ok(Response(internal, direct)) => {
-                                    for (i, responses) in internal
-                                        .into_inner()
-                                        .into_iter()
-                                        .enumerate()
-                                        .filter_map(|(i, r)| r.map(|r| (i, r)))
-                                    {
+                                    for (id, responses) in internal.into_inner() {
                                         tracing::debug!("internal send: {responses:?}");
+                                        let idx = usize::from(id);
                                         for r in responses {
-                                            let _ = room.player_tx[i].send(r.clone());
+                                            let _ = room.player_tx[idx].send(r.clone());
                                         }
                                     }
 
@@ -388,12 +384,16 @@ mod tests {
                         if character == p.characters[0]
                 );
 
-                selected = Some(dbg!(i));
+                selected = Some(i);
             }
         }
 
         for _ in 1..readers.len() {
             let chosen = selected.unwrap();
+
+            // Since this isn't done in the main loop
+            let response = receive(&mut readers[chosen]).await;
+            assert_matches!(response, UniqueResponse::SelectedCharacter { .. });
 
             for (i, (reader, writer)) in readers
                 .iter_mut()
@@ -421,7 +421,7 @@ mod tests {
                             if character == p.characters[0]
                     );
 
-                    selected = Some(dbg!(i));
+                    selected = Some(i);
                 }
             }
         }

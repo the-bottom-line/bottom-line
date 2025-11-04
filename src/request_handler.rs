@@ -9,23 +9,29 @@ pub fn start_game(state: &mut GameState) -> Result<Response, GameError> {
 
     let selecting = state.selecting_characters()?;
 
-    let internal = std::array::from_fn(|i| match selecting.player(PlayerId(i as u8)) {
-        Ok(p) => Some(vec![
-            UniqueResponse::StartGame {
-                id: p.id,
-                hand: p.hand.clone(),
-                cash: p.cash,
-                open_characters: selecting.open_characters().to_vec(),
-                player_info: selecting.player_info(p.id),
-            },
-            UniqueResponse::SelectingCharacters {
-                chairman_id: selecting.chairman,
-                pickable_characters: selecting.player_get_selectable_characters(p.id).ok(),
-                turn_order: selecting.turn_order(),
-            },
-        ]),
-        Err(_) => None,
-    });
+    let internal = selecting
+        .players()
+        .iter()
+        .map(|p| {
+            (
+                p.id,
+                vec![
+                    UniqueResponse::StartGame {
+                        id: p.id,
+                        hand: p.hand.clone(),
+                        cash: p.cash,
+                        open_characters: selecting.open_characters().to_vec(),
+                        player_info: selecting.player_info(p.id),
+                    },
+                    UniqueResponse::SelectingCharacters {
+                        chairman_id: selecting.chairman,
+                        pickable_characters: selecting.player_get_selectable_characters(p.id).ok(),
+                        turn_order: selecting.turn_order(),
+                    },
+                ],
+            )
+        })
+        .collect();
 
     Ok(Response(
         InternalResponse(internal),
@@ -42,13 +48,20 @@ pub fn draw_card(
     let card = round.player_draw_card(player_id, card_type)?.cloned();
     let player = round.player(player_id)?;
 
-    let internal = std::array::from_fn(|i| match round.player(PlayerId(i as u8)) {
-        Ok(p) if p.id != player_id => Some(vec![UniqueResponse::DrewCard {
-            player_id,
-            card_type,
-        }]),
-        _ => None,
-    });
+    let internal = round
+        .players()
+        .iter()
+        .filter(|p| p.id != player_id)
+        .map(|p| {
+            (
+                p.id,
+                vec![UniqueResponse::DrewCard {
+                    player_id,
+                    card_type,
+                }],
+            )
+        })
+        .collect();
 
     Ok(Response(
         InternalResponse(internal),
@@ -69,13 +82,20 @@ pub fn put_back_card(
     let card_type = round.player_give_back_card(player_id, card_idx)?;
     let player = round.player(player_id)?;
 
-    let internal = std::array::from_fn(|i| match round.player(PlayerId(i as u8)) {
-        Ok(p) if p.id != player_id => Some(vec![UniqueResponse::PutBackCard {
-            player_id,
-            card_type,
-        }]),
-        _ => None,
-    });
+    let internal = round
+        .players()
+        .iter()
+        .filter(|p| p.id != player_id)
+        .map(|p| {
+            (
+                p.id,
+                vec![UniqueResponse::PutBackCard {
+                    player_id,
+                    card_type,
+                }],
+            )
+        })
+        .collect();
 
     Ok(Response(
         InternalResponse(internal),
@@ -97,13 +117,20 @@ pub fn play_card(
 
     match played_card.used_card {
         Either::Left(asset) => {
-            let internal = std::array::from_fn(|i| match round.player(PlayerId(i as u8)) {
-                Ok(p) if p.id != player_id => Some(vec![UniqueResponse::BoughtAsset {
-                    player_id,
-                    asset: asset.clone(),
-                }]),
-                _ => None,
-            });
+            let internal = round
+                .players()
+                .iter()
+                .filter(|p| p.id != player_id)
+                .map(|p| {
+                    (
+                        p.id,
+                        vec![UniqueResponse::BoughtAsset {
+                            player_id,
+                            asset: asset.clone(),
+                        }],
+                    )
+                })
+                .collect();
 
             Ok(Response(
                 InternalResponse(internal),
@@ -111,13 +138,20 @@ pub fn play_card(
             ))
         }
         Either::Right(liability) => {
-            let internal = std::array::from_fn(|i| match round.player(PlayerId(i as u8)) {
-                Ok(p) if p.id != player_id => Some(vec![UniqueResponse::IssuedLiability {
-                    player_id,
-                    liability: liability.clone(),
-                }]),
-                _ => None,
-            });
+            let internal = round
+                .players()
+                .iter()
+                .filter(|p| p.id != player_id)
+                .map(|p| {
+                    (
+                        p.id,
+                        vec![UniqueResponse::IssuedLiability {
+                            player_id,
+                            liability: liability.clone(),
+                        }],
+                    )
+                })
+                .collect();
 
             Ok(Response(
                 InternalResponse(internal),
@@ -150,18 +184,22 @@ pub fn select_character(
             match state {
                 GameState::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
                 GameState::SelectingCharacters(selecting) => {
-                    let internal =
-                        std::array::from_fn(|i| match selecting.player(PlayerId(i as u8)) {
-                            Ok(p) if p.id != player_id => {
-                                Some(vec![UniqueResponse::SelectedCharacter {
+                    let internal = selecting
+                        .players()
+                        .iter()
+                        .filter(|p| p.id != player_id)
+                        .map(|p| {
+                            (
+                                p.id,
+                                vec![UniqueResponse::SelectedCharacter {
                                     currently_picking_id: Some(selecting.currently_selecting_id()),
                                     pickable_characters: selecting
-                                        .player_get_selectable_characters(PlayerId(i as u8))
+                                        .player_get_selectable_characters(p.id)
                                         .ok(),
-                                }])
-                            }
-                            _ => None,
-                        });
+                                }],
+                            )
+                        })
+                        .collect();
 
                     Ok(Response(
                         InternalResponse(internal),
@@ -170,10 +208,11 @@ pub fn select_character(
                 }
                 GameState::Round(round) => {
                     // TODO: turn is the same for everyone. Simplify maybe
-                    let internal = std::array::from_fn(|i| match round.player(PlayerId(i as u8)) {
-                        Ok(_) => Some(vec![turn_starts(round)]),
-                        Err(_) => None,
-                    });
+                    let internal = round
+                        .players()
+                        .iter()
+                        .map(|p| (p.id, vec![turn_starts(round)]))
+                        .collect();
 
                     Ok(Response(
                         InternalResponse(internal),
@@ -193,14 +232,22 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
     match state {
         GameState::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
         GameState::SelectingCharacters(selecting) => {
-            let internal = std::array::from_fn(|i| match selecting.player(PlayerId(i as u8)) {
-                Ok(p) => Some(vec![UniqueResponse::SelectingCharacters {
-                    chairman_id: selecting.chairman,
-                    pickable_characters: selecting.player_get_selectable_characters(p.id).ok(),
-                    turn_order: selecting.turn_order(),
-                }]),
-                Err(_) => None,
-            });
+            let internal = selecting
+                .players()
+                .iter()
+                .map(|p| {
+                    (
+                        p.id,
+                        vec![UniqueResponse::SelectingCharacters {
+                            chairman_id: selecting.chairman,
+                            pickable_characters: selecting
+                                .player_get_selectable_characters(p.id)
+                                .ok(),
+                            turn_order: selecting.turn_order(),
+                        }],
+                    )
+                })
+                .collect();
 
             Ok(Response(
                 InternalResponse(internal),
@@ -208,10 +255,11 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
             ))
         }
         GameState::Round(round) => {
-            let internal = std::array::from_fn(|i| match round.player(PlayerId(i as u8)) {
-                Ok(_) => Some(vec![turn_starts(round)]),
-                Err(_) => None,
-            });
+            let internal = round
+                .players()
+                .iter()
+                .map(|p| (p.id, vec![turn_starts(round)]))
+                .collect();
 
             Ok(Response(
                 InternalResponse(internal),

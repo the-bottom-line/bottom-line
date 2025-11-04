@@ -87,7 +87,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                             sender.clone(),
                         )
                         .await;
-                        break;
+                    continue;
                     }
                 };
 

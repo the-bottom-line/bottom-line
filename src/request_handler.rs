@@ -47,6 +47,26 @@ pub fn draw_card(
     let round = state.round_mut()?;
     let card = round.player_draw_card(player_id, card_type)?.cloned();
     let player = round.player(player_id)?;
+    pub fn selected_character_round(round: &Round) -> Vec<UniqueResponse> {
+        vec![
+            // TODO: probably not send this
+            UniqueResponse::SelectedCharacter {
+                currently_picking_id: None,
+                pickable_characters: None,
+            },
+            handle_start_turn(round),
+        ]
+    }
+    pub fn handle_start_turn(round: &Round) -> UniqueResponse {
+        let result = round.start_player_turn(round.current_player().id).unwrap();
+        UniqueResponse::TurnStarts {
+            player_turn: result.player_turn,
+            player_turn_cash: result.player_turn_cash,
+            player_character: result.player_character,
+            draws_n_cards: result.draws_n_cards,
+            skipped_characters: result.skipped_characters,
+        }
+    }
 
     let internal = round
         .players()
@@ -106,6 +126,13 @@ pub fn put_back_card(
         },
     ))
 }
+    pub fn turn_ended_round(round: &Round, player_id: PlayerId) -> Vec<UniqueResponse> {
+        vec![
+            // TODO: think about whether turn should end after frontend receives TurnStarts?
+            UniqueResponse::TurnEnded { player_id },
+            handle_start_turn(round),
+        ]
+    }
 
 pub fn play_card(
     state: &mut GameState,

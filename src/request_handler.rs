@@ -167,8 +167,7 @@ fn turn_starts(round: &Round) -> UniqueResponse {
     UniqueResponse::TurnStarts {
         player_turn: current_player.id,
         player_turn_cash: current_player.turn_cash(),
-        // TODO: fix in player state branch
-        player_character: current_player.character.unwrap(),
+        player_character: current_player.character,
         draws_n_cards: current_player.draws_n_cards(),
         skipped_characters: round.skipped_characters(),
     }

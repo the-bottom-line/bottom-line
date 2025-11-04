@@ -2,12 +2,7 @@ use std::sync::Mutex;
 
 use tokio::sync::broadcast;
 
-use crate::{
-    errors::GameError,
-    game::{GameState, TheBottomLine},
-    request_handler::*,
-    responses::*,
-};
+use crate::{errors::GameError, game::GameState, request_handler::*, responses::*};
 
 /// All-encompassing state each room has access to
 pub struct RoomState {
@@ -47,27 +42,30 @@ impl RoomState {
             ReceiveData::StartGame => start_game(state),
             ReceiveData::SelectCharacter { character } => {
                 // TODO: do something about this lookup madness
-                let player_id = state.player_by_name(player_name)?.id;
+                let player_id = state
+                    .selecting_characters()?
+                    .player_by_name(player_name)?
+                    .id;
                 select_character(state, player_id, character)
             }
             ReceiveData::DrawCard { card_type } => {
-                let player_id = state.player_by_name(player_name)?.id;
+                let player_id = state.round()?.player_by_name(player_name)?.id;
                 draw_card(state, card_type, player_id)
             }
             ReceiveData::PutBackCard { card_idx } => {
-                let player_id = state.player_by_name(player_name)?.id;
+                let player_id = state.round()?.player_by_name(player_name)?.id;
                 put_back_card(state, card_idx, player_id)
             }
             ReceiveData::BuyAsset { card_idx } => {
-                let player_id = state.player_by_name(player_name)?.id;
+                let player_id = state.round()?.player_by_name(player_name)?.id;
                 play_card(state, card_idx, player_id)
             }
             ReceiveData::IssueLiability { card_idx } => {
-                let player_id = state.player_by_name(player_name)?.id;
+                let player_id = state.round()?.player_by_name(player_name)?.id;
                 play_card(state, card_idx, player_id)
             }
             ReceiveData::EndTurn => {
-                let player_id = state.player_by_name(player_name)?.id;
+                let player_id = state.round()?.player_by_name(player_name)?.id;
                 end_turn(state, player_id)
             }
         }

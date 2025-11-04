@@ -101,6 +101,115 @@ pub struct RoundPlayer {
     pub total_cards_given_back: u8,
 }
 
+impl RoundPlayer {
+    fn update_cards_drawn(&mut self, card_idx: usize) {
+        self.cards_drawn = self
+            .cards_drawn
+            .iter()
+            .copied()
+            .filter(|&i| i != card_idx)
+            .collect();
+    }
+
+    fn can_play_asset(&self) -> bool {
+        self.assets_to_play > 0
+    }
+
+    fn can_play_liability(&self) -> bool {
+        self.liabilities_to_play > 0
+    }
+
+    /// Plays card in players hand with index `card_idx`. If that index is valid, the card is played
+    /// if
+    pub fn play_card(
+        &mut self,
+        card_idx: usize,
+    ) -> Result<Either<Asset, Liability>, PlayCardError> {
+        use PlayCardError::*;
+
+        if let Some(card) = self.hand.get(card_idx) {
+            match card {
+                Either::Left(a) if self.can_play_asset() && self.cash >= a.gold_value => {
+                    let asset = self.hand.remove(card_idx).left().unwrap();
+                    self.cash -= asset.gold_value;
+                    self.assets_to_play -= 1;
+                    self.assets.push(asset.clone());
+                    self.update_cards_drawn(card_idx);
+                    Ok(Either::Left(asset))
+                }
+                Either::Left(_) if !self.can_play_asset() => Err(ExceedsMaximumAssets),
+                Either::Left(a) if self.cash < a.gold_value => Err(CannotAffordAsset {
+                    cash: self.cash,
+                    cost: a.gold_value,
+                }),
+                Either::Right(_) if self.can_play_liability() => {
+                    let liability = self.hand.remove(card_idx).right().unwrap();
+                    self.cash += liability.value;
+                    self.liabilities_to_play -= 1;
+                    self.liabilities.push(liability.clone());
+                    self.update_cards_drawn(card_idx);
+                    Ok(Either::Right(liability))
+                }
+                Either::Right(_) if !self.can_play_liability() => Err(ExceedsMaximumLiabilities),
+                _ => unreachable!(),
+            }
+        } else {
+            Err(InvalidCardIndex(card_idx as u8))
+        }
+    }
+
+    pub fn draw_card(&mut self, card: Either<Asset, Liability>) {
+        self.total_cards_drawn += 1;
+        self.cards_drawn.push(self.hand.len());
+        self.hand.push(card);
+    }
+
+    pub fn give_back_card(
+        &mut self,
+        card_idx: usize,
+    ) -> Result<Either<Asset, Liability>, GiveBackCardError> {
+        self.total_cards_given_back += 1;
+
+        match self.hand.get(card_idx) {
+            Some(_) => {
+                self.update_cards_drawn(card_idx);
+                Ok(self.hand.remove(card_idx))
+            }
+            None => Err(GiveBackCardError::InvalidCardIndex(card_idx as u8)),
+        }
+    }
+
+    pub fn should_give_back_cards(&self) -> bool {
+        // TODO: add head rnd ability
+        self.total_cards_drawn - self.total_cards_given_back >= 3
+    }
+
+    pub fn can_draw_cards(&self) -> bool {
+        // TODO: add head rnd ability
+        self.total_cards_drawn < 3
+    }
+
+    pub fn draws_n_cards(&self) -> u8 {
+        self.character.draws_n_cards()
+    }
+
+    pub fn turn_cash(&self) -> u8 {
+        // TODO: Implement actual cash logic
+        1
+    }
+
+    pub fn start_turn(&mut self) {
+        self.cash += self.turn_cash();
+        // TODO: reconcile with character abilities after player state branch finishes
+        self.assets_to_play = 1;
+        self.liabilities_to_play = 1;
+
+        self.cards_drawn.clear();
+        self.total_cards_drawn = 0;
+        self.total_cards_given_back = 0;
+    }
+}
+
 impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
     type Error = GameError;
 
@@ -134,6 +243,60 @@ pub struct ResultsPlayer {
     pub liabilities: Vec<Liability>,
     #[serde(with = "serde_asset_liability::vec")]
     pub hand: Vec<Either<Asset, Liability>>,
+}
+
+impl ResultsPlayer {
+    pub fn total_gold(&self) -> u8 {
+        self.assets.iter().map(|a| a.gold_value).sum()
+    }
+
+    pub fn total_silver(&self) -> u8 {
+        self.assets.iter().map(|a| a.silver_value).sum()
+    }
+
+    fn calc_loan(&self, rfr_type: LiabilityType) -> u8 {
+        self.liabilities
+            .iter()
+            .filter_map(|l| (l.rfr_type == rfr_type).then_some(l.value))
+            .sum()
+    }
+
+    pub fn trade_credit(&self) -> u8 {
+        self.calc_loan(LiabilityType::TradeCredit)
+    }
+
+    pub fn bank_loan(&self) -> u8 {
+        self.calc_loan(LiabilityType::BankLoan)
+    }
+
+    pub fn bonds(&self) -> u8 {
+        self.calc_loan(LiabilityType::Bonds)
+    }
+
+    pub fn color_value(&self, color: Color, market: &Market) -> f64 {
+        let market_condition = match color {
+            Color::Red => market.red,
+            Color::Green => market.green,
+            Color::Purple => market.purple,
+            Color::Yellow => market.yellow,
+            Color::Blue => market.blue,
+        };
+
+        let mul = match market_condition {
+            MarketCondition::Plus => 1.0,
+            MarketCondition::Minus => 0.0,
+            MarketCondition::Zero => -1.0,
+        };
+
+        self.assets
+            .iter()
+            .filter_map(|a| {
+                color
+                    .eq(&a.color)
+                    .then_some(a.gold_value as f64 + (a.silver_value as f64) * mul)
+            })
+            .sum()
+    }
 }
 
 impl From<RoundPlayer> for ResultsPlayer {

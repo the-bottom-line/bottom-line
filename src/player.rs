@@ -51,6 +51,23 @@ impl SelectingCharactersPlayer {
             hand,
         }
     }
+
+    pub fn select_character(&mut self, character: Character) {
+        use Character::*;
+
+        self.character = Some(character);
+
+        match character {
+            Shareholder => {}
+            Banker => {}
+            Regulator => {}
+            CEO => {}
+            CFO => {}
+            CSO => {}
+            HeadRnD => {}
+            Stakeholder => {}
+        }
+    }
 }
 
 impl From<RoundPlayer> for SelectingCharactersPlayer {

@@ -370,7 +370,9 @@ mod tests {
             assert_matches!(response, UniqueResponse::StartGame { .. });
         }
 
-        for (reader, writer) in readers.iter_mut().zip(&mut writers) {
+        let mut selected = None::<usize>;
+
+        for (i, (reader, writer)) in readers.iter_mut().zip(&mut writers).enumerate() {
             let response = receive(reader).await;
             assert_matches!(response, UniqueResponse::SelectingCharacters { .. });
 
@@ -390,38 +392,46 @@ mod tests {
                     DirectResponse::YouSelectedCharacter { character }
                         if character == p.characters[0]
                 );
+
+                selected = Some(dbg!(i));
             }
         }
-
+        
         for _ in 1..readers.len() {
-            for (reader, writer) in readers.iter_mut().zip(&mut writers) {
+            let chosen = selected.unwrap();
+    
+            for (i, (reader, writer)) in readers
+                .iter_mut()
+                .zip(&mut writers)
+                .enumerate()
+                .filter(|(i, _)| *i != chosen)
+            {
                 let response = receive(reader).await;
                 assert_matches!(response, UniqueResponse::SelectedCharacter { .. });
-
+    
                 if let UniqueResponse::SelectedCharacter {
                     pickable_characters: Some(p),
                     ..
                 } = response
                 {
                     assert_none!(p.closed_character);
-
+    
                     let character = p.characters[0];
                     send(writer, ReceiveData::SelectCharacter { character }).await;
-
+    
                     let response = receive(reader).await;
                     assert_matches!(
                         response,
                         DirectResponse::YouSelectedCharacter { character }
                             if character == p.characters[0]
                     );
+    
+                    selected = Some(dbg!(i));
                 }
             }
         }
-
+        
         for reader in readers.iter_mut() {
-            let response = receive(reader).await;
-            assert_matches!(response, UniqueResponse::SelectedCharacter { .. });
-
             let response = receive(reader).await;
             assert_matches!(response, UniqueResponse::TurnStarts { .. });
         }

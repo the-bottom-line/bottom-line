@@ -5,6 +5,8 @@ use thiserror::Error;
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
 pub enum GameError {
     #[error(transparent)]
+    LobbyError(#[from] LobbyError),
+    #[error(transparent)]
     PlayCard(#[from] PlayCardError),
     #[error(transparent)]
     GiveBackCard(#[from] GiveBackCardError),
@@ -34,6 +36,14 @@ pub enum GameError {
     NotAvailableInLobbyState,
     #[error("Action unavailable in results state")]
     NotAvailableInResultsState,
+}
+
+#[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
+pub enum LobbyError {
+    #[error("Username {0} already taken")]
+    UsernameAlreadyTaken(String),
+    #[error("Username is invalid")]
+    InvalidUsername,
 }
 
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]

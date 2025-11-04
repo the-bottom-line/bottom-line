@@ -507,6 +507,17 @@ pub struct PlayerInfo {
     pub character: Option<Character>,
 }
 
+impl PlayerInfo {
+    fn hand(hand: &[Either<Asset, Liability>]) -> Vec<CardType> {
+        hand.iter()
+            .map(|e| match e {
+                Either::Left(_) => CardType::Asset,
+                Either::Right(_) => CardType::Liability,
+            })
+            .collect()
+    }
+}
+
 impl Default for PlayerInfo {
     fn default() -> Self {
         Self {
@@ -527,6 +538,48 @@ impl From<&LobbyPlayer> for PlayerInfo {
             name: player.name.clone(),
             id: player.id,
             ..Default::default()
+        }
+    }
+}
+
+impl From<&SelectingCharactersPlayer> for PlayerInfo {
+    fn from(player: &SelectingCharactersPlayer) -> Self {
+        Self {
+            name: player.name.clone(),
+            id: player.id,
+            hand: Self::hand(&player.hand),
+            assets: player.assets.clone(),
+            liabilities: player.liabilities.clone(),
+            cash: player.cash,
+            character: player.character,
+        }
+    }
+}
+
+impl From<&RoundPlayer> for PlayerInfo {
+    fn from(player: &RoundPlayer) -> Self {
+        Self {
+            name: player.name.clone(),
+            id: player.id,
+            hand: Self::hand(&player.hand),
+            assets: player.assets.clone(),
+            liabilities: player.liabilities.clone(),
+            cash: player.cash,
+            character: Some(player.character),
+        }
+    }
+}
+
+impl From<&ResultsPlayer> for PlayerInfo {
+    fn from(player: &ResultsPlayer) -> Self {
+        Self {
+            name: player.name.clone(),
+            id: player.id,
+            hand: Self::hand(&player.hand),
+            assets: player.assets.clone(),
+            liabilities: player.liabilities.clone(),
+            cash: player.cash,
+            character: None,
         }
     }
 }

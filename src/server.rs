@@ -16,7 +16,7 @@ use futures_util::{
 use serde::Serialize;
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex}, // std Mutex used only for the username set
+    sync::{Arc, Mutex},
 };
 use tokio::sync::{Mutex as TokioMutex, broadcast}; // async mutex for shared sink
 
@@ -71,11 +71,11 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     // wrap sink in an async mutex so multiple tasks can send safely
     let sender = Arc::new(TokioMutex::new(sender));
 
-    // receive initial username message
     let mut channel_idx = 8; // invalid id to start
     let mut username = String::new();
     let mut channel = String::new();
 
+    // receive initial username message
     while let Some(Ok(message)) = receiver.next().await {
         match message {
             Message::Text(text) => {
@@ -151,7 +151,6 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 
     // task: forward broadcast messages to this client
     let mut send_task = {
-        // let name = username.clone();
         let sender = sender.clone();
 
         tokio::spawn(async move {
@@ -196,7 +195,6 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 
     // task: read client messages, broadcast them, and send a custom reply to the sender only
     let mut recv_task = {
-        // let tx = tx.clone();
         let sender = sender.clone();
         let name = username.clone();
         let room = room.clone();

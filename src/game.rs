@@ -218,7 +218,6 @@ impl GameState {
         }
     }
 
-    // TODO: use internally inside TheBottomLine functions
     pub fn lobby_mut(&mut self) -> Result<&mut Lobby, GameError> {
         match self {
             Self::Lobby(l) => Ok(l),

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{errors::GameError, game::*, player::*, utility::serde_asset_liability};
 use either::Either;
 use serde::{Deserialize, Serialize};
@@ -116,17 +118,14 @@ pub enum UniqueResponse {
 }
 
 #[derive(Clone, Debug)]
-pub struct InternalResponse(pub [Option<Vec<UniqueResponse>>; 7]);
+pub struct InternalResponse(pub HashMap<PlayerId, Vec<UniqueResponse>>);
 
 impl InternalResponse {
-    pub fn get_responses(&self, idx: usize) -> Option<&[UniqueResponse]> {
-        match self.0.get(idx) {
-            Some(Some(v)) => Some(&v),
-            _ => None,
-        }
+    pub fn get_responses(&self, id: PlayerId) -> Option<&[UniqueResponse]> {
+        self.0.get(&id).map(AsRef::as_ref)
     }
 
-    pub fn into_inner(self) -> [Option<Vec<UniqueResponse>>; 7] {
+    pub fn into_inner(self) -> HashMap<PlayerId, Vec<UniqueResponse>> {
         self.0
     }
 }

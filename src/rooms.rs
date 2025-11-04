@@ -12,7 +12,9 @@ use crate::{
 /// All-encompassing state each room has access to
 pub struct RoomState {
     /// Internal broadcast that can be received by any connected thread
-    pub tx: broadcast::Sender<InternalResponse>,
+    pub tx: broadcast::Sender<UniqueResponse>,
+    /// Internal broadcast channels to send responses specific to each player
+    pub player_tx: [broadcast::Sender<UniqueResponse>; 7],
     /// Per-room gamestate
     pub game: Mutex<GameState>,
 }
@@ -20,7 +22,16 @@ pub struct RoomState {
 impl RoomState {
     pub fn new() -> Self {
         Self {
-            tx: broadcast::channel(100).0,
+            tx: broadcast::channel(64).0,
+            player_tx: [
+                broadcast::channel(64).0,
+                broadcast::channel(64).0,
+                broadcast::channel(64).0,
+                broadcast::channel(64).0,
+                broadcast::channel(64).0,
+                broadcast::channel(64).0,
+                broadcast::channel(64).0,
+            ],
             game: Mutex::new(GameState::new()),
         }
     }

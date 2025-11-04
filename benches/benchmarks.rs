@@ -8,9 +8,9 @@ use diol::prelude::*;
 fn get_gamestate(player_count: usize) -> GameState {
     let mut game = GameState::new();
 
-    (0..player_count)
-        .map(|i| format!("Player {i}"))
-        .for_each(|name| assert_matches!(game.join(name), Ok(true)));
+    (0..(player_count as u8))
+        .map(|i| (i, format!("Player {i}")))
+        .for_each(|(i, name)| assert_matches!(game.join(name), Ok(id) if id == PlayerId(i)));
 
     game.start_game("assets/cards/boardgame.json").unwrap();
 

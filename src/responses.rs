@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::{errors::GameError, game::*, player::*, utility::serde_asset_liability};
 use either::Either;
 use serde::{Deserialize, Serialize};
@@ -118,11 +116,18 @@ pub enum UniqueResponse {
 }
 
 #[derive(Clone, Debug)]
-pub struct InternalResponse(pub HashMap<String, Vec<UniqueResponse>>);
+pub struct InternalResponse(pub [Option<Vec<UniqueResponse>>; 7]);
 
 impl InternalResponse {
-    pub fn get_responses(&self, name: &str) -> Option<&[UniqueResponse]> {
-        self.0.get(name).map(AsRef::as_ref)
+    pub fn get_responses(&self, idx: usize) -> Option<&[UniqueResponse]> {
+        match self.0.get(idx) {
+            Some(Some(v)) => Some(&v),
+            _ => None,
+        }
+    }
+
+    pub fn into_inner(self) -> [Option<Vec<UniqueResponse>>; 7] {
+        self.0
     }
 }
 
@@ -134,10 +139,6 @@ pub enum ResponseError {
     GameNotYetStarted,
     #[error("Game has already started")]
     GameAlreadyStarted,
-    #[error("Username already taken")]
-    UsernameAlreadyTaken,
-    #[error("Username is invalid")]
-    InvalidUsername,
     #[error("Data is not valid for this state")]
     InvalidData,
 }

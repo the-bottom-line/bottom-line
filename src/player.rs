@@ -10,13 +10,88 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Player {
+pub struct LobbyPlayer {
+    pub id: PlayerId,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SelectingCharactersPlayer {
     pub id: PlayerId,
     pub name: String,
     pub cash: u8,
     pub assets: Vec<Asset>,
     pub liabilities: Vec<Liability>,
     pub character: Option<Character>,
+    #[serde(with = "serde_asset_liability::vec")]
+    pub hand: Vec<Either<Asset, Liability>>,
+}
+
+impl SelectingCharactersPlayer {
+    pub fn new(
+        name: &str,
+        id: u8,
+        assets: [Asset; 2],
+        liabilities: [Liability; 2],
+        cash: u8,
+    ) -> Self {
+        let hand = assets
+            .into_iter()
+            .map(Either::Left)
+            .chain(liabilities.into_iter().map(Either::Right))
+            .collect();
+
+        SelectingCharactersPlayer {
+            id: PlayerId(id),
+            name: name.to_string(),
+            cash,
+            assets: vec![],
+            liabilities: vec![],
+            character: None,
+            hand,
+        }
+    }
+
+    pub fn select_character(&mut self, character: Character) {
+        use Character::*;
+
+        self.character = Some(character);
+
+        match character {
+            Shareholder => {}
+            Banker => {}
+            Regulator => {}
+            CEO => {}
+            CFO => {}
+            CSO => {}
+            HeadRnD => {}
+            Stakeholder => {}
+        }
+    }
+}
+
+impl From<RoundPlayer> for SelectingCharactersPlayer {
+    fn from(player: RoundPlayer) -> Self {
+        Self {
+            id: player.id,
+            name: player.name,
+            cash: player.cash,
+            assets: player.assets,
+            liabilities: player.liabilities,
+            character: None,
+            hand: player.hand,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoundPlayer {
+    pub id: PlayerId,
+    pub name: String,
+    pub cash: u8,
+    pub assets: Vec<Asset>,
+    pub liabilities: Vec<Liability>,
+    pub character: Character,
     #[serde(with = "serde_asset_liability::vec")]
     pub hand: Vec<Either<Asset, Liability>>,
     pub cards_drawn: Vec<usize>,
@@ -26,40 +101,7 @@ pub struct Player {
     pub total_cards_given_back: u8,
 }
 
-impl Player {
-    pub fn new(
-        name: &str,
-        id: u8,
-        assets: [Asset; 2],
-        liabilities: [Liability; 2],
-        cash: u8,
-    ) -> Player {
-        let hand = assets
-            .into_iter()
-            .map(Either::Left)
-            .chain(liabilities.into_iter().map(Either::Right))
-            .collect();
-
-        Player {
-            id: PlayerId(id),
-            name: name.to_string(),
-            cash,
-            assets: vec![],
-            liabilities: vec![],
-            character: None,
-            hand,
-            cards_drawn: vec![],
-            assets_to_play: 1,
-            liabilities_to_play: 1,
-            total_cards_drawn: 0,
-            total_cards_given_back: 0,
-        }
-    }
-
-    pub fn info(&self) -> PlayerInfo {
-        self.into()
-    }
-
+impl RoundPlayer {
     fn update_cards_drawn(&mut self, card_idx: usize) {
         self.cards_drawn = self
             .cards_drawn
@@ -70,17 +112,11 @@ impl Player {
     }
 
     fn can_play_asset(&self) -> bool {
-        match self.character {
-            Some(_) => self.assets_to_play > 0,
-            None => false,
-        }
+        self.assets_to_play > 0
     }
 
     fn can_play_liability(&self) -> bool {
-        match self.character {
-            Some(_) => self.liabilities_to_play > 0,
-            None => false,
-        }
+        self.liabilities_to_play > 0
     }
 
     /// Plays card in players hand with index `card_idx`. If that index is valid, the card is played
@@ -145,10 +181,7 @@ impl Player {
 
     pub fn should_give_back_cards(&self) -> bool {
         // TODO: add head rnd ability
-        match self.character {
-            Some(_) => self.total_cards_drawn - self.total_cards_given_back >= 3,
-            None => false,
-        }
+        self.total_cards_drawn - self.total_cards_given_back >= 3
     }
 
     pub fn can_draw_cards(&self) -> bool {
@@ -156,21 +189,8 @@ impl Player {
         self.total_cards_drawn < 3
     }
 
-    pub fn select_character(&mut self, character: Character) {
-        use Character::*;
-
-        self.character = Some(character);
-
-        match character {
-            Shareholder => {}
-            Banker => {}
-            Regulator => {}
-            CEO => {}
-            CFO => {}
-            CSO => {}
-            HeadRnD => {}
-            Stakeholder => {}
-        }
+    pub fn draws_n_cards(&self) -> u8 {
+        self.character.draws_n_cards()
     }
 
     pub fn turn_cash(&self) -> u8 {
@@ -178,23 +198,47 @@ impl Player {
         1
     }
 
-    pub fn draws_n_cards(&self) -> u8 {
-        self.character
-            .map(|c| c.draws_n_cards())
-            .unwrap_or_default()
-    }
-
     pub fn start_turn(&mut self) {
         self.cash += self.turn_cash();
-        // TODO: reconcile with character abilities after player state branch finishes
-        self.assets_to_play = 1;
-        self.liabilities_to_play = 1;
-
-        self.cards_drawn.clear();
-        self.total_cards_drawn = 0;
-        self.total_cards_given_back = 0;
     }
+}
 
+impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
+    type Error = GameError;
+
+    fn try_from(player: SelectingCharactersPlayer) -> Result<Self, Self::Error> {
+        match player.character {
+            Some(character) => Ok(Self {
+                id: player.id,
+                name: player.name,
+                cash: player.cash,
+                assets: player.assets,
+                liabilities: player.liabilities,
+                character,
+                hand: player.hand,
+                cards_drawn: Vec::new(),
+                assets_to_play: character.playable_assets(),
+                liabilities_to_play: character.playable_liabilities(),
+                total_cards_drawn: 0,
+                total_cards_given_back: 0,
+            }),
+            None => Err(GameError::PlayerMissingCharacter),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResultsPlayer {
+    pub id: PlayerId,
+    pub name: String,
+    pub cash: u8,
+    pub assets: Vec<Asset>,
+    pub liabilities: Vec<Liability>,
+    #[serde(with = "serde_asset_liability::vec")]
+    pub hand: Vec<Either<Asset, Liability>>,
+}
+
+impl ResultsPlayer {
     pub fn total_gold(&self) -> u8 {
         self.assets.iter().map(|a| a.gold_value).sum()
     }
@@ -245,6 +289,19 @@ impl Player {
                     .then_some(a.gold_value as f64 + (a.silver_value as f64) * mul)
             })
             .sum()
+    }
+}
+
+impl From<RoundPlayer> for ResultsPlayer {
+    fn from(player: RoundPlayer) -> Self {
+        Self {
+            id: player.id,
+            name: player.name,
+            cash: player.cash,
+            assets: player.assets,
+            liabilities: player.liabilities,
+            hand: player.hand,
+        }
     }
 }
 
@@ -343,6 +400,19 @@ pub enum CardType {
     Liability,
 }
 
+pub trait GetPlayerInfo {
+    fn info(&self) -> PlayerInfo;
+}
+
+impl<T> GetPlayerInfo for T
+where
+    for<'a> PlayerInfo: From<&'a T>,
+{
+    fn info(&self) -> PlayerInfo {
+        PlayerInfo::from(self)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerInfo {
     pub name: String,
@@ -354,25 +424,79 @@ pub struct PlayerInfo {
     pub character: Option<Character>,
 }
 
-impl From<&Player> for PlayerInfo {
-    fn from(player: &Player) -> Self {
-        let hand = player
-            .hand
-            .iter()
+impl PlayerInfo {
+    fn hand(hand: &[Either<Asset, Liability>]) -> Vec<CardType> {
+        hand.iter()
             .map(|e| match e {
                 Either::Left(_) => CardType::Asset,
                 Either::Right(_) => CardType::Liability,
             })
-            .collect();
+            .collect()
+    }
+}
 
+impl Default for PlayerInfo {
+    fn default() -> Self {
         Self {
-            hand,
+            name: Default::default(),
+            id: PlayerId(0),
+            hand: Default::default(),
+            assets: Default::default(),
+            liabilities: Default::default(),
+            cash: Default::default(),
+            character: Default::default(),
+        }
+    }
+}
+
+impl From<&LobbyPlayer> for PlayerInfo {
+    fn from(player: &LobbyPlayer) -> Self {
+        Self {
             name: player.name.clone(),
+            id: player.id,
+            ..Default::default()
+        }
+    }
+}
+
+impl From<&SelectingCharactersPlayer> for PlayerInfo {
+    fn from(player: &SelectingCharactersPlayer) -> Self {
+        Self {
+            name: player.name.clone(),
+            id: player.id,
+            hand: Self::hand(&player.hand),
             assets: player.assets.clone(),
             liabilities: player.liabilities.clone(),
-            id: player.id,
             cash: player.cash,
             character: player.character,
+        }
+    }
+}
+
+impl From<&RoundPlayer> for PlayerInfo {
+    fn from(player: &RoundPlayer) -> Self {
+        Self {
+            name: player.name.clone(),
+            id: player.id,
+            hand: Self::hand(&player.hand),
+            assets: player.assets.clone(),
+            liabilities: player.liabilities.clone(),
+            cash: player.cash,
+            character: Some(player.character),
+        }
+    }
+}
+
+impl From<&ResultsPlayer> for PlayerInfo {
+    fn from(player: &ResultsPlayer) -> Self {
+        Self {
+            name: player.name.clone(),
+            id: player.id,
+            hand: Self::hand(&player.hand),
+            assets: player.assets.clone(),
+            liabilities: player.liabilities.clone(),
+            cash: player.cash,
+            character: None,
         }
     }
 }
@@ -444,16 +568,18 @@ impl Character {
         characters.iter().max().copied()
     }
 
-    pub fn playable_assets(&self) -> usize {
+    pub fn playable_assets(&self) -> u8 {
+        // TODO: fix for CEO when ready
         match self {
-            Self::CEO => 3,
+            Self::CEO => 1,
             _ => 1,
         }
     }
 
-    pub fn playable_liabilities(&self) -> usize {
+    pub fn playable_liabilities(&self) -> u8 {
+        // TODO: fix for CFO when ready
         match self {
-            Self::CFO => 3,
+            Self::CFO => 1,
             _ => 1,
         }
     }

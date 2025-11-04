@@ -1,7 +1,4 @@
-use bottom_line::{
-    game::{GameState, TheBottomLine},
-    player::PlayerId,
-};
+use bottom_line::{game::GameState, player::PlayerId};
 use claim::assert_matches;
 use diol::prelude::*;
 

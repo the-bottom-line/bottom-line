@@ -18,8 +18,10 @@ pub enum GameError {
     InvalidPlayerCount(u8),
     #[error("Player index {0} is invalid")]
     InvalidPlayerIndex(u8),
-    #[error("Player index {0} is invalid")]
+    #[error("Player name {0} is invalid")]
     InvalidPlayerName(String),
+    #[error("Player hasn't selected a character yet")]
+    PlayerMissingCharacter,
     #[error("Not player's turn")]
     NotPlayersTurn,
     #[error("Player should still give back at least one card")]

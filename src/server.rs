@@ -148,12 +148,12 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             let internal = lobby
                 .players()
                 .iter()
-                .map(|name| {
+                .map(|(name, _)| {
                     (
-                        name.clone(),
+                        name.to_string(),
                         vec![UniqueResponse::PlayersInLobby {
                             changed_player: username.clone(),
-                            usernames: lobby.players().clone(),
+                            usernames: lobby.usernames(),
                         }],
                     )
                 })
@@ -247,12 +247,12 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             let internal = lobby
                 .players()
                 .iter()
-                .map(|name| {
+                .map(|(name, _)| {
                     (
-                        name.clone(),
+                        name.to_string(),
                         vec![UniqueResponse::PlayersInLobby {
                             changed_player: username.clone(),
-                            usernames: lobby.players().clone(),
+                            usernames: lobby.usernames(),
                         }],
                     )
                 })

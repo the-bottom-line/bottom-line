@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::{errors::GameError, game::*, player::*, utility::serde_asset_liability};
 use either::Either;
@@ -65,7 +65,7 @@ pub enum DirectResponse {
 pub enum UniqueResponse {
     PlayersInLobby {
         changed_player: String,
-        usernames: HashSet<String>,
+        usernames: Vec<String>,
     },
     StartGame {
         id: PlayerId,

@@ -1,4 +1,9 @@
-use std::{collections::HashSet, path::Path, sync::Arc, vec};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+    sync::Arc,
+    vec,
+};
 
 use either::Either;
 use rand::seq::SliceRandom;
@@ -532,7 +537,7 @@ impl TheBottomLine for GameState {
 
 #[derive(Debug, Clone, Default)]
 pub struct Lobby {
-    players: HashSet<String>,
+    players: HashMap<String, PlayerId>,
 }
 
 impl Lobby {
@@ -540,16 +545,33 @@ impl Lobby {
         Self::default()
     }
 
-    pub fn players(&self) -> &HashSet<String> {
-        &self.players
+    pub fn players(&self) -> Vec<(&str, PlayerId)> {
+        self.players
+            .iter()
+            .map(|(n, id)| (n.as_str(), *id))
+            .collect()
+    }
+
+    pub fn usernames(&self) -> Vec<String> {
+        self.players.iter().map(|(n, _)| n.clone()).collect()
     }
 
     pub fn join(&mut self, username: String) -> bool {
-        self.players.insert(username)
+        use std::collections::hash_map::Entry;
+
+        let id = PlayerId(self.players.len() as u8);
+
+        match self.players.entry(username) {
+            Entry::Occupied(_) => false,
+            Entry::Vacant(vacant_entry) => {
+                vacant_entry.insert(id);
+                true
+            }
+        }
     }
 
     pub fn leave(&mut self, username: &str) -> bool {
-        self.players.remove(username)
+        self.players.remove(username).is_some()
     }
 
     pub fn can_start(&self) -> bool {
@@ -594,13 +616,15 @@ impl Lobby {
         assets: &mut Deck<Asset>,
         liabilities: &mut Deck<Liability>,
     ) -> Vec<Player> {
-        self.players
+        let mut players = self.players();
+        players.sort_by(|(_, id1), (_, id2)| id1.cmp(&id2));
+
+        players
             .iter()
-            .zip(0u8..)
-            .map(|(name, i)| {
+            .map(|(name, id)| {
                 let assets = [assets.draw(), assets.draw()];
                 let liabilities = [liabilities.draw(), liabilities.draw()];
-                Player::new(name, i, assets, liabilities, 1)
+                Player::new(name, id.0, assets, liabilities, 1)
             })
             .collect()
     }

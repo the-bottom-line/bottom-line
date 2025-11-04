@@ -105,24 +105,6 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                         && lobby.join(connect_username.to_owned())
                     {
                         username = connect_username.clone();
-
-                        // announce join to everyone
-                        let internal = lobby
-                            .players()
-                            .iter()
-                            .map(|name| {
-                                (
-                                    name.clone(),
-                                    vec![UniqueResponse::PlayersInLobby {
-                                        changed_player: username.clone(),
-                                        usernames: lobby.players().clone(),
-                                    }],
-                                )
-                            })
-                            .collect();
-
-                        tracing::debug!("{internal:?}");
-                        let _ = room.tx.send(InternalResponse(internal));
                     } else {
                         // TODO: Idk if this sends because I don't .await but also I get an error
                         // because it stops being sync? idk wtf is going on here
@@ -159,6 +141,33 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let tx = room.tx.clone();
     // subscribe to broadcast channel
     let mut rx = tx.subscribe();
+
+    // announce join to everyone
+    match &*room.game.lock().unwrap() {
+        GameState::Lobby(lobby) => {
+            let internal = lobby
+                .players()
+                .iter()
+                .map(|name| {
+                    (
+                        name.clone(),
+                        vec![UniqueResponse::PlayersInLobby {
+                            changed_player: username.clone(),
+                            usernames: lobby.players().clone(),
+                        }],
+                    )
+                })
+                .collect::<HashMap<_, _>>();
+
+            tracing::debug!(
+                "{username}: {:?}",
+                internal.get(&username).cloned().unwrap_or_else(|| vec![])
+            );
+            let _ = room.tx.send(InternalResponse(internal));
+        }
+        // TODO: handle joins after game starts
+        _ => return,
+    }
 
     // task: forward broadcast messages to this client
     let mut send_task = {

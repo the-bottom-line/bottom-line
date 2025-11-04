@@ -430,12 +430,12 @@ impl GameState {
         }
     }
 
-    pub fn player_info(&self, id: PlayerId) -> Result<Vec<PlayerInfo>, GameError> {
+    pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
         match self {
-            Self::SelectingCharacters(s) => Ok(s.player_info(id)),
-            Self::Round(r) => Ok(r.player_info(id)),
-            Self::Results(r) => Ok(r.player_info(id)),
-            Self::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
+            Self::Lobby(l) => l.player_info(id),
+            Self::SelectingCharacters(s) => s.player_info(id),
+            Self::Round(r) => r.player_info(id),
+            Self::Results(r) => r.player_info(id),
         }
     }
 
@@ -505,6 +505,14 @@ impl Lobby {
             }
             None => false,
         }
+    }
+
+    pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
+        self.players
+            .iter()
+            .filter(|p| p.id != id)
+            .map(Into::into)
+            .collect()
     }
 
     pub fn can_start(&self) -> bool {
@@ -687,7 +695,8 @@ impl SelectingCharacters {
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
         self.players
             .iter()
-            .flat_map(|p| p.id.ne(&id).then_some(p.info()))
+            .filter(|p| p.id != id)
+            .map(Into::into)
             .collect()
     }
 }
@@ -755,7 +764,8 @@ impl Round {
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
         self.players
             .iter()
-            .flat_map(|p| p.id.ne(&id).then_some(p.info()))
+            .filter(|p| p.id != id)
+            .map(Into::into)
             .collect()
     }
 
@@ -990,7 +1000,8 @@ impl Results {
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
         self.players
             .iter()
-            .flat_map(|p| p.id.ne(&id).then_some(p.info()))
+            .filter(|p| p.id != id)
+            .map(Into::into)
             .collect()
     }
 }

@@ -187,7 +187,6 @@ pub fn select_character(
                     let internal = selecting
                         .players()
                         .iter()
-                        .filter(|p| p.id != player_id)
                         .map(|p| {
                             (
                                 p.id,

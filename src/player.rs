@@ -200,13 +200,6 @@ impl RoundPlayer {
 
     pub fn start_turn(&mut self) {
         self.cash += self.turn_cash();
-        // TODO: reconcile with character abilities after player state branch finishes
-        self.assets_to_play = 1;
-        self.liabilities_to_play = 1;
-
-        self.cards_drawn.clear();
-        self.total_cards_drawn = 0;
-        self.total_cards_given_back = 0;
     }
 }
 

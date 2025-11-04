@@ -839,17 +839,6 @@ impl Round {
         }
     }
 
-    pub fn player_start_turn(&mut self, id: PlayerId) -> Result<(), GameError> {
-        match self.players.get_mut(usize::from(id)) {
-            Some(player) if player.id == self.current_player => {
-                player.start_turn();
-                Ok(())
-            }
-            Some(_) => Err(GameError::NotPlayersTurn),
-            _ => Err(GameError::InvalidPlayerIndex(id.0)),
-        }
-    }
-
     pub fn skipped_characters(&self) -> Vec<Character> {
         let mut cs: Vec<Character> = [].to_vec();
         let mut past_current_character = false;

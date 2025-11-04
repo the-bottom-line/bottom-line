@@ -10,6 +10,12 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LobbyPlayer {
+    pub id: PlayerId,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Player {
     pub id: PlayerId,
     pub name: String,

@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     path::Path,
     sync::Arc,
     vec,
@@ -360,7 +360,10 @@ impl Default for GameState {
 impl TheBottomLine for GameState {
     fn join(&mut self, username: String) -> Result<PlayerId, GameError> {
         match self {
-            Self::Lobby(lobby) => lobby.join(username).map_err(Into::into),
+            Self::Lobby(lobby) => match lobby.join(username) {
+                Ok(player) => Ok(player.id),
+                Err(e) => Err(e.into())
+            },
             _ => Err(GameError::NotLobbyState),
         }
     }
@@ -537,7 +540,7 @@ impl TheBottomLine for GameState {
 
 #[derive(Debug, Clone, Default)]
 pub struct Lobby {
-    players: HashMap<String, PlayerId>,
+    players: Vec<LobbyPlayer>,
 }
 
 impl Lobby {
@@ -548,37 +551,44 @@ impl Lobby {
     pub fn len(&self) -> usize {
         self.players.len()
     }
-
-    pub fn players(&self) -> Vec<(&str, PlayerId)> {
-        self.players
-            .iter()
-            .map(|(n, id)| (n.as_str(), *id))
-            .collect()
+    
+    pub fn player(&self, id: PlayerId) -> Option<&LobbyPlayer> {
+        self.players.get(usize::from(id))
     }
-
+    
+    pub fn players(&self) -> &[LobbyPlayer] {
+        &self.players
+    }
+    
     pub fn usernames(&self) -> Vec<String> {
-        self.players.iter().map(|(n, _)| n.clone()).collect()
+        self.players.iter().map(|p| &p.name).cloned().collect()
     }
 
-    pub fn get_id(&self, username: &str) -> Option<PlayerId> {
-        self.players.get(username).copied()
-    }
-
-    pub fn join(&mut self, username: String) -> Result<PlayerId, LobbyError> {
-        use std::collections::hash_map::Entry;
-
-        let id = PlayerId(self.players.len() as u8);
-
-        match self.players.entry(username) {
-            Entry::Occupied(occupied) => {
-                Err(LobbyError::UsernameAlreadyTaken(occupied.key().clone()))
-            }
-            Entry::Vacant(vacant) => Ok(*vacant.insert(id)),
+    pub fn join(&mut self, username: String) -> Result<&LobbyPlayer, LobbyError> {
+        match self.players.iter().find(|p| p.name == username) {
+            Some(_) => Err(LobbyError::UsernameAlreadyTaken(username)),
+            None => {
+                let player = LobbyPlayer {
+                    id: PlayerId(self.players.len() as u8),
+                    name: username.clone(),
+                };
+                self.players.push(player);
+                Ok(&self.players[self.players.len() - 1])
+            },
         }
     }
 
     pub fn leave(&mut self, username: &str) -> bool {
-        self.players.remove(username).is_some()
+        match self.players.iter().position(|p| p.name == username) {
+            Some(pos) => {
+                self.players.remove(pos);
+                self.players.iter_mut()
+                    .zip(0u8..)
+                    .for_each(|(p, id)| p.id = PlayerId(id));
+                true
+            },
+            None => false
+        }
     }
 
     pub fn can_start(&self) -> bool {
@@ -618,20 +628,19 @@ impl Lobby {
         }
     }
 
-    pub fn init_players(
-        &self,
+    fn init_players(
+        &mut self,
         assets: &mut Deck<Asset>,
         liabilities: &mut Deck<Liability>,
     ) -> Vec<Player> {
-        let mut players = self.players();
-        players.sort_by(|(_, id1), (_, id2)| id1.cmp(&id2));
+        self.players.sort_by(|p1, p2| p1.id.cmp(&p2.id));
 
-        players
+        self.players
             .iter()
-            .map(|(name, id)| {
+            .map(|p| {
                 let assets = [assets.draw(), assets.draw()];
                 let liabilities = [liabilities.draw(), liabilities.draw()];
-                Player::new(name, id.0, assets, liabilities, 1)
+                Player::new(&p.name, p.id.0, assets, liabilities, 1)
             })
             .collect()
     }

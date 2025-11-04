@@ -1,4 +1,9 @@
-use std::{collections::HashSet, path::Path, sync::Arc, vec};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+    sync::Arc,
+    vec,
+};
 
 use either::Either;
 use rand::seq::SliceRandom;
@@ -200,7 +205,7 @@ impl TurnEnded {
 
 pub trait TheBottomLine {
     /// Join the lobby if game is in lobby state
-    fn join(&mut self, username: String) -> Result<bool, GameError>;
+    fn join(&mut self, username: String) -> Result<PlayerId, GameError>;
 
     /// Leave the lobby if game is in lobby state
     fn leave(&mut self, username: &str) -> Result<bool, GameError>;
@@ -353,9 +358,9 @@ impl Default for GameState {
 }
 
 impl TheBottomLine for GameState {
-    fn join(&mut self, username: String) -> Result<bool, GameError> {
+    fn join(&mut self, username: String) -> Result<PlayerId, GameError> {
         match self {
-            Self::Lobby(lobby) => Ok(lobby.join(username)),
+            Self::Lobby(lobby) => lobby.join(username).map_err(Into::into),
             _ => Err(GameError::NotLobbyState),
         }
     }
@@ -532,7 +537,7 @@ impl TheBottomLine for GameState {
 
 #[derive(Debug, Clone, Default)]
 pub struct Lobby {
-    players: HashSet<String>,
+    players: HashMap<String, PlayerId>,
 }
 
 impl Lobby {
@@ -540,16 +545,40 @@ impl Lobby {
         Self::default()
     }
 
-    pub fn players(&self) -> &HashSet<String> {
-        &self.players
+    pub fn len(&self) -> usize {
+        self.players.len()
     }
 
-    pub fn join(&mut self, username: String) -> bool {
-        self.players.insert(username)
+    pub fn players(&self) -> Vec<(&str, PlayerId)> {
+        self.players
+            .iter()
+            .map(|(n, id)| (n.as_str(), *id))
+            .collect()
+    }
+
+    pub fn usernames(&self) -> Vec<String> {
+        self.players.iter().map(|(n, _)| n.clone()).collect()
+    }
+
+    pub fn get_id(&self, username: &str) -> Option<PlayerId> {
+        self.players.get(username).copied()
+    }
+
+    pub fn join(&mut self, username: String) -> Result<PlayerId, LobbyError> {
+        use std::collections::hash_map::Entry;
+
+        let id = PlayerId(self.players.len() as u8);
+
+        match self.players.entry(username) {
+            Entry::Occupied(occupied) => {
+                Err(LobbyError::UsernameAlreadyTaken(occupied.key().clone()))
+            }
+            Entry::Vacant(vacant) => Ok(*vacant.insert(id)),
+        }
     }
 
     pub fn leave(&mut self, username: &str) -> bool {
-        self.players.remove(username)
+        self.players.remove(username).is_some()
     }
 
     pub fn can_start(&self) -> bool {
@@ -594,13 +623,15 @@ impl Lobby {
         assets: &mut Deck<Asset>,
         liabilities: &mut Deck<Liability>,
     ) -> Vec<Player> {
-        self.players
+        let mut players = self.players();
+        players.sort_by(|(_, id1), (_, id2)| id1.cmp(&id2));
+
+        players
             .iter()
-            .zip(0u8..)
-            .map(|(name, i)| {
+            .map(|(name, id)| {
                 let assets = [assets.draw(), assets.draw()];
                 let liabilities = [liabilities.draw(), liabilities.draw()];
-                Player::new(name, i, assets, liabilities, 1)
+                Player::new(name, id.0, assets, liabilities, 1)
             })
             .collect()
     }
@@ -627,7 +658,7 @@ pub struct SelectingCharacters {
 }
 
 impl SelectingCharacters {
-    fn player(&self, id: PlayerId) -> Result<&Player, GameError> {
+    pub fn player(&self, id: PlayerId) -> Result<&Player, GameError> {
         self.players
             .get(usize::from(id))
             .ok_or(GameError::InvalidPlayerIndex(id.0))
@@ -1475,9 +1506,9 @@ mod tests {
     fn pick_with_players(player_count: usize) -> Result<GameState, GameError> {
         let mut game = GameState::new();
 
-        (0..player_count)
-            .map(|i| format!("Player {i}"))
-            .for_each(|name| assert_matches!(game.join(name), Ok(true)));
+        (0..(player_count as u8))
+            .map(|i| (i, format!("Player {i}")))
+            .for_each(|(i, name)| assert_matches!(game.join(name), Ok(id) if id == PlayerId(i)));
 
         game.start_game("assets/cards/boardgame.json")?;
 

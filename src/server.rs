@@ -1,4 +1,4 @@
-use crate::{game::GameState, responses::*, rooms::RoomState};
+use crate::{errors::GameError, game::GameState, responses::*, rooms::RoomState};
 
 use axum::{
     Router,
@@ -16,7 +16,7 @@ use futures_util::{
 use serde::Serialize;
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex}, // std Mutex used only for the username set
+    sync::{Arc, Mutex},
 };
 use tokio::sync::{Mutex as TokioMutex, broadcast}; // async mutex for shared sink
 
@@ -71,10 +71,11 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     // wrap sink in an async mutex so multiple tasks can send safely
     let sender = Arc::new(TokioMutex::new(sender));
 
-    // receive initial username message
+    let mut channel_idx = 8; // invalid id to start
     let mut username = String::new();
     let mut channel = String::new();
 
+    // receive initial username message
     while let Some(Ok(message)) = receiver.next().await {
         match message {
             Message::Text(text) => {
@@ -91,39 +92,28 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     }
                 };
 
-                if !connect_username.is_empty() {
-                    // If username that is sent by client is not taken, fill username string.
+                let error_response = {
                     let mut rooms = state.rooms.lock().unwrap();
-
                     channel = connect_channel.clone();
                     let room = rooms
                         .entry(connect_channel)
                         .or_insert_with(|| Arc::new(RoomState::new()));
 
-                    if let Ok(mut mutex) = room.game.lock()
-                        && let GameState::Lobby(lobby) = &mut *mutex
-                        && lobby.join(connect_username.to_owned())
-                    {
-                        username = connect_username.clone();
-                    } else {
-                        // TODO: Idk if this sends because I don't .await but also I get an error
-                        // because it stops being sync? idk wtf is going on here
-                        let _ = send_external(
-                            DirectResponse::Error(ResponseError::GameAlreadyStarted),
-                            sender.clone(),
-                        );
-                        return;
+                    match &mut *room.game.lock().unwrap() {
+                        GameState::Lobby(lobby) => match lobby.join(connect_username.clone()) {
+                            Ok(player_id) => {
+                                username = connect_username.clone();
+                                channel_idx = player_id.into();
+                                break;
+                            }
+                            Err(e) => DirectResponse::from(GameError::from(e)),
+                        },
+                        _ => DirectResponse::Error(ResponseError::GameAlreadyStarted),
                     }
-                    break;
-                } else {
-                    // Only send our client that username is taken.
-                    let _ = send_external(
-                        DirectResponse::Error(ResponseError::InvalidUsername),
-                        sender.clone(),
-                    )
-                    .await;
-                    return;
-                }
+                };
+
+                let _ = send_external(error_response, sender.clone()).await;
+                return;
             }
             Message::Close(_) => return,
             _ => continue,
@@ -142,28 +132,18 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     // subscribe to broadcast channel
     let mut rx = tx.subscribe();
 
+    let mut player_rx = room.player_tx[channel_idx].subscribe();
+
     // announce join to everyone
     match &*room.game.lock().unwrap() {
         GameState::Lobby(lobby) => {
-            let internal = lobby
-                .players()
-                .iter()
-                .map(|name| {
-                    (
-                        name.clone(),
-                        vec![UniqueResponse::PlayersInLobby {
-                            changed_player: username.clone(),
-                            usernames: lobby.players().clone(),
-                        }],
-                    )
-                })
-                .collect::<HashMap<_, _>>();
+            let internal = UniqueResponse::PlayersInLobby {
+                changed_player: username.clone(),
+                usernames: lobby.usernames(),
+            };
 
-            tracing::debug!(
-                "{username}: {:?}",
-                internal.get(&username).cloned().unwrap_or_else(Vec::new)
-            );
-            let _ = room.tx.send(InternalResponse(internal));
+            tracing::debug!("Global Response: {:?}", internal);
+            let _ = room.tx.send(internal);
         }
         // TODO: handle joins after game starts
         _ => return,
@@ -171,23 +151,39 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 
     // task: forward broadcast messages to this client
     let mut send_task = {
-        let name = username.clone();
         let sender = sender.clone();
 
         tokio::spawn(async move {
-            'outer: loop {
+            loop {
                 match rx.recv().await {
-                    Ok(msg) => match msg.get_responses(&name) {
-                        Some(responses) => {
-                            for r in responses {
-                                tracing::debug!("unique send: {r:?}");
-                                if send_external(r, sender.clone()).await.is_err() {
-                                    break 'outer;
-                                }
-                            }
+                    Ok(msg) => {
+                        tracing::debug!("unique send: {msg:?}");
+                        if send_external(msg, sender.clone()).await.is_err() {
+                            break;
                         }
-                        None => continue,
-                    },
+                    }
+                    // If we lagged behind, just continue
+                    Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                    // channel closed
+                    Err(broadcast::error::RecvError::Closed) => break,
+                }
+            }
+        })
+    };
+
+    // task: forward player messages to this client
+    let mut player_send_task = {
+        let sender = sender.clone();
+
+        tokio::spawn(async move {
+            loop {
+                match player_rx.recv().await {
+                    Ok(msg) => {
+                        tracing::debug!("unique send: {msg:?}");
+                        if send_external(msg, sender.clone()).await.is_err() {
+                            break;
+                        }
+                    }
                     // If we lagged behind, just continue
                     Err(broadcast::error::RecvError::Lagged(_)) => continue,
                     // channel closed
@@ -199,7 +195,6 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 
     // task: read client messages, broadcast them, and send a custom reply to the sender only
     let mut recv_task = {
-        let tx = tx.clone();
         let sender = sender.clone();
         let name = username.clone();
         let room = room.clone();
@@ -213,9 +208,17 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 
                             let direct = match room.handle_request(json, &name) {
                                 Ok(Response(internal, direct)) => {
-                                    tracing::debug!("internal send: {internal:?}");
-
-                                    let _ = tx.send(internal);
+                                    for (i, responses) in internal
+                                        .into_inner()
+                                        .into_iter()
+                                        .enumerate()
+                                        .filter_map(|(i, r)| r.map(|r| (i, r)))
+                                    {
+                                        tracing::debug!("internal send: {responses:?}");
+                                        for r in responses {
+                                            let _ = room.player_tx[i].send(r.clone());
+                                        }
+                                    }
 
                                     direct
                                 }
@@ -235,34 +238,26 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
         })
     };
 
-    // if either task finishes, abort the other
+    // if any task finishes, abort the others
     tokio::select! {
         _ = &mut send_task => recv_task.abort(),
         _ = &mut recv_task => send_task.abort(),
+        _ = &mut player_send_task => player_send_task.abort(),
     };
 
     // announce leave
     match room.game.lock().unwrap().lobby_mut().ok() {
         Some(lobby) => {
-            let internal = lobby
-                .players()
-                .iter()
-                .map(|name| {
-                    (
-                        name.clone(),
-                        vec![UniqueResponse::PlayersInLobby {
-                            changed_player: username.clone(),
-                            usernames: lobby.players().clone(),
-                        }],
-                    )
-                })
-                .collect();
-
-            tracing::debug!("{internal:?}");
-            let _ = tx.send(InternalResponse(internal));
-
             // remove username on disconnect
             lobby.leave(&username);
+
+            // send updated list to everyone
+            for i in 0..lobby.len() {
+                let _ = room.player_tx[i].send(UniqueResponse::PlayersInLobby {
+                    changed_player: username.clone(),
+                    usernames: lobby.usernames(),
+                });
+            }
         }
         None => {}
     }

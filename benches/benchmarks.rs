@@ -33,6 +33,7 @@ fn player_info(bencher: Bencher, player_count: usize) {
 
 fn get_selectable_characters(bencher: Bencher, player_id: u8) {
     let state = get_gamestate(7);
+    let selecting = state.selecting_characters().unwrap();
 
-    bencher.bench(|| state.player_get_selectable_characters(PlayerId::from(player_id)))
+    bencher.bench(|| selecting.player_get_selectable_characters(PlayerId::from(player_id)))
 }

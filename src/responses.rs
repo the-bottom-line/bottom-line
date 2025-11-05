@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{errors::GameError, game::*, player::*, utility::serde_asset_liability};
+use crate::{errors::GameError, player::*, utility::serde_asset_liability};
 use either::Either;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -76,13 +76,15 @@ pub enum UniqueResponse {
     },
     SelectingCharacters {
         chairman_id: PlayerId,
-        pickable_characters: Option<PickableCharacters>,
+        selectable_characters: Option<Vec<Character>>,
         open_characters: Vec<Character>,
+        closed_character: Option<Character>,
         turn_order: Vec<PlayerId>,
     },
     SelectedCharacter {
         currently_picking_id: Option<PlayerId>,
-        pickable_characters: Option<PickableCharacters>,
+        selectable_characters: Option<Vec<Character>>,
+        closed_character: Option<Character>,
     },
     TurnStarts {
         /// Id of the player whose turn it is

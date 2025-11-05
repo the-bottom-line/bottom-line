@@ -80,6 +80,8 @@ pub enum SelectableCharactersError {
     NotPickingCharacters,
     #[error("Character is not availalble to pick")]
     UnavailableCharacter,
+    #[error("Player is not chairman")]
+    NotChairman,
 }
 
 #[derive(Debug, Error)]

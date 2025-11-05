@@ -311,15 +311,15 @@ impl GameState {
         Ok(())
     }
 
-    pub fn player_get_selectable_characters(
-        &self,
-        id: PlayerId,
-    ) -> Result<PickableCharacters, GameError> {
-        match self {
-            Self::SelectingCharacters(s) => s.player_get_selectable_characters(id),
-            _ => Err(GameError::NotSelectingCharactersState),
-        }
-    }
+    // pub fn player_get_selectable_characters(
+    //     &self,
+    //     id: PlayerId,
+    // ) -> Result<PickableCharacters, GameError> {
+    //     match self {
+    //         Self::SelectingCharacters(s) => s.player_get_selectable_characters(id),
+    //         _ => Err(GameError::NotSelectingCharactersState),
+    //     }
+    // }
 
     pub fn open_characters(&self) -> Result<&[Character], GameError> {
         match self {
@@ -615,13 +615,28 @@ impl SelectingCharacters {
     pub fn player_get_selectable_characters(
         &self,
         id: PlayerId,
-    ) -> Result<PickableCharacters, GameError> {
-        match self.currently_selecting_id() == id {
-            true => match self.player(id) {
-                Ok(_) => self.characters.peek().map_err(Into::into),
-                Err(e) => Err(e),
-            },
-            false => Err(GameError::NotPlayersTurn),
+    ) -> Result<Vec<Character>, GameError> {
+        match self.player(id) {
+            Ok(p) if p.id == self.currently_selecting_id() => self
+                .characters
+                .peek()
+                .map(|pc| pc.characters)
+                .map_err(Into::into),
+            Ok(_) => Err(GameError::NotPlayersTurn),
+            Err(e) => Err(e),
+        }
+    }
+
+    pub fn player_get_closed_character(&self, id: PlayerId) -> Result<Character, GameError> {
+        match self.player(id) {
+            Ok(p) if p.id == self.currently_selecting_id() => {
+                match self.characters.peek()?.closed_character {
+                    Some(closed_character) => Ok(closed_character),
+                    None => Err(SelectableCharactersError::NotChairman.into()),
+                }
+            }
+            Ok(_) => Err(GameError::NotPlayersTurn),
+            Err(e) => Err(e),
         }
     }
 
@@ -1365,42 +1380,44 @@ mod tests {
 
         assert_eq!(chairman, turn_order[0]);
 
-        match game.player_get_selectable_characters(chairman) {
-            Ok(PickableCharacters {
-                characters,
-                closed_character,
-            }) => {
+        let selecting = game
+            .selecting_characters()
+            .expect("game not in selecting phase");
+        match selecting.player_get_selectable_characters(chairman) {
+            Ok(characters) => {
+                let closed_character = selecting.player_get_closed_character(chairman);
                 assert_eq!(characters.len(), player_count + add);
-                assert_some!(closed_character);
+                assert_ok!(closed_character);
                 assert_ok!(game.player_select_character(chairman, characters[0]));
 
-                closed = closed_character;
+                closed = closed_character.ok();
             }
             _ => panic!(),
         }
 
         for i in 1..(player_count - 1) {
             let player = turn_order[i];
-            match game.player_get_selectable_characters(player) {
-                Ok(PickableCharacters {
-                    characters,
-                    closed_character,
-                }) => {
+            let selecting = game
+                .selecting_characters()
+                .expect("game not in selecting phase");
+
+            match selecting.player_get_selectable_characters(player) {
+                Ok(characters) => {
                     assert_eq!(characters.len(), player_count + add - i);
-                    assert_none!(closed_character);
+                    assert_err!(selecting.player_get_closed_character(player));
                     assert_ok!(game.player_select_character(player, characters[0]));
                 }
                 _ => panic!(),
             }
         }
 
-        match game.player_get_selectable_characters(turn_order[player_count - 1]) {
-            Ok(PickableCharacters {
-                characters,
-                closed_character,
-            }) => {
+        let selecting = game
+            .selecting_characters()
+            .expect("game not in selecting phase");
+        match selecting.player_get_selectable_characters(turn_order[player_count - 1]) {
+            Ok(characters) => {
                 assert_eq!(characters.len(), 2 + add);
-                assert_none!(closed_character);
+                assert_err!(selecting.player_get_closed_character(turn_order[player_count - 1]));
                 assert!(characters.contains(&closed.unwrap()));
                 assert_ok!(
                     game.player_select_character(turn_order[player_count - 1], closed.unwrap())

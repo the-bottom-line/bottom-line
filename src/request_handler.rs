@@ -24,8 +24,11 @@ pub fn start_game(state: &mut GameState) -> Result<Response, GameError> {
                     },
                     UniqueResponse::SelectingCharacters {
                         chairman_id: selecting.chairman,
-                        pickable_characters: selecting.player_get_selectable_characters(p.id).ok(),
+                        selectable_characters: selecting
+                            .player_get_selectable_characters(p.id)
+                            .ok(),
                         open_characters: selecting.open_characters().to_vec(),
+                        closed_character: selecting.player_get_closed_character(p.id).ok(),
                         turn_order: selecting.turn_order(),
                     },
                 ],
@@ -191,8 +194,11 @@ pub fn select_character(
                                 p.id,
                                 vec![UniqueResponse::SelectedCharacter {
                                     currently_picking_id: Some(selecting.currently_selecting_id()),
-                                    pickable_characters: selecting
+                                    selectable_characters: selecting
                                         .player_get_selectable_characters(p.id)
+                                        .ok(),
+                                    closed_character: selecting
+                                        .player_get_closed_character(p.id)
                                         .ok(),
                                 }],
                             )
@@ -238,10 +244,11 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
                         p.id,
                         vec![UniqueResponse::SelectingCharacters {
                             chairman_id: selecting.chairman,
-                            pickable_characters: selecting
+                            selectable_characters: selecting
                                 .player_get_selectable_characters(p.id)
                                 .ok(),
                             open_characters: selecting.open_characters().to_vec(),
+                            closed_character: selecting.player_get_closed_character(p.id).ok(),
                             turn_order: selecting.turn_order(),
                         }],
                     )

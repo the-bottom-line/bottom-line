@@ -369,20 +369,21 @@ mod tests {
             assert_matches!(response, UniqueResponse::SelectingCharacters { .. });
 
             if let UniqueResponse::SelectingCharacters {
-                pickable_characters: Some(p),
+                selectable_characters: Some(characters),
+                closed_character,
                 ..
             } = response
             {
-                assert_some!(p.closed_character);
+                assert_some!(closed_character);
 
-                let character = p.characters[0];
+                let character = characters[0];
                 send(writer, ReceiveData::SelectCharacter { character }).await;
 
                 let response = receive(reader).await;
                 assert_matches!(
                     response,
                     DirectResponse::YouSelectedCharacter { character }
-                        if character == p.characters[0]
+                        if character == characters[0]
                 );
 
                 selected = Some(i);
@@ -406,20 +407,21 @@ mod tests {
                 assert_matches!(response, UniqueResponse::SelectedCharacter { .. });
 
                 if let UniqueResponse::SelectedCharacter {
-                    pickable_characters: Some(p),
+                    selectable_characters: Some(characters),
+                    closed_character,
                     ..
                 } = response
                 {
-                    assert_none!(p.closed_character);
+                    assert_none!(closed_character);
 
-                    let character = p.characters[0];
+                    let character = characters[0];
                     send(writer, ReceiveData::SelectCharacter { character }).await;
 
                     let response = receive(reader).await;
                     assert_matches!(
                         response,
                         DirectResponse::YouSelectedCharacter { character }
-                            if character == p.characters[0]
+                            if character == characters[0]
                     );
 
                     selected = Some(i);

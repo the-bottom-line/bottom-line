@@ -20,12 +20,12 @@ pub fn start_game(state: &mut GameState) -> Result<Response, GameError> {
                         id: p.id,
                         hand: p.hand.clone(),
                         cash: p.cash,
-                        open_characters: selecting.open_characters().to_vec(),
                         player_info: selecting.player_info(p.id),
                     },
                     UniqueResponse::SelectingCharacters {
                         chairman_id: selecting.chairman,
                         pickable_characters: selecting.player_get_selectable_characters(p.id).ok(),
+                        open_characters: selecting.open_characters().to_vec(),
                         turn_order: selecting.turn_order(),
                     },
                 ],
@@ -241,6 +241,7 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
                             pickable_characters: selecting
                                 .player_get_selectable_characters(p.id)
                                 .ok(),
+                            open_characters: selecting.open_characters().to_vec(),
                             turn_order: selecting.turn_order(),
                         }],
                     )

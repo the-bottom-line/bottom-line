@@ -71,3 +71,9 @@ impl RoomState {
         }
     }
 }
+
+impl Default for RoomState {
+    fn default() -> Self {
+        Self::new()
+    }
+}

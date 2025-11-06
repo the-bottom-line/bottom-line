@@ -243,20 +243,17 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     };
 
     // announce leave
-    match room.game.lock().unwrap().lobby_mut().ok() {
-        Some(lobby) => {
-            // remove username on disconnect
-            lobby.leave(&username);
+    if let Ok(lobby) = room.game.lock().unwrap().lobby_mut() {
+        // remove username on disconnect
+        lobby.leave(&username);
 
-            // send updated list to everyone
-            for i in 0..lobby.len() {
-                let _ = room.player_tx[i].send(UniqueResponse::PlayersInLobby {
-                    changed_player: username.clone(),
-                    usernames: lobby.usernames(),
-                });
-            }
+        // send updated list to everyone
+        for i in 0..lobby.len() {
+            let _ = room.player_tx[i].send(UniqueResponse::PlayersInLobby {
+                changed_player: username.clone(),
+                usernames: lobby.usernames(),
+            });
         }
-        None => {}
     }
 }
 

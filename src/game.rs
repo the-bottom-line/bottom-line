@@ -467,6 +467,10 @@ impl Lobby {
         self.players.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.players.is_empty()
+    }
+
     pub fn player(&self, id: PlayerId) -> Option<&LobbyPlayer> {
         self.players.get(usize::from(id))
     }
@@ -1395,6 +1399,7 @@ mod tests {
             _ => panic!(),
         }
 
+        #[allow(clippy::needless_range_loop)]
         for i in 1..(player_count - 1) {
             let player = turn_order[i];
             let selecting = game

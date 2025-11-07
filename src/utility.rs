@@ -8,25 +8,25 @@ pub mod serde_asset_liability {
     #[serde(tag = "card_type")]
     pub enum EitherAssetLiability {
         #[serde(rename = "asset")]
-        Left(Asset),
+        Asset(Asset),
         #[serde(rename = "liability")]
-        Right(Liability),
+        Liability(Liability),
     }
 
     impl From<EitherAssetLiability> for Either<Asset, Liability> {
         fn from(w: EitherAssetLiability) -> Self {
             match w {
-                EitherAssetLiability::Left(a) => Either::Left(a),
-                EitherAssetLiability::Right(l) => Either::Right(l),
+                EitherAssetLiability::Asset(a) => Either::Left(a),
+                EitherAssetLiability::Liability(l) => Either::Right(l),
             }
         }
     }
 
-    impl From<&Either<Asset, Liability>> for EitherAssetLiability {
-        fn from(e: &Either<Asset, Liability>) -> Self {
+    impl From<Either<Asset, Liability>> for EitherAssetLiability {
+        fn from(e: Either<Asset, Liability>) -> Self {
             match e {
-                Either::Left(a) => EitherAssetLiability::Left(a.clone()),
-                Either::Right(l) => EitherAssetLiability::Right(l.clone()),
+                Either::Left(a) => EitherAssetLiability::Asset(a),
+                Either::Right(l) => EitherAssetLiability::Liability(l),
             }
         }
     }
@@ -41,14 +41,14 @@ pub mod serde_asset_liability {
         where
             S: Serializer,
         {
-            EitherAssetLiability::from(value).serialize(serializer)
+            EitherAssetLiability::from(value.clone()).serialize(serializer)
         }
 
         pub fn deserialize<'de, D>(deserializer: D) -> Result<Either<Asset, Liability>, D::Error>
         where
             D: Deserializer<'de>,
         {
-            EitherAssetLiability::deserialize(deserializer).map(|e| e.into())
+            EitherAssetLiability::deserialize(deserializer).map(Either::from)
         }
     }
 
@@ -64,6 +64,7 @@ pub mod serde_asset_liability {
         {
             let mapped = value
                 .iter()
+                .cloned()
                 .map(EitherAssetLiability::from)
                 .collect::<Vec<_>>();
 

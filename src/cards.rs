@@ -219,27 +219,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn thing() {
-        let json = r#"{
-            "title": "Thing",
-            "color": "Purple",
-            "gold_value": 2,
-            "silver_value": 3,
-            "copies": 1,
-            "card_image_url": "assets/patent_1-2.webp"
-        }"#;
-        let card: AssetCard = serde_json::from_str(json).unwrap();
-        dbg!(card);
-    }
+    fn card_counts() {
+        let data = GameData::new("assets/cards/boardgame.json").expect("could not load data");
 
-    #[test]
-    fn thing2() {
-        let json = include_str!("../assets/cards/boardgame.json");
-
-        let parsed = serde_json::from_str::<LoadedCards>(json).unwrap();
-
-        let data = GameData::from(parsed);
-
-        println!("data: {data:#?}")
+        assert_eq!(data.assets.len(), 60);
+        assert_eq!(data.liabilities.len(), 50);
+        assert_eq!(data.market_deck.len(), 25);
     }
 }

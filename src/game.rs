@@ -61,7 +61,19 @@ impl<T> Deck<T> {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.deck.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.deck.is_empty()
+    }
+
+    // TODO: think of way to make this not unwrap. Maybe keep a copy of the deck as backup to
+    // reshuffle?
     /// Panics if no more cards are in the deck, for now. Decks don't run out in regular games.
+    /// NOTE: Playing 5 rounds with 7 players where each player draws one liability per turn comes
+    /// out to 49 out of 50 cards
     pub fn draw(&mut self) -> T {
         self.deck.pop().unwrap()
     }

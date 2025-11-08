@@ -220,7 +220,7 @@ mod tests {
 
     #[test]
     fn card_counts() {
-        let data = GameData::new("assets/cards/boardgame.json").expect("could not load data");
+        let data = GameData::new("../assets/cards/boardgame.json").expect("could not load data");
 
         assert_eq!(data.assets.len(), 60);
         assert_eq!(data.liabilities.len(), 50);

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use crate::{errors::GameError, player::*, utility::serde_asset_liability};
 use either::Either;
+use game::{errors::GameError, player::*, utility::serde_asset_liability};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

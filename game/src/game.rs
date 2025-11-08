@@ -1429,7 +1429,7 @@ mod tests {
             .map(|i| (i, format!("Player {i}")))
             .for_each(|(i, name)| assert_matches!(lobby.join(name), Ok(p) if p.id == PlayerId(i)));
 
-        game.start_game("assets/cards/boardgame.json")?;
+        game.start_game("../assets/cards/boardgame.json")?;
 
         assert_matches!(game, GameState::SelectingCharacters(_));
         assert_eq!(

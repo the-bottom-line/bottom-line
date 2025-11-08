@@ -1,4 +1,5 @@
-use crate::{errors::GameError, game::GameState, responses::*, rooms::RoomState};
+use crate::{responses::*, rooms::RoomState};
+use game::{errors::GameError, game::GameState};
 
 use axum::{
     Router,

@@ -1,6 +1,6 @@
-use bottom_line::{game::GameState, player::PlayerId};
 use claim::assert_matches;
 use diol::prelude::*;
+use game::{game::GameState, player::PlayerId};
 
 fn get_gamestate(player_count: usize) -> GameState {
     let mut game = GameState::new();
@@ -10,7 +10,7 @@ fn get_gamestate(player_count: usize) -> GameState {
         .map(|i| (i, format!("Player {i}")))
         .for_each(|(i, name)| assert_matches!(lobby.join(name), Ok(p) if p.id == PlayerId(i)));
 
-    game.start_game("assets/cards/boardgame.json").unwrap();
+    game.start_game("../assets/cards/boardgame.json").unwrap();
 
     game
 }

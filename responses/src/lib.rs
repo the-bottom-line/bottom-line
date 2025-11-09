@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use either::Either;
 use game::{errors::GameError, player::*, utility::serde_asset_liability};
 use serde::{Deserialize, Serialize};
@@ -21,15 +19,6 @@ pub enum FrontendRequest {
     BuyAsset { card_idx: usize },
     IssueLiability { card_idx: usize },
     EndTurn,
-}
-
-#[derive(Debug)]
-pub struct Response(pub InternalResponse, pub DirectResponse);
-
-impl From<GameError> for DirectResponse {
-    fn from(error: GameError) -> Self {
-        DirectResponse::Error(error.into())
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -58,6 +47,12 @@ pub enum DirectResponse {
         liability: Liability,
     },
     YouEndedTurn,
+}
+
+impl From<GameError> for DirectResponse {
+    fn from(error: GameError) -> Self {
+        DirectResponse::Error(error.into())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -117,19 +112,6 @@ pub enum UniqueResponse {
     /// Always sent with SelectingCharacters?
     RoundEnded,
     GameEnded,
-}
-
-#[derive(Clone, Debug)]
-pub struct InternalResponse(pub HashMap<PlayerId, Vec<UniqueResponse>>);
-
-impl InternalResponse {
-    pub fn get_responses(&self, id: PlayerId) -> Option<&[UniqueResponse]> {
-        self.0.get(&id).map(AsRef::as_ref)
-    }
-
-    pub fn into_inner(self) -> HashMap<PlayerId, Vec<UniqueResponse>> {
-        self.0
-    }
 }
 
 #[derive(Debug, Error, Serialize, Deserialize)]

@@ -1,7 +1,7 @@
-use std::{collections::HashSet, path::Path, sync::Arc, vec};
-
 use either::Either;
 use serde::{Deserialize, Serialize};
+
+use std::{collections::HashSet, path::Path, sync::Arc, vec};
 
 use crate::{cards::GameData, errors::*, player::*, utility::serde_asset_liability};
 

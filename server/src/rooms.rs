@@ -1,10 +1,10 @@
-use std::sync::Mutex;
-
-use tokio::sync::broadcast;
-
-use crate::request_handler::*;
 use game::{errors::GameError, game::GameState};
 use responses::*;
+use tokio::sync::broadcast;
+
+use std::sync::Mutex;
+
+use crate::request_handler::*;
 
 /// All-encompassing state each room has access to
 pub struct RoomState {

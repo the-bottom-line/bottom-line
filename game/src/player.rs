@@ -1,7 +1,7 @@
-use std::sync::Arc;
-
 use either::Either;
 use serde::{Deserialize, Serialize};
+
+use std::sync::Arc;
 
 use crate::{
     errors::*,

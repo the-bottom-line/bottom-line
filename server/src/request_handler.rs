@@ -1,7 +1,24 @@
-use either::Either;
+use std::collections::HashMap;
 
+use either::Either;
 use game::{errors::GameError, game::*, player::*};
 use responses::*;
+
+#[derive(Debug)]
+pub struct Response(pub InternalResponse, pub DirectResponse);
+
+#[derive(Clone, Debug)]
+pub struct InternalResponse(pub HashMap<PlayerId, Vec<UniqueResponse>>);
+
+impl InternalResponse {
+    pub fn get_responses(&self, id: PlayerId) -> Option<&[UniqueResponse]> {
+        self.0.get(&id).map(AsRef::as_ref)
+    }
+
+    pub fn into_inner(self) -> HashMap<PlayerId, Vec<UniqueResponse>> {
+        self.0
+    }
+}
 
 pub fn start_game(state: &mut GameState) -> Result<Response, GameError> {
     state.start_game("../assets/cards/boardgame.json")?;

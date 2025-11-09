@@ -522,6 +522,12 @@ pub enum Character {
     Stakeholder,
 }
 
+// fn thing() {
+//     let c = Character::CSO;
+
+//     let s = "CSO".to_owned();
+// }
+
 impl Character {
     pub const CHARACTERS: [Character; 8] = [
         Self::Shareholder,

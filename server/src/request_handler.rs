@@ -21,7 +21,7 @@ impl InternalResponse {
 }
 
 pub fn start_game(state: &mut GameState) -> Result<Response, GameError> {
-    state.start_game("../assets/cards/boardgame.json")?;
+    state.start_game("./assets/cards/boardgame.json")?;
 
     tracing::debug!("Started Game");
 

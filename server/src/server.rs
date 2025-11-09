@@ -1,5 +1,6 @@
-use crate::{responses::*, rooms::RoomState};
+use crate::rooms::RoomState;
 use game::{errors::GameError, game::GameState};
+use responses::*;
 
 use axum::{
     Router,
@@ -261,8 +262,6 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
-
-    use crate::responses::UniqueResponse;
 
     use super::*;
     use claim::*;

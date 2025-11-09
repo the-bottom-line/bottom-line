@@ -1,8 +1,7 @@
 use either::Either;
 
 use game::{errors::GameError, game::*, player::*};
-
-use crate::responses::*;
+use responses::*;
 
 pub fn start_game(state: &mut GameState) -> Result<Response, GameError> {
     state.start_game("../assets/cards/boardgame.json")?;

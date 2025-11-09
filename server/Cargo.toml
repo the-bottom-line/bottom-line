@@ -8,7 +8,7 @@ either = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-game = { path = "../game", features = ["shuffle"] }
+game = { path = "../game" }
 responses = { path = "../responses" }
 axum = { version = "0.8.6", features = ["ws"] }
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }

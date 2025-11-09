@@ -1,5 +1,3 @@
-// pub use game::player::{CardType, Character};
-
 use std::collections::HashMap;
 
 use either::Either;

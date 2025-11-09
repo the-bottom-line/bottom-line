@@ -16,8 +16,8 @@ itertools = { workspace = true }
 diol = { version = "0.8.3", default-features = false }
 
 [features]
-default = []
-shuffle = ["rand"] # enables shuffling the deck
+default = ["shuffle"]
+shuffle = ["dep:rand"] # enables shuffling the deck
 
 [[bench]]
 name = "benchmarks"

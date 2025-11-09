@@ -1,8 +1,8 @@
-use std::collections::HashMap;
-
 use either::Either;
 use game::{errors::GameError, game::*, player::*};
 use responses::*;
+
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Response(pub InternalResponse, pub DirectResponse);

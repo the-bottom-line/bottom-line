@@ -1,7 +1,7 @@
-use std::{collections::HashSet, fs::read_to_string, path::Path};
-
 use either::Either;
 use serde::{Deserialize, Serialize};
+
+use std::{collections::HashSet, fs::read_to_string, path::Path};
 
 use crate::{errors::DataParseError, game::*, player::*};
 

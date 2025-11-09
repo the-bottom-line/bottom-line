@@ -284,9 +284,9 @@ mod tests {
 
     #[test]
     fn fmt() {
-        let action = ReceiveData::StartGame;
+        let action = FrontendRequest::StartGame;
 
-        let action2 = ReceiveData::DrawCard {
+        let action2 = FrontendRequest::DrawCard {
             card_type: CardType::Asset,
         };
 

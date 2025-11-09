@@ -13,7 +13,7 @@ pub enum Connect {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "action", content = "data")]
-pub enum ReceiveData {
+pub enum FrontendRequest {
     StartGame,
     SelectCharacter { character: Character },
     DrawCard { card_type: CardType },

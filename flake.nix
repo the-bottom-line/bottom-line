@@ -22,6 +22,8 @@
             rust
             pkg-config
             pre-commit
+            binaryen
+            # wasm-bindgen-cli    # cargo install -f wasm-bindgen-cli --version 0.2.105
           ];
         };
       }

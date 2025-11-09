@@ -1,9 +1,10 @@
 use either::Either;
 
-use crate::{errors::GameError, game::*, player::*, responses::*};
+use game::{errors::GameError, game::*, player::*};
+use responses::*;
 
 pub fn start_game(state: &mut GameState) -> Result<Response, GameError> {
-    state.start_game("assets/cards/boardgame.json")?;
+    state.start_game("../assets/cards/boardgame.json")?;
 
     tracing::debug!("Started Game");
 
@@ -278,13 +279,13 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
 
 #[cfg(test)]
 mod tests {
-    use crate::{player::*, responses::*};
+    use super::*;
 
     #[test]
     fn fmt() {
-        let action = ReceiveData::StartGame;
+        let action = FrontendRequest::StartGame;
 
-        let action2 = ReceiveData::DrawCard {
+        let action2 = FrontendRequest::DrawCard {
             card_type: CardType::Asset,
         };
 

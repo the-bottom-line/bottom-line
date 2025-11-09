@@ -1,4 +1,6 @@
-use crate::{errors::GameError, game::GameState, responses::*, rooms::RoomState};
+use crate::rooms::RoomState;
+use game::{errors::GameError, game::GameState};
+use responses::*;
 
 use axum::{
     Router,
@@ -204,7 +206,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             while let Some(Ok(message)) = receiver.next().await {
                 match message {
                     Message::Text(text) => {
-                        if let Ok(json) = serde_json::from_str::<ReceiveData>(&text) {
+                        if let Ok(json) = serde_json::from_str::<FrontendRequest>(&text) {
                             tracing::debug!("incoming json: {json:?}");
 
                             let direct = match room.handle_request(json, &name) {
@@ -260,8 +262,6 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
-
-    use crate::responses::UniqueResponse;
 
     use super::*;
     use claim::*;
@@ -349,7 +349,7 @@ mod tests {
             }
         }
 
-        send(&mut writers[0], ReceiveData::StartGame).await;
+        send(&mut writers[0], FrontendRequest::StartGame).await;
 
         let response = receive(&mut readers[0]).await;
         assert!(matches!(response, DirectResponse::YouStartedGame));
@@ -374,7 +374,7 @@ mod tests {
                 assert_some!(closed_character);
 
                 let character = characters[0];
-                send(writer, ReceiveData::SelectCharacter { character }).await;
+                send(writer, FrontendRequest::SelectCharacter { character }).await;
 
                 let response = receive(reader).await;
                 assert_matches!(
@@ -412,7 +412,7 @@ mod tests {
                     assert_none!(closed_character);
 
                     let character = characters[0];
-                    send(writer, ReceiveData::SelectCharacter { character }).await;
+                    send(writer, FrontendRequest::SelectCharacter { character }).await;
 
                     let response = receive(reader).await;
                     assert_matches!(

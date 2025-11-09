@@ -1,7 +1,6 @@
 use std::{collections::HashSet, path::Path, sync::Arc, vec};
 
 use either::Either;
-use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
 use crate::{cards::GameData, errors::*, player::*, utility::serde_asset_liability};
@@ -82,7 +81,10 @@ impl<T> Deck<T> {
         self.deck.insert(0, card);
     }
 
+    #[cfg(feature = "shuffle")]
     pub fn shuffle(&mut self) {
+        use rand::seq::SliceRandom;
+
         let mut rng = rand::rng();
         self.deck.shuffle(&mut rng);
     }
@@ -116,6 +118,7 @@ pub struct ObtainingCharacters {
 impl ObtainingCharacters {
     pub fn new(player_count: usize, chairman_id: PlayerId) -> Self {
         let mut available_characters = Deck::new(Character::CHARACTERS.to_vec());
+        #[cfg(feature = "shuffle")]
         available_characters.shuffle();
 
         let open_characters = match player_count {
@@ -537,8 +540,14 @@ impl Lobby {
 
     fn start_game<P: AsRef<Path>>(&mut self, data_path: P) -> Result<GameState, GameError> {
         if self.can_start() {
-            let mut data = GameData::new(data_path).expect("Path for game data is invalid");
-            data.shuffle_all();
+            let data = GameData::new(data_path).expect("Path for game data is invalid");
+
+            #[cfg(feature = "shuffle")]
+            let data = {
+                let mut data = data;
+                data.shuffle_all();
+                data
+            };
 
             let mut assets = data.assets;
             let mut liabilities = data.liabilities;
@@ -1429,7 +1438,7 @@ mod tests {
             .map(|i| (i, format!("Player {i}")))
             .for_each(|(i, name)| assert_matches!(lobby.join(name), Ok(p) if p.id == PlayerId(i)));
 
-        game.start_game("assets/cards/boardgame.json")?;
+        game.start_game("../assets/cards/boardgame.json")?;
 
         assert_matches!(game, GameState::SelectingCharacters(_));
         assert_eq!(

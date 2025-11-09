@@ -1,0 +1,4 @@
+[alias]
+serve = "run -p server"
+test-game = "test -p game"
+test-server = "test -p server"

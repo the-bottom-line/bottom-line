@@ -1,7 +1,6 @@
 use std::{collections::HashSet, fs::read_to_string, path::Path};
 
 use either::Either;
-use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
 use crate::{errors::DataParseError, game::*, player::*};
@@ -99,12 +98,11 @@ impl GameData {
         Ok(Self::from(cards))
     }
 
+    #[cfg(feature = "shuffle")]
     pub fn shuffle_all(&mut self) {
-        let mut rng = rand::rng();
-
-        self.assets.deck.shuffle(&mut rng);
-        self.liabilities.deck.shuffle(&mut rng);
-        self.market_deck.deck.shuffle(&mut rng);
+        self.assets.shuffle();
+        self.liabilities.shuffle();
+        self.market_deck.shuffle();
     }
 }
 
@@ -220,7 +218,7 @@ mod tests {
 
     #[test]
     fn card_counts() {
-        let data = GameData::new("assets/cards/boardgame.json").expect("could not load data");
+        let data = GameData::new("../assets/cards/boardgame.json").expect("could not load data");
 
         assert_eq!(data.assets.len(), 60);
         assert_eq!(data.liabilities.len(), 50);

@@ -2,7 +2,9 @@ use std::sync::Mutex;
 
 use tokio::sync::broadcast;
 
-use crate::{errors::GameError, game::GameState, request_handler::*, responses::*};
+use crate::request_handler::*;
+use game::{errors::GameError, game::GameState};
+use responses::*;
 
 /// All-encompassing state each room has access to
 pub struct RoomState {
@@ -33,14 +35,14 @@ impl RoomState {
 
     pub fn handle_request(
         &self,
-        msg: ReceiveData,
+        msg: FrontendRequest,
         player_name: &str,
     ) -> Result<Response, GameError> {
         let state = &mut *self.game.lock().unwrap();
 
         match msg {
-            ReceiveData::StartGame => start_game(state),
-            ReceiveData::SelectCharacter { character } => {
+            FrontendRequest::StartGame => start_game(state),
+            FrontendRequest::SelectCharacter { character } => {
                 // TODO: do something about this lookup madness
                 let player_id = state
                     .selecting_characters()?
@@ -48,23 +50,23 @@ impl RoomState {
                     .id;
                 select_character(state, player_id, character)
             }
-            ReceiveData::DrawCard { card_type } => {
+            FrontendRequest::DrawCard { card_type } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id;
                 draw_card(state, card_type, player_id)
             }
-            ReceiveData::PutBackCard { card_idx } => {
+            FrontendRequest::PutBackCard { card_idx } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id;
                 put_back_card(state, card_idx, player_id)
             }
-            ReceiveData::BuyAsset { card_idx } => {
+            FrontendRequest::BuyAsset { card_idx } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id;
                 play_card(state, card_idx, player_id)
             }
-            ReceiveData::IssueLiability { card_idx } => {
+            FrontendRequest::IssueLiability { card_idx } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id;
                 play_card(state, card_idx, player_id)
             }
-            ReceiveData::EndTurn => {
+            FrontendRequest::EndTurn => {
                 let player_id = state.round()?.player_by_name(player_name)?.id;
                 end_turn(state, player_id)
             }

@@ -1,5 +1,5 @@
 [workspace]
-members = ["game", "server"]
+members = ["game", "server", "wasm-responses"]
 resolver = "2"
 
 default-members = ["server"]

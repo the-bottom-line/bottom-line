@@ -700,7 +700,7 @@ impl SelectingCharacters {
                         .map(TryInto::try_into)
                         .collect::<Result<_, _>>()?;
 
-                    let state = GameState::Round(Round {
+                    let mut round = Round {
                         current_player,
                         players,
                         assets,
@@ -710,9 +710,11 @@ impl SelectingCharacters {
                         current_market,
                         current_events,
                         open_characters,
-                    });
+                    };
 
-                    Ok(Some(state))
+                    round.player_mut(current_player)?.start_turn();
+
+                    Ok(Some(GameState::Round(round)))
                 } else {
                     Ok(None)
                 }
@@ -758,6 +760,12 @@ impl Round {
     pub fn player(&self, id: PlayerId) -> Result<&RoundPlayer, GameError> {
         self.players
             .get(usize::from(id))
+            .ok_or(GameError::InvalidPlayerIndex(id.0))
+    }
+
+    pub fn player_mut(&mut self, id: PlayerId) -> Result<&mut RoundPlayer, GameError> {
+        self.players
+            .get_mut(usize::from(id))
             .ok_or(GameError::InvalidPlayerIndex(id.0))
     }
 

@@ -4,13 +4,13 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-// #[serde(tag = "action", content = "data")]
+#[serde(tag = "action", content = "data")]
 pub enum Connect {
     Connect { username: String, channel: String },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-// #[serde(tag = "action", content = "data")]
+#[serde(tag = "action", content = "data")]
 pub enum FrontendRequest {
     StartGame,
     SelectCharacter { character: Character },

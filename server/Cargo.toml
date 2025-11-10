@@ -21,7 +21,3 @@ tokio-tungstenite = "0.24"
 tungstenite = "0.24"
 claim = { workspace = true }
 itertools = { workspace = true }
-
-[[bin]]
-name = "server"
-path = "src/main.rs"

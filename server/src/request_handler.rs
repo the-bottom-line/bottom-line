@@ -2,7 +2,7 @@ use either::Either;
 use game::{errors::GameError, game::*, player::*};
 use responses::*;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 #[derive(Debug)]
 pub struct Response(pub InternalResponse, pub DirectResponse);
@@ -21,7 +21,10 @@ impl InternalResponse {
 }
 
 pub fn start_game(state: &mut GameState) -> Result<Response, GameError> {
-    state.start_game("./assets/cards/boardgame.json")?;
+    let path = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"))
+        .join("../assets/cards/boardgame.json");
+    tracing::debug!("Path: {}", path.display());
+    state.start_game(path)?;
 
     tracing::debug!("Started Game");
 

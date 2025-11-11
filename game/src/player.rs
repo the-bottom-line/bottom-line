@@ -718,8 +718,8 @@ mod tests {
     use claim::*;
     use itertools::Itertools;
 
-    fn hand_asset(color: Color) -> Vec<Either<Asset, Liability>> {
-        vec![Either::Left(Asset {
+    fn asset(color: Color) -> Asset {
+        Asset {
             color,
             title: "Asset".to_owned(),
             gold_value: 1,
@@ -727,16 +727,57 @@ mod tests {
             ability: None,
             image_front_url: Default::default(),
             image_back_url: Default::default(),
-        })]
+        }
     }
 
-    fn _hand_liability(value: u8) -> Vec<Either<Asset, Liability>> {
-        vec![Either::Right(Liability {
+    fn _liability(value: u8) -> Liability {
+        Liability {
             value,
             rfr_type: LiabilityType::BankLoan,
             image_front_url: Default::default(),
             image_back_url: Default::default(),
-        })]
+        }
+    }
+
+    fn hand_asset(color: Color) -> Vec<Either<Asset, Liability>> {
+        vec![Either::Left(asset(color))]
+    }
+
+    fn _hand_liability(value: u8) -> Vec<Either<Asset, Liability>> {
+        vec![Either::Right(_liability(value))]
+    }
+
+    #[test]
+    fn asset_bonus() {
+        for character in Character::CHARACTERS {
+            for color in Color::COLORS {
+                // bit awkward: get color that's not the same as either the tested color or the
+                // character color. This could be different to test for asset_bonus() values of 1
+                let different_color = Color::COLORS
+                    .into_iter()
+                    .find(|c| color.ne(c) && Some(*c).ne(&character.color()))
+                    .unwrap();
+                let assets = vec![asset(color), asset(color), asset(different_color)];
+                let selecting_player = SelectingCharactersPlayer {
+                    id: Default::default(),
+                    name: Default::default(),
+                    assets,
+                    liabilities: Default::default(),
+                    cash: 100,
+                    character: Some(character),
+                    hand: Default::default(),
+                };
+                let round_player = RoundPlayer::try_from(selecting_player).unwrap();
+
+                match character.color() {
+                    Some(character_color) if character_color == color => {
+                        assert_eq!(round_player.asset_bonus(), 2, "{character:?}")
+                    }
+                    Some(_) => assert_eq!(round_player.asset_bonus(), 0),
+                    None => assert_eq!(round_player.asset_bonus(), 0),
+                }
+            }
+        }
     }
 
     #[test]

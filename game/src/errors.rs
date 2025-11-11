@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::player::Character;
+
 /// The main error struct of the game logic
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
 pub enum GameError {
@@ -58,6 +60,18 @@ pub enum PlayCardError {
     ExceedsMaximumLiabilities,
     #[error("{cash} cash is not enough to afford asset worth {cost}")]
     CannotAffordAsset { cash: u8, cost: u8 },
+}
+
+#[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
+pub enum RedeemLiabilityError {
+    #[error("Character type '{0:?}' cannot redeem liability")]
+    NotAllowedToRedeemLiability(Character),
+    #[error("Already played the maximum allowed number of liabilities")]
+    ExceedsMaximumLiabilities,
+    #[error("Invalid liability index {0}")]
+    InvalidLiabilityIndex(u8),
+    #[error("{cash} gold is not enough to redeem liability with value {cost}")]
+    NotEnoughCash { cash: u8, cost: u8 },
 }
 
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]

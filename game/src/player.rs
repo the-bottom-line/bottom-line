@@ -123,6 +123,38 @@ impl RoundPlayer {
         self.liabilities_to_play > 0
     }
 
+    pub fn redeem_liability(
+        &mut self,
+        liability_idx: usize,
+    ) -> Result<Liability, RedeemLiabilityError> {
+        if self.character.can_redeem_liabilities() {
+            if self.can_play_liability() {
+                if let Some(liability) = self.liabilities.get(liability_idx) {
+                    if liability.value <= self.cash {
+                        self.liabilities_to_play -= 1;
+                        self.cash -= liability.value;
+                        Ok(self.liabilities.remove(liability_idx))
+                    } else {
+                        Err(RedeemLiabilityError::NotEnoughCash {
+                            cash: self.cash,
+                            cost: liability.value,
+                        })
+                    }
+                } else {
+                    Err(RedeemLiabilityError::InvalidLiabilityIndex(
+                        liability_idx as u8,
+                    ))
+                }
+            } else {
+                Err(RedeemLiabilityError::ExceedsMaximumLiabilities)
+            }
+        } else {
+            Err(RedeemLiabilityError::NotAllowedToRedeemLiability(
+                self.character,
+            ))
+        }
+    }
+
     /// Plays card in players hand with index `card_idx`. If that index is valid, the card is played
     /// if
     pub fn play_card(
@@ -200,7 +232,7 @@ impl RoundPlayer {
     pub fn playable_assets(&self) -> PlayableAssets {
         self.playable_assets
     }
-    
+
     pub fn playable_liabilities(&self) -> u8 {
         self.character.playable_liabilities()
     }
@@ -651,6 +683,10 @@ impl Character {
             Self::HeadRnD => 3,
             _ => 3,
         }
+    }
+
+    pub fn can_redeem_liabilities(&self) -> bool {
+        matches!(self, Self::CFO)
     }
 }
 

@@ -216,13 +216,15 @@ impl RoundPlayer {
     }
 
     pub fn should_give_back_cards(&self) -> bool {
-        // TODO: add head rnd ability
-        self.total_cards_drawn - self.total_cards_given_back >= 3
+        // For every 3 cards drawn one needs to give one back
+        match (self.total_cards_drawn / 3).checked_sub(self.total_cards_given_back) {
+            Some(v) => v > 0,
+            None => false
+        }
     }
 
     pub fn can_draw_cards(&self) -> bool {
-        // TODO: add head rnd ability
-        self.total_cards_drawn < 3
+        self.total_cards_drawn < self.draws_n_cards()
     }
 
     pub fn draws_n_cards(&self) -> u8 {
@@ -682,7 +684,7 @@ impl Character {
     pub fn draws_n_cards(&self) -> u8 {
         // TODO: fix head rnd ability when ready
         match self {
-            Self::HeadRnD => 3,
+            Self::HeadRnD => 6,
             _ => 3,
         }
     }

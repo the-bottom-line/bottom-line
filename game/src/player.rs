@@ -6,16 +6,15 @@ use std::sync::Arc;
 use crate::{
     errors::*,
     game::{Market, MarketCondition},
-    utility::serde_asset_liability,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct LobbyPlayer {
     pub id: PlayerId,
     pub name: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct SelectingCharactersPlayer {
     pub id: PlayerId,
     pub name: String,
@@ -23,7 +22,6 @@ pub struct SelectingCharactersPlayer {
     pub assets: Vec<Asset>,
     pub liabilities: Vec<Liability>,
     pub character: Option<Character>,
-    #[serde(with = "serde_asset_liability::vec")]
     pub hand: Vec<Either<Asset, Liability>>,
 }
 
@@ -84,7 +82,7 @@ impl From<RoundPlayer> for SelectingCharactersPlayer {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct RoundPlayer {
     pub id: PlayerId,
     pub name: String,
@@ -92,7 +90,6 @@ pub struct RoundPlayer {
     pub assets: Vec<Asset>,
     pub liabilities: Vec<Liability>,
     pub character: Character,
-    #[serde(with = "serde_asset_liability::vec")]
     pub hand: Vec<Either<Asset, Liability>>,
     pub cards_drawn: Vec<usize>,
     pub assets_to_play: u8,
@@ -227,14 +224,13 @@ impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ResultsPlayer {
     pub id: PlayerId,
     pub name: String,
     pub cash: u8,
     pub assets: Vec<Asset>,
     pub liabilities: Vec<Liability>,
-    #[serde(with = "serde_asset_liability::vec")]
     pub hand: Vec<Either<Asset, Liability>>,
 }
 
@@ -521,12 +517,6 @@ pub enum Character {
     HeadRnD,
     Stakeholder,
 }
-
-// fn thing() {
-//     let c = Character::CSO;
-
-//     let s = "CSO".to_owned();
-// }
 
 impl Character {
     pub const CHARACTERS: [Character; 8] = [

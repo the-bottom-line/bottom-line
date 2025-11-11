@@ -111,8 +111,6 @@ pub enum UniqueResponse {
     TurnEnded {
         player_id: PlayerId,
     },
-    /// Always sent with SelectingCharacters?
-    RoundEnded,
     GameEnded,
 }
 

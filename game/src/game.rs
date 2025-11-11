@@ -1225,7 +1225,15 @@ mod tests {
                 round.player(current_player).unwrap().hand.len()
             );
 
-            let hand_len = round.player(current_player).unwrap().hand.len();
+            let player = round.player(current_player).unwrap();
+
+            if player.character == Character::CSO
+                && [Color::Red, Color::Green].contains(&player.assets[0].color)
+            {
+                panic!("Not testing for this yet");
+            }
+
+            let hand_len = player.hand.len();
             assert_matches!(
                 round.player_play_card(current_player, hand_len - 1),
                 Err(GameError::PlayCard(PlayCardError::ExceedsMaximumAssets))

@@ -6,16 +6,15 @@ use std::sync::Arc;
 use crate::{
     errors::*,
     game::{Market, MarketCondition},
-    utility::serde_asset_liability,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct LobbyPlayer {
     pub id: PlayerId,
     pub name: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct SelectingCharactersPlayer {
     pub id: PlayerId,
     pub name: String,
@@ -23,7 +22,6 @@ pub struct SelectingCharactersPlayer {
     pub assets: Vec<Asset>,
     pub liabilities: Vec<Liability>,
     pub character: Option<Character>,
-    #[serde(with = "serde_asset_liability::vec")]
     pub hand: Vec<Either<Asset, Liability>>,
 }
 
@@ -84,7 +82,7 @@ impl From<RoundPlayer> for SelectingCharactersPlayer {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct RoundPlayer {
     pub id: PlayerId,
     pub name: String,
@@ -92,10 +90,10 @@ pub struct RoundPlayer {
     pub assets: Vec<Asset>,
     pub liabilities: Vec<Liability>,
     pub character: Character,
-    #[serde(with = "serde_asset_liability::vec")]
     pub hand: Vec<Either<Asset, Liability>>,
     pub cards_drawn: Vec<usize>,
     pub assets_to_play: u8,
+    pub playable_assets: PlayableAssets,
     pub liabilities_to_play: u8,
     pub total_cards_drawn: u8,
     pub total_cards_given_back: u8,
@@ -111,8 +109,14 @@ impl RoundPlayer {
             .collect();
     }
 
-    fn can_play_asset(&self) -> bool {
-        self.assets_to_play > 0
+    fn can_play_asset(&self, color: Color) -> bool {
+        match self
+            .assets_to_play
+            .checked_sub(self.playable_assets.color_cost(color))
+        {
+            Some(_) => true,
+            None => false,
+        }
     }
 
     fn can_play_liability(&self) -> bool {
@@ -129,15 +133,15 @@ impl RoundPlayer {
 
         if let Some(card) = self.hand.get(card_idx) {
             match card {
-                Either::Left(a) if self.can_play_asset() && self.cash >= a.gold_value => {
+                Either::Left(a) if self.can_play_asset(a.color) && self.cash >= a.gold_value => {
                     let asset = self.hand.remove(card_idx).left().unwrap();
                     self.cash -= asset.gold_value;
-                    self.assets_to_play -= 1;
+                    self.assets_to_play -= self.playable_assets.color_cost(asset.color);
                     self.assets.push(asset.clone());
                     self.update_cards_drawn(card_idx);
                     Ok(Either::Left(asset))
                 }
-                Either::Left(_) if !self.can_play_asset() => Err(ExceedsMaximumAssets),
+                Either::Left(a) if !self.can_play_asset(a.color) => Err(ExceedsMaximumAssets),
                 Either::Left(a) if self.cash < a.gold_value => Err(CannotAffordAsset {
                     cash: self.cash,
                     cost: a.gold_value,
@@ -193,6 +197,10 @@ impl RoundPlayer {
         self.character.draws_n_cards()
     }
 
+    pub fn playable_assets(&self) -> PlayableAssets {
+        self.playable_assets
+    }
+
     pub fn turn_cash(&self) -> u8 {
         // TODO: Implement actual cash logic
         1
@@ -208,33 +216,36 @@ impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
 
     fn try_from(player: SelectingCharactersPlayer) -> Result<Self, Self::Error> {
         match player.character {
-            Some(character) => Ok(Self {
-                id: player.id,
-                name: player.name,
-                cash: player.cash,
-                assets: player.assets,
-                liabilities: player.liabilities,
-                character,
-                hand: player.hand,
-                cards_drawn: Vec::new(),
-                assets_to_play: character.playable_assets(),
-                liabilities_to_play: character.playable_liabilities(),
-                total_cards_drawn: 0,
-                total_cards_given_back: 0,
-            }),
+            Some(character) => {
+                let playable_assets = character.playable_assets();
+                Ok(Self {
+                    id: player.id,
+                    name: player.name,
+                    cash: player.cash,
+                    assets: player.assets,
+                    liabilities: player.liabilities,
+                    character,
+                    hand: player.hand,
+                    cards_drawn: Vec::new(),
+                    assets_to_play: playable_assets.total(),
+                    playable_assets,
+                    liabilities_to_play: character.playable_liabilities(),
+                    total_cards_drawn: 0,
+                    total_cards_given_back: 0,
+                })
+            }
             None => Err(GameError::PlayerMissingCharacter),
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ResultsPlayer {
     pub id: PlayerId,
     pub name: String,
     pub cash: u8,
     pub assets: Vec<Asset>,
     pub liabilities: Vec<Liability>,
-    #[serde(with = "serde_asset_liability::vec")]
     pub hand: Vec<Either<Asset, Liability>>,
 }
 
@@ -510,6 +521,16 @@ pub enum Color {
     Blue,
 }
 
+impl Color {
+    pub const COLORS: [Color; 5] = [
+        Self::Red,
+        Self::Green,
+        Self::Purple,
+        Self::Yellow,
+        Self::Blue,
+    ];
+}
+
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Character {
     Shareholder,
@@ -521,12 +542,6 @@ pub enum Character {
     HeadRnD,
     Stakeholder,
 }
-
-// fn thing() {
-//     let c = Character::CSO;
-
-//     let s = "CSO".to_owned();
-// }
 
 impl Character {
     pub const CHARACTERS: [Character; 8] = [
@@ -574,11 +589,19 @@ impl Character {
         characters.iter().max().copied()
     }
 
-    pub fn playable_assets(&self) -> u8 {
-        // TODO: fix for CEO when ready
+    pub fn playable_assets(&self) -> PlayableAssets {
         match self {
-            Self::CEO => 1,
-            _ => 1,
+            // TODO: fix for CEO in CEO branch
+            Self::CEO => PlayableAssets::default(),
+            Self::CSO => PlayableAssets {
+                total: 2,
+                red_cost: 1,
+                green_cost: 1,
+                purple_cost: 2,
+                yellow_cost: 2,
+                blue_cost: 2,
+            },
+            _ => PlayableAssets::default(),
         }
     }
 
@@ -599,7 +622,53 @@ impl Character {
     }
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub struct PlayableAssets {
+    total: u8,
+    red_cost: u8,
+    green_cost: u8,
+    purple_cost: u8,
+    yellow_cost: u8,
+    blue_cost: u8,
+}
+
+impl PlayableAssets {
+    pub fn total(&self) -> u8 {
+        self.total
+    }
+
+    pub fn color_cost(&self, color: Color) -> u8 {
+        let cost = match color {
+            Color::Red => self.red_cost,
+            Color::Green => self.green_cost,
+            Color::Purple => self.purple_cost,
+            Color::Yellow => self.yellow_cost,
+            Color::Blue => self.blue_cost,
+        };
+
+        debug_assert!(cost > 0);
+        debug_assert_eq!(self.total % cost, 0);
+
+        cost
+    }
+}
+
+impl Default for PlayableAssets {
+    fn default() -> Self {
+        Self {
+            total: 1,
+            red_cost: 1,
+            green_cost: 1,
+            purple_cost: 1,
+            yellow_cost: 1,
+            blue_cost: 1,
+        }
+    }
+}
+
+#[derive(
+    Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord,
+)]
 pub struct PlayerId(pub u8);
 
 impl<I: Into<u8>> From<I> for PlayerId {
@@ -611,5 +680,120 @@ impl<I: Into<u8>> From<I> for PlayerId {
 impl From<PlayerId> for usize {
     fn from(value: PlayerId) -> Self {
         value.0 as usize
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use claim::*;
+    use itertools::Itertools;
+
+    fn hand_asset(color: Color) -> Vec<Either<Asset, Liability>> {
+        vec![Either::Left(Asset {
+            color,
+            title: "Asset".to_owned(),
+            gold_value: 1,
+            silver_value: 1,
+            ability: None,
+            image_front_url: Default::default(),
+            image_back_url: Default::default(),
+        })]
+    }
+
+    fn _hand_liability(value: u8) -> Vec<Either<Asset, Liability>> {
+        vec![Either::Right(Liability {
+            value,
+            rfr_type: LiabilityType::BankLoan,
+            image_front_url: Default::default(),
+            image_back_url: Default::default(),
+        })]
+    }
+
+    #[test]
+    fn playable_assets_default() {
+        for character in Character::CHARACTERS
+            .into_iter()
+            .filter(|c| ![Character::CEO, Character::CSO].contains(c))
+        {
+            let selecting_player = SelectingCharactersPlayer {
+                id: Default::default(),
+                name: Default::default(),
+                assets: Default::default(),
+                liabilities: Default::default(),
+                cash: 100,
+                character: Some(character),
+                hand: vec![],
+            };
+            let round_player = RoundPlayer::try_from(selecting_player).unwrap();
+
+            // All permutations of any color followed by blue, yellow or purple
+            std::iter::repeat_n(Color::COLORS, 2)
+                .multi_cartesian_product()
+                .map(|v| (v[0], v[1]))
+                .for_each(|(c1, c2)| {
+                    let mut player = round_player.clone();
+                    player.hand = hand_asset(c1);
+                    assert_ok!(player.play_card(0));
+
+                    player.hand = hand_asset(c2);
+                    assert_matches!(
+                        player.play_card(0),
+                        Err(PlayCardError::ExceedsMaximumAssets)
+                    );
+                });
+        }
+    }
+
+    #[test]
+    fn playable_assets_cso() {
+        let selecting_player = SelectingCharactersPlayer {
+            id: Default::default(),
+            name: Default::default(),
+            assets: Default::default(),
+            liabilities: Default::default(),
+            cash: 100,
+            character: Some(Character::CSO),
+            hand: vec![],
+        };
+        let round_player = RoundPlayer::try_from(selecting_player).unwrap();
+
+        // All permutations of 3 red/green colors
+        std::iter::repeat_n([Color::Red, Color::Green], 3)
+            .multi_cartesian_product()
+            .map(|v| ([v[0], v[1]], v[2]))
+            .for_each(|(colors, extra)| {
+                for c in colors {
+                    let mut player = round_player.clone();
+                    player.hand = hand_asset(c);
+                    assert_ok!(player.play_card(0));
+
+                    player.hand = hand_asset(c);
+                    assert_ok!(player.play_card(0));
+
+                    player.hand = hand_asset(extra);
+                    assert_matches!(
+                        player.play_card(0),
+                        Err(PlayCardError::ExceedsMaximumAssets)
+                    );
+                }
+            });
+
+        // All permutations of any color followed by blue, yellow or purple
+        std::iter::repeat_n(Color::COLORS, 2)
+            .multi_cartesian_product()
+            .map(|v| (v[0], v[1]))
+            .filter(|(_, c2)| [Color::Blue, Color::Yellow, Color::Purple].contains(&c2))
+            .for_each(|(c1, c2)| {
+                let mut player = round_player.clone();
+                player.hand = hand_asset(c1);
+                assert_ok!(player.play_card(0));
+
+                player.hand = hand_asset(c2);
+                assert_matches!(
+                    player.play_card(0),
+                    Err(PlayCardError::ExceedsMaximumAssets)
+                );
+            });
     }
 }

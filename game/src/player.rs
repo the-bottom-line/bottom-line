@@ -230,6 +230,11 @@ impl RoundPlayer {
     pub fn draws_n_cards(&self) -> u8 {
         self.character.draws_n_cards()
     }
+    
+    pub fn gives_back_n_cards(&self) -> u8 {
+        // Give back one card for every 3 drawn
+        self.draws_n_cards() / 3
+    }
 
     pub fn playable_assets(&self) -> PlayableAssets {
         self.playable_assets

@@ -11,6 +11,8 @@ pub enum GameError {
     #[error(transparent)]
     PlayCard(#[from] PlayCardError),
     #[error(transparent)]
+    RedeemLiabilityError(#[from] RedeemLiabilityError),
+    #[error(transparent)]
     GiveBackCard(#[from] GiveBackCardError),
     #[error(transparent)]
     DrawCard(#[from] DrawCardError),

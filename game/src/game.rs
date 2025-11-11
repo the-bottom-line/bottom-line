@@ -915,6 +915,22 @@ impl Round {
         }
     }
 
+    pub fn player_redeem_liability(
+        &mut self,
+        id: PlayerId,
+        liability_idx: usize,
+    ) -> Result<(), GameError> {
+        match self.players.player_mut(id) {
+            Ok(player) if player.id == self.current_player => {
+                let liability = player.redeem_liability(liability_idx)?;
+                self.liabilities.put_back(liability);
+                Ok(())
+            }
+            Ok(_) => Err(GameError::NotPlayersTurn),
+            Err(e) => Err(e),
+        }
+    }
+
     pub fn player_draw_card(
         &mut self,
         id: PlayerId,

@@ -935,20 +935,18 @@ mod tests {
             .multi_cartesian_product()
             .map(|v| ([v[0], v[1]], v[2]))
             .for_each(|(colors, extra)| {
+                let mut player = round_player.clone();
+
                 for c in colors {
-                    let mut player = round_player.clone();
                     player.hand = hand_asset(c);
                     assert_ok!(player.play_card(0));
-
-                    player.hand = hand_asset(c);
-                    assert_ok!(player.play_card(0));
-
-                    player.hand = hand_asset(extra);
-                    assert_matches!(
-                        player.play_card(0),
-                        Err(PlayCardError::ExceedsMaximumAssets)
-                    );
                 }
+
+                player.hand = hand_asset(extra);
+                assert_matches!(
+                    player.play_card(0),
+                    Err(PlayCardError::ExceedsMaximumAssets)
+                );
             });
 
         // All permutations of any color followed by blue, yellow or purple

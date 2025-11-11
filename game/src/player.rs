@@ -220,8 +220,8 @@ impl RoundPlayer {
         match self.character.color() {
             Some(color) => match current_market.color_condition(color) {
                 MarketCondition::Plus => 1,
-                MarketCondition::Minus => 0,
-                MarketCondition::Zero => -1,
+                MarketCondition::Zero => 0,
+                MarketCondition::Minus => -1,
             },
             None => 0,
         }

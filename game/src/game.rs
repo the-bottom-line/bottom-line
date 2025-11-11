@@ -140,18 +140,17 @@ impl ObtainingCharacters {
         #[cfg(feature = "shuffle")]
         {
             available_characters.shuffle();
-            
+
             let ceo_pos = available_characters
                 .deck
                 .iter()
                 .position(|c| *c == Character::CEO)
                 .unwrap();
-            
+
             // Get CEO out of the first `open_character_count` positions
             if (0..open_character_count).contains(&ceo_pos) {
-                let ceo_insert = rand::random_range(
-                    open_character_count..(available_characters.len()-1)
-                );
+                let ceo_insert =
+                    rand::random_range(open_character_count..(available_characters.len() - 1));
                 debug_assert_eq!(available_characters.deck.remove(ceo_pos), Character::CEO);
                 available_characters.deck.insert(ceo_insert, Character::CEO);
             }
@@ -1235,6 +1234,9 @@ mod tests {
                     let round = game.round_mut().expect("Game not in round state");
                     let current_player = round.current_player().id;
 
+                    // For some reason never picks head of rnd
+                    assert_ne!(round.current_player().character, Character::HeadRnD);
+
                     card_types.into_iter().for_each(|card_type| {
                         assert_ok!(round.player_draw_card(current_player, card_type));
                     });
@@ -1270,7 +1272,7 @@ mod tests {
             Err(GameError::NotPlayersTurn)
         )
     }
-    
+
     #[test]
     fn ceo_not_in_open_characters() {
         // Since we're testing with random values, get large enough sample to where CEO has a
@@ -1279,8 +1281,11 @@ mod tests {
             for player_count in 4..=7 {
                 let characters = ObtainingCharacters::new(player_count, PlayerId(0))
                     .expect("couldn't init ObtainingCharacters");
-                
-                assert!(!characters.open_characters().contains(&Character::CEO), "{i}");
+
+                assert!(
+                    !characters.open_characters().contains(&Character::CEO),
+                    "{i}"
+                );
             }
         }
     }
@@ -1357,7 +1362,7 @@ mod tests {
             if player.character == Character::CEO {
                 player.assets_to_play = 0;
             }
-            
+
             let hand_len = player.hand.len();
             assert_matches!(
                 round.player_play_card(current_player, hand_len - 1),

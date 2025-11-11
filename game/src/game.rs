@@ -967,30 +967,16 @@ impl Round {
 
     pub fn skipped_characters(&self) -> Vec<Character> {
         let current_character = self.current_player().character;
-        let cs2 = Character::CHARACTERS
+        let mut skipped = Character::CHARACTERS
             .into_iter()
             .rev()
             .skip_while(|c| c.ge(&current_character))
             .take_while(|c| self.player_from_character(*c).is_none())
             .collect::<Vec<_>>();
 
-        let mut cs: Vec<Character> = [].to_vec();
-        let mut past_current_character = false;
-        for c in Character::CHARACTERS.into_iter().rev() {
-            if let Some(cp) = self.player_from_character(c) {
-                if past_current_character {
-                    return cs;
-                } else if cp.id == self.current_player {
-                    past_current_character = true;
-                }
-            } else if past_current_character {
-                cs.push(c);
-            }
-        }
+        skipped.sort();
 
-        debug_assert_eq!(cs2, cs);
-
-        cs
+        skipped
     }
 
     fn end_player_turn(&mut self, id: PlayerId) -> Result<Either<TurnEnded, GameState>, GameError> {

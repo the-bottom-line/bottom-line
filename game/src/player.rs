@@ -235,7 +235,7 @@ impl RoundPlayer {
         (start + asset_bonus + market_condition_bonus) as u8
     }
 
-    pub fn start_turn(&mut self, current_market: &Market) {
+    pub(crate) fn start_turn(&mut self, current_market: &Market) {
         self.cash += self.turn_cash(current_market);
     }
 }

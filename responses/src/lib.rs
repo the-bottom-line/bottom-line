@@ -86,8 +86,9 @@ pub enum UniqueResponse {
         player_turn: PlayerId,
         /// Extra cash received by the player whose turn it is
         player_turn_cash: u8,
-        player_character: Character,
         draws_n_cards: u8,
+        playable_assets: PlayableAssets,
+        player_character: Character,
         skipped_characters: Vec<Character>,
     },
     DrewCard {

@@ -197,6 +197,10 @@ impl RoundPlayer {
         self.character.draws_n_cards()
     }
 
+    pub fn playable_assets(&self) -> PlayableAssets {
+        self.playable_assets
+    }
+
     pub fn turn_cash(&self) -> u8 {
         // TODO: Implement actual cash logic
         1
@@ -618,7 +622,7 @@ impl Character {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct PlayableAssets {
     total: u8,
     red_cost: u8,

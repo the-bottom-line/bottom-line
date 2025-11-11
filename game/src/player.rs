@@ -201,13 +201,42 @@ impl RoundPlayer {
         self.playable_assets
     }
 
-    pub fn turn_cash(&self) -> u8 {
-        // TODO: Implement actual cash logic
+    pub fn turn_start_cash(&self) -> i16 {
         1
     }
 
-    pub fn start_turn(&mut self) {
-        self.cash += self.turn_cash();
+    pub fn asset_bonus(&self) -> i16 {
+        match self.character.color() {
+            Some(color) => self
+                .assets
+                .iter()
+                .flat_map(|a| (a.color == color).then_some(1))
+                .sum(),
+            None => 0,
+        }
+    }
+
+    pub fn market_condition_bonus(&self, current_market: &Market) -> i16 {
+        match self.character.color() {
+            Some(color) => match current_market.color_condition(color) {
+                MarketCondition::Plus => 1,
+                MarketCondition::Zero => 0,
+                MarketCondition::Minus => -1,
+            },
+            None => 0,
+        }
+    }
+
+    pub fn turn_cash(&self, current_market: &Market) -> u8 {
+        let start = self.turn_start_cash();
+        let asset_bonus = self.asset_bonus();
+        let market_condition_bonus = self.market_condition_bonus(current_market);
+
+        (start + asset_bonus + market_condition_bonus) as u8
+    }
+
+    pub fn start_turn(&mut self, current_market: &Market) {
+        self.cash += self.turn_cash(current_market);
     }
 }
 
@@ -689,8 +718,8 @@ mod tests {
     use claim::*;
     use itertools::Itertools;
 
-    fn hand_asset(color: Color) -> Vec<Either<Asset, Liability>> {
-        vec![Either::Left(Asset {
+    fn asset(color: Color) -> Asset {
+        Asset {
             color,
             title: "Asset".to_owned(),
             gold_value: 1,
@@ -698,16 +727,120 @@ mod tests {
             ability: None,
             image_front_url: Default::default(),
             image_back_url: Default::default(),
-        })]
+        }
     }
 
-    fn _hand_liability(value: u8) -> Vec<Either<Asset, Liability>> {
-        vec![Either::Right(Liability {
+    fn _liability(value: u8) -> Liability {
+        Liability {
             value,
             rfr_type: LiabilityType::BankLoan,
             image_front_url: Default::default(),
             image_back_url: Default::default(),
-        })]
+        }
+    }
+
+    fn hand_asset(color: Color) -> Vec<Either<Asset, Liability>> {
+        vec![Either::Left(asset(color))]
+    }
+
+    fn _hand_liability(value: u8) -> Vec<Either<Asset, Liability>> {
+        vec![Either::Right(_liability(value))]
+    }
+
+    #[test]
+    fn asset_bonus() {
+        for character in Character::CHARACTERS {
+            for color in Color::COLORS {
+                // bit awkward: get color that's not the same as either the tested color or the
+                // character color. This could be different to test for asset_bonus() values of 1
+                let different_color = Color::COLORS
+                    .into_iter()
+                    .find(|c| color.ne(c) && Some(*c).ne(&character.color()))
+                    .unwrap();
+                let assets = vec![asset(color), asset(color), asset(different_color)];
+                let selecting_player = SelectingCharactersPlayer {
+                    id: Default::default(),
+                    name: Default::default(),
+                    assets,
+                    liabilities: Default::default(),
+                    cash: 100,
+                    character: Some(character),
+                    hand: Default::default(),
+                };
+                let round_player = RoundPlayer::try_from(selecting_player).unwrap();
+
+                match character.color() {
+                    Some(character_color) if character_color == color => {
+                        assert_eq!(round_player.asset_bonus(), 2, "{character:?}")
+                    }
+                    Some(_) => assert_eq!(round_player.asset_bonus(), 0),
+                    None => assert_eq!(round_player.asset_bonus(), 0),
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn market_condition_bonus() {
+        use MarketCondition::*;
+
+        for character in Character::CHARACTERS {
+            for condition in [Minus, Zero, Plus] {
+                let selecting_player = SelectingCharactersPlayer {
+                    id: Default::default(),
+                    name: Default::default(),
+                    assets: Default::default(),
+                    liabilities: Default::default(),
+                    cash: 100,
+                    character: Some(character),
+                    hand: Default::default(),
+                };
+                let round_player = RoundPlayer::try_from(selecting_player).unwrap();
+
+                let mut market = Market {
+                    title: Default::default(),
+                    rfr: Default::default(),
+                    mrp: Default::default(),
+                    yellow: Zero,
+                    blue: Zero,
+                    green: Zero,
+                    purple: Zero,
+                    red: Zero,
+                    image_front_url: Default::default(),
+                    image_back_url: Default::default(),
+                };
+
+                match character.color() {
+                    Some(Color::Red) => market.red = condition,
+                    Some(Color::Green) => market.green = condition,
+                    Some(Color::Yellow) => market.yellow = condition,
+                    Some(Color::Purple) => market.purple = condition,
+                    Some(Color::Blue) => market.blue = condition,
+                    None => {
+                        market.red = condition;
+                        market.green = condition;
+                        market.yellow = condition;
+                        market.purple = condition;
+                        market.blue = condition;
+                    }
+                }
+
+                let bonus = match character.color() {
+                    Some(color) => match market.color_condition(color) {
+                        MarketCondition::Plus => 1,
+                        MarketCondition::Zero => 0,
+                        MarketCondition::Minus => -1,
+                    },
+                    None => 0,
+                };
+
+                assert_eq!(
+                    round_player.market_condition_bonus(&market),
+                    bonus,
+                    "{character:?}, {condition:?}"
+                );
+            }
+        }
     }
 
     #[test]

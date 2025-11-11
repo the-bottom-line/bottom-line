@@ -1270,6 +1270,20 @@ mod tests {
             Err(GameError::NotPlayersTurn)
         )
     }
+    
+    #[test]
+    fn ceo_not_in_open_characters() {
+        // Since we're testing with random values, get large enough sample to where CEO has a
+        // (1 - 1.1554035912766488e-128) chance of showing up among the open cards
+        for i in 0..1024 {
+            for player_count in 4..=7 {
+                let characters = ObtainingCharacters::new(player_count, PlayerId(0))
+                    .expect("couldn't init ObtainingCharacters");
+                
+                assert!(!characters.open_characters().contains(&Character::CEO), "{i}");
+            }
+        }
+    }
 
     #[test]
     fn player_play_card() {

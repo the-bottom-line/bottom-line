@@ -66,6 +66,10 @@ impl RoomState {
                 let player_id = state.round()?.player_by_name(player_name)?.id;
                 play_card(state, card_idx, player_id)
             }
+            FrontendRequest::FireCharacter { character } => {
+                let player_id = state.round()?.player_by_name(player_name)?.id;
+                fire_character(state, player_id, character)
+            }
             FrontendRequest::EndTurn => {
                 let player_id = state.round()?.player_by_name(player_name)?.id;
                 end_turn(state, player_id)

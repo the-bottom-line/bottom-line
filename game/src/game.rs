@@ -800,13 +800,6 @@ impl Round {
 
     pub fn next_player_mut(&mut self) -> Option<&mut RoundPlayer> {
         let current_character = self.current_player().character;
-
-        for c in Character::CHARACTERS.into_iter() {
-            let bool = self.fired_characters.contains(&c);
-            println!("{bool}");
-        }
-        let bool = self.fired_characters.contains(&current_character);
-        println!("real: {bool}");
         self.players
             .iter_mut()
             .filter(|p| {
@@ -917,7 +910,7 @@ impl Round {
     ) -> Result<Character, GameError> {
         match self.players.get_mut(usize::from(id)) {
             Some(player) if player.id == self.current_player => {
-                if player.character != Character::Shareholder {
+                if player.character == Character::Shareholder {
                     if !player.has_fired_this_round {
                         if character != Character::Banker
                             && character != Character::Regulator

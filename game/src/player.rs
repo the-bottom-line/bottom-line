@@ -99,6 +99,7 @@ pub struct RoundPlayer {
     pub liabilities_to_play: u8,
     pub total_cards_drawn: u8,
     pub total_cards_given_back: u8,
+    pub has_fired_this_round: bool
 }
 
 impl RoundPlayer {
@@ -221,6 +222,7 @@ impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
                 liabilities_to_play: character.playable_liabilities(),
                 total_cards_drawn: 0,
                 total_cards_given_back: 0,
+                has_fired_this_round: false,
             }),
             None => Err(GameError::PlayerMissingCharacter),
         }

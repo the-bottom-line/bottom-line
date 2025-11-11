@@ -69,6 +69,16 @@ pub enum GiveBackCardError {
 }
 
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
+pub enum FireCharacterError {
+    #[error("Character is not allowed to be fired")]
+    InvalidCharacter,
+    #[error("Only the stakeholder can fire a character")]
+    InvalidPlayerCharacter,
+    #[error("Player has already fired a character this turn")]
+    AlreadyFiredThisTurn,
+}
+
+#[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
 pub enum DrawCardError {
     #[error("Already drew {0} cards, which is the maximum for this character")]
     MaximumCardsDrawn(u8),

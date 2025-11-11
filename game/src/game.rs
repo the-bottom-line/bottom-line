@@ -694,6 +694,8 @@ impl SelectingCharacters {
                     let current_market = std::mem::take(&mut self.current_market);
                     let current_events = std::mem::take(&mut self.current_events);
                     let open_characters = self.characters.open_characters().to_vec();
+                    let fired_characters : Vec<Character> = vec![];
+                    
 
                     let players = players
                         .into_iter()
@@ -710,6 +712,7 @@ impl SelectingCharacters {
                         current_market,
                         current_events,
                         open_characters,
+                        fired_characters
                     };
 
                     round.player_mut(current_player)?.start_turn();
@@ -754,6 +757,7 @@ pub struct Round {
     current_market: Market,
     current_events: Vec<Event>,
     open_characters: Vec<Character>,
+    fired_characters: Vec<Character>,
 }
 
 impl Round {
@@ -789,15 +793,22 @@ impl Round {
         let current_character = self.current_player().character;
         self.players
             .iter()
-            .filter(|p| p.character > current_character)
+            .filter(|p| p.character > current_character && !self.fired_characters.contains(&p.character) )
             .min_by(|p1, p2| p1.character.cmp(&p2.character))
     }
 
     pub fn next_player_mut(&mut self) -> Option<&mut RoundPlayer> {
         let current_character = self.current_player().character;
+
+        for c in Character::CHARACTERS.into_iter() {
+            let bool = self.fired_characters.contains(&c);
+            println!("{bool}");
+        }
+        let bool = self.fired_characters.contains(&current_character);
+        println!("real: {bool}");
         self.players
             .iter_mut()
-            .filter(|p| p.character > current_character)
+            .filter(|p| p.character > current_character && !self.fired_characters.contains(&p.character))
             .min_by(|p1, p2| p1.character.cmp(&p2.character))
     }
 
@@ -896,13 +907,42 @@ impl Round {
         }
     }
 
+     pub fn player_fire_character(&mut self,id: PlayerId, character: Character) -> Result<Character, GameError> {
+        match self.players.get_mut(usize::from(id)) {
+            Some(player) if player.id == self.current_player => {
+                if player.character != Shareholder {
+                    if !player.has_fired_this_round {
+                        if character > 2 {  // hardcoded limit for firable characters
+                            player.has_fired_this_round = true;
+                            self.fired_characters.append(character);
+                        }
+                        else{
+                            Err(FireCharacterError::InvalidCharacter.into());
+                        }
+                    }
+                    else{
+                        Err(FireCharacterError::AlreadyFiredThisTurn.into());
+                    }
+                } else {
+                    Err(FireCharacterError::InvalidPlayerCharacter.into());
+                }
+            }
+            Some(_) => Err(GameError::NotPlayersTurn),
+            _ => Err(GameError::InvalidPlayerIndex(id.0)),
+     }
+
     pub fn skipped_characters(&self) -> Vec<Character> {
         let mut cs: Vec<Character> = [].to_vec();
         let mut past_current_character = false;
+        
         for c in Character::CHARACTERS.into_iter().rev() {
             if let Some(cp) = self.player_from_character(c) {
                 if past_current_character {
-                    return cs;
+                    if !self.fired_characters.contains(&c){
+                        return cs;
+                    }else{
+                        cs.push(c);
+                    }
                 } else if cp.id == self.current_player {
                     past_current_character = true;
                 }

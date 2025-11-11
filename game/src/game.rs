@@ -44,6 +44,18 @@ pub struct Market {
     pub image_back_url: Arc<String>,
 }
 
+impl Market {
+    pub fn color_condition(&self, color: Color) -> MarketCondition {
+        match color {
+            Color::Red => self.red,
+            Color::Green => self.green,
+            Color::Purple => self.purple,
+            Color::Yellow => self.yellow,
+            Color::Blue => self.blue,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Deck<T> {
     #[serde(rename = "card_image_back_url")]
@@ -815,6 +827,10 @@ impl Round {
             .filter(|p| p.id != id)
             .map(Into::into)
             .collect()
+    }
+
+    pub fn current_market(&self) -> &Market {
+        &self.current_market
     }
 
     pub fn player_play_card(

@@ -201,13 +201,42 @@ impl RoundPlayer {
         self.playable_assets
     }
 
-    pub fn turn_cash(&self) -> u8 {
-        // TODO: Implement actual cash logic
+    pub fn turn_start_cash(&self) -> i16 {
         1
     }
 
-    pub fn start_turn(&mut self) {
-        self.cash += self.turn_cash();
+    pub fn asset_bonus(&self) -> i16 {
+        match self.character.color() {
+            Some(color) => self
+                .assets
+                .iter()
+                .flat_map(|a| (a.color == color).then_some(1))
+                .sum(),
+            None => 0,
+        }
+    }
+
+    pub fn market_condition_bonus(&self, current_market: &Market) -> i16 {
+        match self.character.color() {
+            Some(color) => match current_market.color_condition(color) {
+                MarketCondition::Plus => 1,
+                MarketCondition::Minus => 0,
+                MarketCondition::Zero => -1,
+            },
+            None => 0,
+        }
+    }
+
+    pub fn turn_cash(&self, current_market: &Market) -> u8 {
+        let start = self.turn_start_cash();
+        let asset_bonus = self.asset_bonus();
+        let market_condition_bonus = self.market_condition_bonus(current_market);
+
+        (start + asset_bonus + market_condition_bonus) as u8
+    }
+
+    pub fn start_turn(&mut self, current_market: &Market) {
+        self.cash += self.turn_cash(current_market);
     }
 }
 

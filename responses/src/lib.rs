@@ -18,6 +18,7 @@ pub enum FrontendRequest {
     PutBackCard { card_idx: usize },
     BuyAsset { card_idx: usize },
     IssueLiability { card_idx: usize },
+    RedeemLiability { liability_idx: usize },
     EndTurn,
 }
 
@@ -45,6 +46,9 @@ pub enum DirectResponse {
     },
     YouIssuedLiability {
         liability: Liability,
+    },
+    YouRedeemedLiability {
+        liability_idx: usize,
     },
     YouEndedTurn,
 }
@@ -88,6 +92,7 @@ pub enum UniqueResponse {
         player_turn_cash: u8,
         draws_n_cards: u8,
         playable_assets: PlayableAssets,
+        playable_liabilities: u8,
         player_character: Character,
         skipped_characters: Vec<Character>,
     },
@@ -107,11 +112,12 @@ pub enum UniqueResponse {
         player_id: PlayerId,
         liability: Liability,
     },
+    RedeemedLiability {
+        liability_idx: usize,
+    },
     TurnEnded {
         player_id: PlayerId,
     },
-    /// Always sent with SelectingCharacters?
-    RoundEnded,
     GameEnded,
 }
 

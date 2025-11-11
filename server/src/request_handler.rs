@@ -184,6 +184,33 @@ pub fn play_card(
     }
 }
 
+pub fn redeem_liability(
+    state: &mut GameState,
+    liability_idx: usize,
+    player_id: PlayerId,
+) -> Result<Response, GameError> {
+    let round = state.round_mut()?;
+
+    round.player_redeem_liability(player_id, liability_idx)?;
+
+    let internal = round
+        .players()
+        .iter()
+        .filter(|p| p.id != player_id)
+        .map(|p| {
+            (
+                p.id,
+                vec![UniqueResponse::RedeemedLiability { liability_idx }],
+            )
+        })
+        .collect();
+
+    Ok(Response(
+        InternalResponse(internal),
+        DirectResponse::YouRedeemedLiability { liability_idx },
+    ))
+}
+
 fn turn_starts(round: &Round) -> UniqueResponse {
     let current_player = round.current_player();
 
@@ -193,6 +220,7 @@ fn turn_starts(round: &Round) -> UniqueResponse {
         player_character: current_player.character,
         draws_n_cards: current_player.draws_n_cards(),
         playable_assets: current_player.playable_assets(),
+        playable_liabilities: current_player.playable_liabilities(),
         skipped_characters: round.skipped_characters(),
     }
 }

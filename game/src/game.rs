@@ -724,7 +724,9 @@ impl SelectingCharacters {
                         open_characters,
                     };
 
-                    round.player_mut(current_player)?.start_turn();
+                    // Pretty disgusting
+                    let current_market = round.current_market.clone();
+                    round.player_mut(current_player)?.start_turn(&current_market);
 
                     Ok(Some(GameState::Round(round)))
                 } else {
@@ -930,12 +932,14 @@ impl Round {
     }
 
     fn end_player_turn(&mut self, id: PlayerId) -> Result<Either<TurnEnded, GameState>, GameError> {
+        // This in horrible
+        let current_market = self.current_market.clone();
         match self.player(id) {
             Ok(current)
                 if current.id == self.current_player && !current.should_give_back_cards() =>
             {
                 if let Some(player) = self.next_player_mut() {
-                    player.start_turn();
+                    player.start_turn(&current_market);
                     self.current_player = player.id;
                     Ok(Either::Left(TurnEnded::new(Some(self.current_player))))
                 } else {

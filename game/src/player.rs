@@ -656,8 +656,10 @@ impl Character {
 
     pub fn playable_assets(&self) -> PlayableAssets {
         match self {
-            // TODO: fix for CEO in CEO branch
-            Self::CEO => PlayableAssets::default(),
+            Self::CEO => PlayableAssets {
+                total: 3,
+                ..Default::default()
+            },
             Self::CSO => PlayableAssets {
                 total: 2,
                 red_cost: 1,
@@ -915,6 +917,39 @@ mod tests {
                     );
                 });
         }
+    }
+
+    #[test]
+    fn playable_assets_ceo() {
+        let selecting_player = SelectingCharactersPlayer {
+            id: Default::default(),
+            name: Default::default(),
+            assets: Default::default(),
+            liabilities: Default::default(),
+            cash: 100,
+            character: Some(Character::CEO),
+            hand: vec![],
+        };
+        let round_player = RoundPlayer::try_from(selecting_player).unwrap();
+
+        // All permutations of 4 colors
+        std::iter::repeat_n(Color::COLORS, 4)
+            .multi_cartesian_product()
+            .map(|v| ([v[0], v[1], v[2]], v[3]))
+            .for_each(|(colors, extra)| {
+                let mut player = round_player.clone();
+
+                for (i, c) in colors.into_iter().enumerate() {
+                    player.hand = hand_asset(c);
+                    assert_ok!(player.play_card(0), "bought assets: {i}");
+                }
+
+                player.hand = hand_asset(extra);
+                assert_matches!(
+                    player.play_card(0),
+                    Err(PlayCardError::ExceedsMaximumAssets)
+                );
+            });
     }
 
     #[test]

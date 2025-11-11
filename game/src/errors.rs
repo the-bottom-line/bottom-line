@@ -12,7 +12,7 @@ pub enum GameError {
     GiveBackCard(#[from] GiveBackCardError),
     #[error(transparent)]
     DrawCard(#[from] DrawCardError),
-     #[error(transparent)]
+    #[error(transparent)]
     FireCharacter(#[from] FireCharacterError),
     #[error(transparent)]
     SelectableCharacters(#[from] SelectableCharactersError),

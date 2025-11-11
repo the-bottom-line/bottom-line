@@ -694,8 +694,7 @@ impl SelectingCharacters {
                     let current_market = std::mem::take(&mut self.current_market);
                     let current_events = std::mem::take(&mut self.current_events);
                     let open_characters = self.characters.open_characters().to_vec();
-                    let fired_characters : Vec<Character> = vec![];
-                    
+                    let fired_characters: Vec<Character> = vec![];
 
                     let players = players
                         .into_iter()
@@ -712,7 +711,7 @@ impl SelectingCharacters {
                         current_market,
                         current_events,
                         open_characters,
-                        fired_characters
+                        fired_characters,
                     };
 
                     round.player_mut(current_player)?.start_turn();
@@ -793,7 +792,9 @@ impl Round {
         let current_character = self.current_player().character;
         self.players
             .iter()
-            .filter(|p| p.character > current_character && !self.fired_characters.contains(&p.character) )
+            .filter(|p| {
+                p.character > current_character && !self.fired_characters.contains(&p.character)
+            })
             .min_by(|p1, p2| p1.character.cmp(&p2.character))
     }
 
@@ -808,7 +809,9 @@ impl Round {
         println!("real: {bool}");
         self.players
             .iter_mut()
-            .filter(|p| p.character > current_character && !self.fired_characters.contains(&p.character))
+            .filter(|p| {
+                p.character > current_character && !self.fired_characters.contains(&p.character)
+            })
             .min_by(|p1, p2| p1.character.cmp(&p2.character))
     }
 
@@ -907,21 +910,26 @@ impl Round {
         }
     }
 
-     pub fn player_fire_character(&mut self,id: PlayerId, character: Character) -> Result<Character, GameError> {
+    pub fn player_fire_character(
+        &mut self,
+        id: PlayerId,
+        character: Character,
+    ) -> Result<Character, GameError> {
         match self.players.get_mut(usize::from(id)) {
             Some(player) if player.id == self.current_player => {
                 if player.character != Character::Shareholder {
                     if !player.has_fired_this_round {
-                        if character !=  Character::Banker && character != Character::Regulator && character != Character::Shareholder {
+                        if character != Character::Banker
+                            && character != Character::Regulator
+                            && character != Character::Shareholder
+                        {
                             player.has_fired_this_round = true;
                             self.fired_characters.push(character);
                             Ok(character)
-                        }
-                        else{
+                        } else {
                             Err(FireCharacterError::InvalidCharacter.into())
                         }
-                    }
-                    else{
+                    } else {
                         Err(FireCharacterError::AlreadyFiredThisTurn.into())
                     }
                 } else {
@@ -931,18 +939,18 @@ impl Round {
             Some(_) => Err(GameError::NotPlayersTurn),
             _ => Err(GameError::InvalidPlayerIndex(id.0)),
         }
-     }
+    }
 
     pub fn skipped_characters(&self) -> Vec<Character> {
         let mut cs: Vec<Character> = [].to_vec();
         let mut past_current_character = false;
-        
+
         for c in Character::CHARACTERS.into_iter().rev() {
             if let Some(cp) = self.player_from_character(c) {
                 if past_current_character {
-                    if !self.fired_characters.contains(&c){
+                    if !self.fired_characters.contains(&c) {
                         return cs;
-                    }else{
+                    } else {
                         cs.push(c);
                     }
                 } else if cp.id == self.current_player {

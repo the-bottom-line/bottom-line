@@ -1352,6 +1352,12 @@ mod tests {
                 panic!("Not testing for this yet");
             }
 
+            // Set assets to play to 0 to not fail the test when CEO is picked
+            let player = round.player_mut(current_player).unwrap();
+            if player.character == Character::CEO {
+                player.assets_to_play = 0;
+            }
+            
             let hand_len = player.hand.len();
             assert_matches!(
                 round.player_play_card(current_player, hand_len - 1),

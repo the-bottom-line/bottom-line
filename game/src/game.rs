@@ -128,27 +128,51 @@ pub struct ObtainingCharacters {
 }
 
 impl ObtainingCharacters {
-    pub fn new(player_count: usize, chairman_id: PlayerId) -> Self {
+    pub fn new(player_count: usize, chairman_id: PlayerId) -> Result<Self, GameError> {
+        let open_character_count = match player_count {
+            4 => 2,
+            5 => 1,
+            6 | 7 => 0,
+            c => return Err(GameError::InvalidPlayerCount(c as u8)),
+        };
+
         let mut available_characters = Deck::new(Character::CHARACTERS.to_vec());
         #[cfg(feature = "shuffle")]
-        available_characters.shuffle();
+        {
+            available_characters.shuffle();
+            
+            let ceo_pos = available_characters
+                .deck
+                .iter()
+                .position(|c| *c == Character::CEO)
+                .unwrap();
+            
+            // Get CEO out of the first `open_character_count` positions
+            if (0..open_character_count).contains(&ceo_pos) {
+                let ceo_insert = rand::random_range(
+                    open_character_count..(available_characters.len()-1)
+                );
+                debug_assert_eq!(available_characters.deck.remove(ceo_pos), Character::CEO);
+                available_characters.deck.insert(ceo_insert, Character::CEO);
+            }
+            // CEO is now out of bottom positions of the deck (start of list) but we want it out
+            // of the top of the deck (end of list)
+            available_characters.deck.reverse();
+        }
 
-        let open_characters = match player_count {
-            4 => vec![available_characters.draw(), available_characters.draw()],
-            5 => vec![available_characters.draw()],
-            6 | 7 => vec![],
-            _ => unreachable!("Games should always have between 4 and 7 players"),
-        };
+        let open_characters = (0..open_character_count)
+            .map(|_| available_characters.draw())
+            .collect();
         let closed_character = available_characters.draw();
 
-        ObtainingCharacters {
+        Ok(ObtainingCharacters {
             player_count,
             draw_idx: 0,
             chairman_id: chairman_id.into(),
             available_characters,
             open_characters,
             closed_character,
-        }
+        })
     }
 
     pub fn peek(&self) -> Result<PickableCharacters, SelectableCharactersError> {
@@ -619,7 +643,7 @@ impl Lobby {
             let chairman = players.players().first().unwrap().id;
             debug_assert_eq!(chairman, PlayerId(0));
 
-            let characters = ObtainingCharacters::new(players.len(), chairman);
+            let characters = ObtainingCharacters::new(players.len(), chairman)?;
 
             let selecting = GameState::SelectingCharacters(SelectingCharacters {
                 players,
@@ -1012,7 +1036,7 @@ impl Round {
                         None => self.chairman,
                     };
 
-                    let characters = ObtainingCharacters::new(self.players.len(), chairman_id);
+                    let characters = ObtainingCharacters::new(self.players.len(), chairman_id)?;
                     let players = std::mem::take(&mut self.players);
                     let assets = std::mem::take(&mut self.assets);
                     let liabilities = std::mem::take(&mut self.liabilities);
@@ -1245,6 +1269,20 @@ mod tests {
             round.player_draw_card(next_player.id, CardType::Asset),
             Err(GameError::NotPlayersTurn)
         )
+    }
+    
+    #[test]
+    fn ceo_not_in_open_characters() {
+        // Since we're testing with random values, get large enough sample to where CEO has a
+        // (1 - 1.1554035912766488e-128) chance of showing up among the open cards
+        for i in 0..1024 {
+            for player_count in 4..=7 {
+                let characters = ObtainingCharacters::new(player_count, PlayerId(0))
+                    .expect("couldn't init ObtainingCharacters");
+                
+                assert!(!characters.open_characters().contains(&Character::CEO), "{i}");
+            }
+        }
     }
 
     #[test]

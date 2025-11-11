@@ -200,6 +200,10 @@ impl RoundPlayer {
     pub fn playable_assets(&self) -> PlayableAssets {
         self.playable_assets
     }
+    
+    pub fn playable_liabilities(&self) -> u8 {
+        self.character.playable_liabilities()
+    }
 
     pub fn turn_start_cash(&self) -> i16 {
         1
@@ -635,9 +639,8 @@ impl Character {
     }
 
     pub fn playable_liabilities(&self) -> u8 {
-        // TODO: fix for CFO when ready
         match self {
-            Self::CFO => 1,
+            Self::CFO => 3,
             _ => 1,
         }
     }

@@ -208,12 +208,11 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 match message {
                     Message::Text(text) => {
                         if let Ok(json) = serde_json::from_str::<FrontendRequest>(&text) {
-                            tracing::debug!("incoming json: {json:?}");
+                            tracing::debug!("incoming request: {json:?}");
 
                             let direct = match room.handle_request(json, &name) {
                                 Ok(Response(internal, direct)) => {
                                     for (id, responses) in internal.into_inner() {
-                                        tracing::debug!("internal send: {responses:?}");
                                         let idx = usize::from(id);
                                         for r in responses {
                                             let _ = room.player_tx[idx].send(r.clone());

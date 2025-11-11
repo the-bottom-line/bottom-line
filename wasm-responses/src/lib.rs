@@ -53,6 +53,12 @@ impl CreateRequest {
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
+    #[wasm_bindgen(js_name = redeemLiability)]
+    pub fn redeem_liability(liability_idx: usize) -> Result<String, JsValue> {
+        serde_json::to_string(&responses::FrontendRequest::RedeemLiability { liability_idx })
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
     #[wasm_bindgen(js_name = endTurn)]
     pub fn end_turn() -> Result<String, JsValue> {
         serde_json::to_string(&responses::FrontendRequest::EndTurn)
@@ -75,6 +81,9 @@ impl CreateRequest {
             responses::FrontendRequest::BuyAsset { card_idx } => Self::buy_asset(card_idx),
             responses::FrontendRequest::IssueLiability { card_idx } => {
                 Self::issue_liability(card_idx)
+            }
+            responses::FrontendRequest::RedeemLiability { liability_idx } => {
+                Self::redeem_liability(liability_idx)
             }
             responses::FrontendRequest::EndTurn => Self::end_turn(),
         };

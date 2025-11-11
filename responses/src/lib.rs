@@ -18,6 +18,7 @@ pub enum FrontendRequest {
     PutBackCard { card_idx: usize },
     BuyAsset { card_idx: usize },
     IssueLiability { card_idx: usize },
+    RedeemLiability { liability_idx: usize },
     EndTurn,
 }
 
@@ -45,6 +46,9 @@ pub enum DirectResponse {
     },
     YouIssuedLiability {
         liability: Liability,
+    },
+    YouRedeemedLiability {
+        liability_idx: usize,
     },
     YouEndedTurn,
 }
@@ -107,6 +111,9 @@ pub enum UniqueResponse {
     IssuedLiability {
         player_id: PlayerId,
         liability: Liability,
+    },
+    RedeemedLiability {
+        liability_idx: usize,
     },
     TurnEnded {
         player_id: PlayerId,

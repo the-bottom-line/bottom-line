@@ -226,6 +226,49 @@ impl TurnEnded {
 }
 
 #[derive(Debug, Clone)]
+pub struct Players<P>(Vec<P>);
+
+impl<P> Players<P> {
+    pub fn new(players: Vec<P>) -> Self {
+        Self(players)
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn player(&self, id: PlayerId) -> Result<&P, GameError> {
+        self.0
+            .get(usize::from(id))
+            .ok_or(GameError::InvalidPlayerIndex(id.0))
+    }
+
+    pub fn player_mut(&mut self, id: PlayerId) -> Result<&mut P, GameError> {
+        self.0
+            .get_mut(usize::from(id))
+            .ok_or(GameError::InvalidPlayerIndex(id.0))
+    }
+
+    pub fn players(&self) -> &[P] {
+        &self.0
+    }
+
+    pub fn players_mut(&mut self) -> &mut [P] {
+        &mut self.0
+    }
+}
+
+impl<P> Default for Players<P> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum GameState {
     Lobby(Lobby),
     SelectingCharacters(SelectingCharacters),
@@ -482,7 +525,7 @@ impl Default for GameState {
 
 #[derive(Debug, Clone, Default)]
 pub struct Lobby {
-    players: Vec<LobbyPlayer>,
+    players: Players<LobbyPlayer>,
 }
 
 impl Lobby {
@@ -499,36 +542,40 @@ impl Lobby {
     }
 
     pub fn player(&self, id: PlayerId) -> Option<&LobbyPlayer> {
-        self.players.get(usize::from(id))
+        self.players.player(id).ok()
     }
 
     pub fn players(&self) -> &[LobbyPlayer] {
-        &self.players
+        &self.players.players()
+    }
+
+    pub fn players_mut(&mut self) -> &mut [LobbyPlayer] {
+        self.players.players_mut()
     }
 
     pub fn usernames(&self) -> Vec<String> {
-        self.players.iter().map(|p| &p.name).cloned().collect()
+        self.players().iter().map(|p| &p.name).cloned().collect()
     }
 
     pub fn join(&mut self, username: String) -> Result<&LobbyPlayer, LobbyError> {
-        match self.players.iter().find(|p| p.name == username) {
+        match self.players().iter().find(|p| p.name == username) {
             Some(_) => Err(LobbyError::UsernameAlreadyTaken(username)),
             None => {
                 let player = LobbyPlayer {
                     id: PlayerId(self.players.len() as u8),
                     name: username.clone(),
                 };
-                self.players.push(player);
-                Ok(&self.players[self.players.len() - 1])
+                self.players.0.push(player);
+                Ok(&self.players.0[self.players.len() - 1])
             }
         }
     }
 
     pub fn leave(&mut self, username: &str) -> bool {
-        match self.players.iter().position(|p| p.name == username) {
+        match self.players().iter().position(|p| p.name == username) {
             Some(pos) => {
-                self.players.remove(pos);
-                self.players
+                self.players.0.remove(pos);
+                self.players_mut()
                     .iter_mut()
                     .zip(0u8..)
                     .for_each(|(p, id)| p.id = PlayerId(id));
@@ -539,7 +586,7 @@ impl Lobby {
     }
 
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
-        self.players
+        self.players()
             .iter()
             .filter(|p| p.id != id)
             .map(Into::into)
@@ -569,7 +616,9 @@ impl Lobby {
             let current_market =
                 Lobby::initial_market(&mut markets).expect("No markets in deck for some reason");
 
-            let chairman = players.first().unwrap().id;
+            let chairman = players.players().first().unwrap().id;
+            debug_assert_eq!(chairman, PlayerId(0));
+
             let characters = ObtainingCharacters::new(players.len(), chairman);
 
             let selecting = GameState::SelectingCharacters(SelectingCharacters {
@@ -593,17 +642,20 @@ impl Lobby {
         &mut self,
         assets: &mut Deck<Asset>,
         liabilities: &mut Deck<Liability>,
-    ) -> Vec<SelectingCharactersPlayer> {
-        self.players.sort_by(|p1, p2| p1.id.cmp(&p2.id));
+    ) -> Players<SelectingCharactersPlayer> {
+        self.players.0.sort_by(|p1, p2| p1.id.cmp(&p2.id));
 
-        self.players
+        let players = self
+            .players()
             .iter()
             .map(|p| {
                 let assets = [assets.draw(), assets.draw()];
                 let liabilities = [liabilities.draw(), liabilities.draw()];
                 SelectingCharactersPlayer::new(&p.name, p.id.0, assets, liabilities, 1)
             })
-            .collect()
+            .collect();
+
+        Players(players)
     }
 
     /// Grab market card if available and reshuffles the rest of the deck.
@@ -617,7 +669,7 @@ impl Lobby {
 
 #[derive(Debug, Clone)]
 pub struct SelectingCharacters {
-    players: Vec<SelectingCharactersPlayer>,
+    players: Players<SelectingCharactersPlayer>,
     characters: ObtainingCharacters,
     assets: Deck<Asset>,
     liabilities: Deck<Liability>,
@@ -629,20 +681,18 @@ pub struct SelectingCharacters {
 
 impl SelectingCharacters {
     pub fn player(&self, id: PlayerId) -> Result<&SelectingCharactersPlayer, GameError> {
-        self.players
-            .get(usize::from(id))
-            .ok_or(GameError::InvalidPlayerIndex(id.0))
+        self.players.player(id)
     }
 
     pub fn player_by_name(&self, name: &str) -> Result<&SelectingCharactersPlayer, GameError> {
-        self.players
+        self.players()
             .iter()
             .find(|p| p.name == name)
             .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
     }
 
     pub fn players(&self) -> &[SelectingCharactersPlayer] {
-        &self.players
+        self.players.players()
     }
 
     pub fn currently_selecting_id(&self) -> PlayerId {
@@ -684,8 +734,8 @@ impl SelectingCharacters {
     ) -> Result<Option<GameState>, GameError> {
         let currently_selecting_id = self.currently_selecting_id();
 
-        match self.players.get_mut(usize::from(id)) {
-            Some(p) if p.id == currently_selecting_id => {
+        match self.players.player_mut(id) {
+            Ok(p) if p.id == currently_selecting_id => {
                 self.characters.pick(character)?;
 
                 p.select_character(character);
@@ -693,7 +743,7 @@ impl SelectingCharacters {
                 // Start round when no more characters can be picked
                 if self.characters.peek().is_err() {
                     let current_player = self
-                        .players
+                        .players()
                         .iter()
                         .min_by(|p1, p2| p1.character.cmp(&p2.character))
                         .map(|p| p.id)
@@ -708,9 +758,12 @@ impl SelectingCharacters {
                     let open_characters = self.characters.open_characters().to_vec();
 
                     let players = players
+                        .0
                         .into_iter()
                         .map(TryInto::try_into)
                         .collect::<Result<_, _>>()?;
+
+                    let players = Players(players);
 
                     let mut round = Round {
                         current_player,
@@ -724,17 +777,18 @@ impl SelectingCharacters {
                         open_characters,
                     };
 
-                    // Pretty disgusting
-                    let current_market = round.current_market.clone();
-                    round.player_mut(current_player)?.start_turn(&current_market);
+                    round
+                        .players
+                        .player_mut(current_player)?
+                        .start_turn(&round.current_market);
 
                     Ok(Some(GameState::Round(round)))
                 } else {
                     Ok(None)
                 }
             }
-            Some(_) => Err(GameError::NotPlayersTurn),
-            None => Err(GameError::InvalidPlayerIndex(id.0)),
+            Ok(_) => Err(GameError::NotPlayersTurn),
+            Err(e) => Err(e),
         }
     }
 
@@ -749,7 +803,7 @@ impl SelectingCharacters {
     }
 
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
-        self.players
+        self.players()
             .iter()
             .filter(|p| p.id != id)
             .map(Into::into)
@@ -760,7 +814,7 @@ impl SelectingCharacters {
 #[derive(Debug, Clone)]
 pub struct Round {
     current_player: PlayerId,
-    players: Vec<RoundPlayer>,
+    players: Players<RoundPlayer>,
     assets: Deck<Asset>,
     liabilities: Deck<Liability>,
     markets: Deck<Either<Market, Event>>,
@@ -772,23 +826,19 @@ pub struct Round {
 
 impl Round {
     pub fn player(&self, id: PlayerId) -> Result<&RoundPlayer, GameError> {
-        self.players
-            .get(usize::from(id))
-            .ok_or(GameError::InvalidPlayerIndex(id.0))
+        self.players.player(id)
     }
 
     pub fn player_mut(&mut self, id: PlayerId) -> Result<&mut RoundPlayer, GameError> {
-        self.players
-            .get_mut(usize::from(id))
-            .ok_or(GameError::InvalidPlayerIndex(id.0))
+        self.players.player_mut(id)
     }
 
     pub fn player_from_character(&self, character: Character) -> Option<&RoundPlayer> {
-        self.players.iter().find(|p| p.character == character)
+        self.players().iter().find(|p| p.character == character)
     }
 
     pub fn player_by_name(&self, name: &str) -> Result<&RoundPlayer, GameError> {
-        self.players
+        self.players()
             .iter()
             .find(|p| p.name == name)
             .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
@@ -801,7 +851,7 @@ impl Round {
 
     pub fn next_player(&self) -> Option<&RoundPlayer> {
         let current_character = self.current_player().character;
-        self.players
+        self.players()
             .iter()
             .filter(|p| p.character > current_character)
             .min_by(|p1, p2| p1.character.cmp(&p2.character))
@@ -810,13 +860,14 @@ impl Round {
     pub fn next_player_mut(&mut self) -> Option<&mut RoundPlayer> {
         let current_character = self.current_player().character;
         self.players
+            .players_mut()
             .iter_mut()
             .filter(|p| p.character > current_character)
             .min_by(|p1, p2| p1.character.cmp(&p2.character))
     }
 
     pub fn players(&self) -> &[RoundPlayer] {
-        &self.players
+        self.players.players()
     }
 
     pub fn open_characters(&self) -> &[Character] {
@@ -824,7 +875,7 @@ impl Round {
     }
 
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
-        self.players
+        self.players()
             .iter()
             .filter(|p| p.id != id)
             .map(Into::into)
@@ -840,8 +891,8 @@ impl Round {
         id: PlayerId,
         card_idx: usize,
     ) -> Result<PlayerPlayedCard, GameError> {
-        match self.players.get_mut(usize::from(id)) {
-            Some(player) if player.id == self.current_player => {
+        match self.players.player_mut(id) {
+            Ok(player) if player.id == self.current_player => {
                 let current_assets = player.assets.len();
                 match player.play_card(card_idx)? {
                     Either::Left(asset) => {
@@ -859,8 +910,8 @@ impl Round {
                     }
                 }
             }
-            Some(_) => Err(GameError::NotPlayersTurn),
-            _ => Err(GameError::InvalidPlayerIndex(id.0)),
+            Ok(_) => Err(GameError::NotPlayersTurn),
+            Err(e) => Err(e),
         }
     }
 
@@ -869,8 +920,8 @@ impl Round {
         id: PlayerId,
         card_type: CardType,
     ) -> Result<Either<&Asset, &Liability>, GameError> {
-        match self.players.get_mut(usize::from(id)) {
-            Some(player) if player.id == self.current_player => {
+        match self.players.player_mut(id) {
+            Ok(player) if player.id == self.current_player => {
                 if player.can_draw_cards() {
                     let card = match card_type {
                         CardType::Asset => Either::Left(self.assets.draw()),
@@ -882,8 +933,8 @@ impl Round {
                     Err(DrawCardError::MaximumCardsDrawn(player.total_cards_drawn).into())
                 }
             }
-            Some(_) => Err(GameError::NotPlayersTurn),
-            _ => Err(GameError::InvalidPlayerIndex(id.0)),
+            Ok(_) => Err(GameError::NotPlayersTurn),
+            Err(e) => Err(e),
         }
     }
 
@@ -892,8 +943,8 @@ impl Round {
         id: PlayerId,
         card_idx: usize,
     ) -> Result<CardType, GameError> {
-        match self.players.get_mut(usize::from(id)) {
-            Some(player) if player.id == self.current_player => {
+        match self.players.player_mut(id) {
+            Ok(player) if player.id == self.current_player => {
                 if player.should_give_back_cards() {
                     match player.give_back_card(card_idx)? {
                         Either::Left(asset) => {
@@ -909,12 +960,20 @@ impl Round {
                     Err(GiveBackCardError::Unnecessary.into())
                 }
             }
-            Some(_) => Err(GameError::NotPlayersTurn),
-            _ => Err(GameError::InvalidPlayerIndex(id.0)),
+            Ok(_) => Err(GameError::NotPlayersTurn),
+            Err(e) => Err(e),
         }
     }
 
     pub fn skipped_characters(&self) -> Vec<Character> {
+        let current_character = self.current_player().character;
+        let cs2 = Character::CHARACTERS
+            .into_iter()
+            .rev()
+            .skip_while(|c| c.ge(&current_character))
+            .take_while(|c| self.player_from_character(*c).is_none())
+            .collect::<Vec<_>>();
+
         let mut cs: Vec<Character> = [].to_vec();
         let mut past_current_character = false;
         for c in Character::CHARACTERS.into_iter().rev() {
@@ -928,18 +987,20 @@ impl Round {
                 cs.push(c);
             }
         }
+
+        debug_assert_eq!(cs2, cs);
+
         cs
     }
 
     fn end_player_turn(&mut self, id: PlayerId) -> Result<Either<TurnEnded, GameState>, GameError> {
-        // This in horrible
-        let current_market = self.current_market.clone();
         match self.player(id) {
             Ok(current)
                 if current.id == self.current_player && !current.should_give_back_cards() =>
             {
-                if let Some(player) = self.next_player_mut() {
-                    player.start_turn(&current_market);
+                if let Some(id) = self.next_player().map(|p| p.id) {
+                    let player = self.players.player_mut(id)?;
+                    player.start_turn(&self.current_market);
                     self.current_player = player.id;
                     Ok(Either::Left(TurnEnded::new(Some(self.current_player))))
                 } else {
@@ -957,7 +1018,7 @@ impl Round {
                     let current_market = std::mem::take(&mut self.current_market);
                     let current_events = std::mem::take(&mut self.current_events);
 
-                    let players = players.into_iter().map(Into::into).collect();
+                    let players = Players(players.0.into_iter().map(Into::into).collect());
 
                     let state = GameState::SelectingCharacters(SelectingCharacters {
                         players,
@@ -980,7 +1041,7 @@ impl Round {
 
     fn check_new_market(&self, player_assets: usize) -> bool {
         let max_asset_count = self
-            .players
+            .players()
             .iter()
             .map(|player| player.assets.len())
             .max()
@@ -1010,7 +1071,7 @@ impl Round {
 
 #[derive(Debug, Clone)]
 pub struct Results {
-    players: Vec<ResultsPlayer>,
+    players: Players<ResultsPlayer>,
     final_market: Market,
     // TODO: implement events
     _final_events: Vec<Event>,
@@ -1018,20 +1079,18 @@ pub struct Results {
 
 impl Results {
     pub fn player(&self, id: PlayerId) -> Result<&ResultsPlayer, GameError> {
-        self.players
-            .get(usize::from(id))
-            .ok_or(GameError::InvalidPlayerIndex(id.0))
+        self.players.player(id)
     }
 
     pub fn player_by_name(&self, name: &str) -> Result<&ResultsPlayer, GameError> {
-        self.players
+        self.players()
             .iter()
             .find(|p| p.name == name)
             .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
     }
 
     pub fn players(&self) -> &[ResultsPlayer] {
-        &self.players
+        self.players.players()
     }
 
     pub fn score(&self, id: PlayerId) -> Result<f64, GameError> {
@@ -1066,7 +1125,7 @@ impl Results {
     }
 
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
-        self.players
+        self.players()
             .iter()
             .filter(|p| p.id != id)
             .map(Into::into)
@@ -1086,7 +1145,7 @@ mod tests {
             let game = pick_with_players(i).expect("couldn't pick characters");
             let round = game.round().unwrap();
 
-            assert!(round.players.iter().map(|p| p.id).all_unique());
+            assert!(round.players().iter().map(|p| p.id).all_unique());
         }
     }
 
@@ -1096,7 +1155,7 @@ mod tests {
             let game = pick_with_players(i).expect("couldn't pick characters");
             let round = game.round().unwrap();
 
-            assert!(round.players.iter().map(|p| p.id).is_sorted());
+            assert!(round.players().iter().map(|p| p.id).is_sorted());
         }
     }
 
@@ -1107,7 +1166,7 @@ mod tests {
             let round = game.round().unwrap();
 
             round
-                .players
+                .players()
                 .iter()
                 .map(|p| (p.character, p.id))
                 .for_each(|(c, id)| {
@@ -1127,7 +1186,7 @@ mod tests {
             let round = game.round().unwrap();
 
             round
-                .players
+                .players()
                 .iter()
                 .map(|p| (p.name.as_str(), p.id))
                 .for_each(|(name, id)| {
@@ -1201,7 +1260,7 @@ mod tests {
             );
 
             // so player can always afford the asset
-            round.players[usize::from(current_player)].cash = 50;
+            round.player_mut(current_player).unwrap().cash = 50;
 
             // test issuing liability
             let player = &round.player(current_player).unwrap();
@@ -1311,9 +1370,9 @@ mod tests {
         let current_player = round.current_player().id;
 
         // so player can always afford the asset
-        round.players[usize::from(current_player)].cash = 50;
+        round.player_mut(current_player).unwrap().cash = 50;
 
-        let hand_len = round.players[usize::from(current_player)].hand.len();
+        let hand_len = round.player(current_player).unwrap().hand.len();
         assert_ok!(round.player_play_card(current_player, hand_len - 1));
         assert_ok!(round.player_play_card(current_player, 0));
 
@@ -1386,7 +1445,7 @@ mod tests {
         assert_err!(game.end_player_turn(player_id));
 
         let round = game.round_mut().expect("not in round state");
-        let hand_len = round.players[usize::from(player_id)].hand.len();
+        let hand_len = round.player(player_id).unwrap().hand.len();
         assert_ok!(round.player_give_back_card(player_id, hand_len - 1));
 
         assert_ok!(game.end_player_turn(player_id));

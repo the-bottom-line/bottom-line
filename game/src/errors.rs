@@ -12,6 +12,8 @@ pub enum GameError {
     GiveBackCard(#[from] GiveBackCardError),
     #[error(transparent)]
     DrawCard(#[from] DrawCardError),
+     #[error(transparent)]
+    FireCharacter(#[from] FireCharacterError),
     #[error(transparent)]
     SelectableCharacters(#[from] SelectableCharactersError),
     #[error("Player count should be between 4 and 7, {0} is invalid")]

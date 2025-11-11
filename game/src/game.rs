@@ -910,25 +910,27 @@ impl Round {
      pub fn player_fire_character(&mut self,id: PlayerId, character: Character) -> Result<Character, GameError> {
         match self.players.get_mut(usize::from(id)) {
             Some(player) if player.id == self.current_player => {
-                if player.character != Shareholder {
+                if player.character != Character::Shareholder {
                     if !player.has_fired_this_round {
-                        if character > 2 {  // hardcoded limit for firable characters
+                        if character !=  Character::Banker && character != Character::Regulator && character != Character::Shareholder {
                             player.has_fired_this_round = true;
-                            self.fired_characters.append(character);
+                            self.fired_characters.push(character);
+                            Ok(character)
                         }
                         else{
-                            Err(FireCharacterError::InvalidCharacter.into());
+                            Err(FireCharacterError::InvalidCharacter.into())
                         }
                     }
                     else{
-                        Err(FireCharacterError::AlreadyFiredThisTurn.into());
+                        Err(FireCharacterError::AlreadyFiredThisTurn.into())
                     }
                 } else {
-                    Err(FireCharacterError::InvalidPlayerCharacter.into());
+                    Err(FireCharacterError::InvalidPlayerCharacter.into())
                 }
             }
             Some(_) => Err(GameError::NotPlayersTurn),
             _ => Err(GameError::InvalidPlayerIndex(id.0)),
+        }
      }
 
     pub fn skipped_characters(&self) -> Vec<Character> {

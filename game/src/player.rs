@@ -781,6 +781,69 @@ mod tests {
     }
 
     #[test]
+    fn market_condition_bonus() {
+        use MarketCondition::*;
+
+        for character in Character::CHARACTERS {
+            for condition in [Minus, Zero, Plus] {
+                let selecting_player = SelectingCharactersPlayer {
+                    id: Default::default(),
+                    name: Default::default(),
+                    assets: Default::default(),
+                    liabilities: Default::default(),
+                    cash: 100,
+                    character: Some(character),
+                    hand: Default::default(),
+                };
+                let round_player = RoundPlayer::try_from(selecting_player).unwrap();
+
+                let mut market = Market {
+                    title: Default::default(),
+                    rfr: Default::default(),
+                    mrp: Default::default(),
+                    yellow: Zero,
+                    blue: Zero,
+                    green: Zero,
+                    purple: Zero,
+                    red: Zero,
+                    image_front_url: Default::default(),
+                    image_back_url: Default::default(),
+                };
+
+                match character.color() {
+                    Some(Color::Red) => market.red = condition,
+                    Some(Color::Green) => market.green = condition,
+                    Some(Color::Yellow) => market.yellow = condition,
+                    Some(Color::Purple) => market.purple = condition,
+                    Some(Color::Blue) => market.blue = condition,
+                    None => {
+                        market.red = condition;
+                        market.green = condition;
+                        market.yellow = condition;
+                        market.purple = condition;
+                        market.blue = condition;
+                    }
+                }
+
+                let bonus = match character.color() {
+                    Some(color) => match market.color_condition(color) {
+                        MarketCondition::Plus => 1,
+                        MarketCondition::Zero => 0,
+                        MarketCondition::Minus => -1,
+                    },
+                    None => 0,
+                };
+
+                assert_eq!(
+                    round_player.market_condition_bonus(&market),
+                    bonus,
+                    "{character:?}, {condition:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn playable_assets_default() {
         for character in Character::CHARACTERS
             .into_iter()

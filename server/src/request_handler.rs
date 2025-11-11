@@ -193,6 +193,7 @@ fn turn_starts(round: &Round) -> UniqueResponse {
         player_character: current_player.character,
         draws_n_cards: current_player.draws_n_cards(),
         playable_assets: current_player.playable_assets(),
+        playable_liabilities: current_player.playable_liabilities(),
         skipped_characters: round.skipped_characters(),
     }
 }

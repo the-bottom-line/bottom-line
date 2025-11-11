@@ -18,7 +18,7 @@ pub enum FrontendRequest {
     PutBackCard { card_idx: usize },
     BuyAsset { card_idx: usize },
     IssueLiability { card_idx: usize },
-    FireCharacter{ character: Character},
+    FireCharacter { character: Character },
     EndTurn,
 }
 

@@ -250,10 +250,14 @@ pub fn select_character(
     }
 }
 
-pub fn fire_character(state: &mut GameState, player_id: PlayerId, character: Character) -> Result<Response, GameError> {
+pub fn fire_character(
+    state: &mut GameState,
+    player_id: PlayerId,
+    character: Character,
+) -> Result<Response, GameError> {
     let round = state.round_mut()?;
 
-    match round.player_fire_character(player_id, character){
+    match round.player_fire_character(player_id, character) {
         Ok(_c) => {
             let internal = round
                 .players()
@@ -262,7 +266,7 @@ pub fn fire_character(state: &mut GameState, player_id: PlayerId, character: Cha
                 .map(|p| {
                     (
                         p.id,
-                        vec![UniqueResponse::FiredCharacter{
+                        vec![UniqueResponse::FiredCharacter {
                             player_id,
                             character,
                         }],
@@ -270,11 +274,11 @@ pub fn fire_character(state: &mut GameState, player_id: PlayerId, character: Cha
                 })
                 .collect();
             Ok(Response(
-                        InternalResponse(internal),
-                        DirectResponse::YouFiredCharacter { character },
-                    ))
+                InternalResponse(internal),
+                DirectResponse::YouFiredCharacter { character },
+            ))
         }
-        Err(e) => Err(e)
+        Err(e) => Err(e),
     }
 }
 

@@ -933,6 +933,7 @@ mod tests {
             };
 
             assert_ok!(player.select_character(character));
+            assert_eq!(player.character, Some(character));
 
             for character2 in Character::CHARACTERS {
                 assert_matches!(

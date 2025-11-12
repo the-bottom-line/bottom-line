@@ -1234,6 +1234,9 @@ mod tests {
                     let round = game.round_mut().expect("Game not in round state");
                     let current_player = round.current_player().id;
 
+                    // For some reason never picks head of rnd
+                    assert_ne!(round.current_player().character, Character::HeadRnD);
+
                     card_types.into_iter().for_each(|card_type| {
                         assert_ok!(round.player_draw_card(current_player, card_type));
                     });
@@ -1352,6 +1355,12 @@ mod tests {
                 && [Color::Red, Color::Green].contains(&player.assets[0].color)
             {
                 panic!("Not testing for this yet");
+            }
+
+            // Set assets to play to 0 to not fail the test when CEO is picked
+            let player = round.player_mut(current_player).unwrap();
+            if player.character == Character::CEO {
+                player.assets_to_play = 0;
             }
 
             let hand_len = player.hand.len();

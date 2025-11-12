@@ -91,6 +91,7 @@ pub enum UniqueResponse {
         /// Extra cash received by the player whose turn it is
         player_turn_cash: u8,
         draws_n_cards: u8,
+        gives_back_n_cards: u8,
         playable_assets: PlayableAssets,
         playable_liabilities: u8,
         player_character: Character,

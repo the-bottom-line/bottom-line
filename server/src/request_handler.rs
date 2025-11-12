@@ -200,7 +200,10 @@ pub fn redeem_liability(
         .map(|p| {
             (
                 p.id,
-                vec![UniqueResponse::RedeemedLiability { liability_idx }],
+                vec![UniqueResponse::RedeemedLiability {
+                    player_id,
+                    liability_idx,
+                }],
             )
         })
         .collect();

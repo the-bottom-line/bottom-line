@@ -113,6 +113,7 @@ pub enum UniqueResponse {
         liability: Liability,
     },
     RedeemedLiability {
+        player_id: PlayerId,
         liability_idx: usize,
     },
     TurnEnded {

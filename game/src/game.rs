@@ -966,8 +966,7 @@ impl Round {
                         CardType::Asset => Either::Left(self.assets.draw()),
                         CardType::Liability => Either::Right(self.liabilities.draw()),
                     };
-                    player.draw_card(card);
-                    Ok(player.hand.last().unwrap().as_ref())
+                    player.draw_card(card).map_err(Into::into)
                 } else {
                     Err(DrawCardError::MaximumCardsDrawn(player.total_cards_drawn).into())
                 }

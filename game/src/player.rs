@@ -190,10 +190,18 @@ impl RoundPlayer {
         }
     }
 
-    pub fn draw_card(&mut self, card: Either<Asset, Liability>) {
-        self.total_cards_drawn += 1;
-        self.cards_drawn.push(self.hand.len());
-        self.hand.push(card);
+    pub fn draw_card(
+        &mut self,
+        card: Either<Asset, Liability>,
+    ) -> Result<either::Either<&Asset, &Liability>, DrawCardError> {
+        if self.can_draw_cards() {
+            self.total_cards_drawn += 1;
+            self.cards_drawn.push(self.hand.len());
+            self.hand.push(card);
+            Ok(self.hand.last().unwrap().as_ref())
+        } else {
+            Err(DrawCardError::MaximumCardsDrawn(self.total_cards_drawn))
+        }
     }
 
     pub fn give_back_card(
@@ -805,7 +813,7 @@ mod tests {
             };
 
             assert_ok!(player.select_character(character));
-            
+
             for character2 in Character::CHARACTERS {
                 assert_matches!(
                     player.select_character(character2),

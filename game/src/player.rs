@@ -1328,14 +1328,25 @@ mod tests {
                 .map(|v| (v[0], v[1]))
                 .for_each(|(c1, c2)| {
                     let mut player = round_player.clone();
+                    let cash = player.cash;
+
                     player.hand = hand_asset(c1);
                     assert_ok!(player.play_card(0));
+
+                    assert_eq!(player.cash, cash - 1);
+                    assert_eq!(player.hand.len(), 0);
+                    assert_eq!(player.assets.len(), 1);
+
+                    assert!(!player.can_play_asset(c2));
 
                     player.hand = hand_asset(c2);
                     assert_matches!(
                         player.play_card(0),
                         Err(PlayCardError::ExceedsMaximumAssets)
                     );
+                    assert_eq!(player.cash, cash - 1);
+                    assert_eq!(player.hand.len(), 1);
+                    assert_eq!(player.assets.len(), 1);
                 });
         }
     }
@@ -1368,6 +1379,8 @@ mod tests {
                     assert_eq!(player.assets.len(), i + 1);
                     assert_eq!(player.cash, STARTING_CASH - 1 - i as u8);
                 }
+
+                assert!(!player.can_play_asset(extra));
 
                 player.hand = hand_asset(extra);
                 assert_matches!(

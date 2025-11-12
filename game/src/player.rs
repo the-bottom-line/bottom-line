@@ -1211,6 +1211,8 @@ mod tests {
 
     #[test]
     fn playable_assets_default() {
+        const STARTING_CASH: u8 = 100;
+
         for character in Character::CHARACTERS
             .into_iter()
             .filter(|c| ![Character::CEO, Character::CSO].contains(c))
@@ -1220,7 +1222,7 @@ mod tests {
                 name: Default::default(),
                 assets: Default::default(),
                 liabilities: Default::default(),
-                cash: 100,
+                cash: STARTING_CASH,
                 character: Some(character),
                 hand: vec![],
             };
@@ -1246,6 +1248,8 @@ mod tests {
 
     #[test]
     fn playable_assets_ceo() {
+        const STARTING_CASH: u8 = 100;
+
         let selecting_player = SelectingCharactersPlayer {
             id: Default::default(),
             name: Default::default(),
@@ -1267,6 +1271,8 @@ mod tests {
                 for (i, c) in colors.into_iter().enumerate() {
                     player.hand = hand_asset(c);
                     assert_ok!(player.play_card(0), "bought assets: {i}");
+                    assert_eq!(player.assets.len(), i + 1);
+                    assert_eq!(player.cash, STARTING_CASH - 1 - i as u8);
                 }
 
                 player.hand = hand_asset(extra);
@@ -1274,11 +1280,15 @@ mod tests {
                     player.play_card(0),
                     Err(PlayCardError::ExceedsMaximumAssets)
                 );
+                assert_eq!(player.assets.len(), 3);
+                assert_eq!(player.cash, STARTING_CASH - 3);
             });
     }
 
     #[test]
     fn playable_assets_cso() {
+        const STARTING_CASH: u8 = 100;
+
         let selecting_player = SelectingCharactersPlayer {
             id: Default::default(),
             name: Default::default(),
@@ -1297,9 +1307,11 @@ mod tests {
             .for_each(|(colors, extra)| {
                 let mut player = round_player.clone();
 
-                for c in colors {
+                for (i, c) in colors.into_iter().enumerate() {
                     player.hand = hand_asset(c);
                     assert_ok!(player.play_card(0));
+                    assert_eq!(player.assets.len(), i + 1);
+                    assert_eq!(player.cash, STARTING_CASH - 1 - i as u8);
                 }
 
                 player.hand = hand_asset(extra);
@@ -1307,6 +1319,8 @@ mod tests {
                     player.play_card(0),
                     Err(PlayCardError::ExceedsMaximumAssets)
                 );
+                assert_eq!(player.assets.len(), 2);
+                assert_eq!(player.cash, STARTING_CASH - 2);
             });
 
         // All permutations of any color followed by blue, yellow or purple
@@ -1318,12 +1332,16 @@ mod tests {
                 let mut player = round_player.clone();
                 player.hand = hand_asset(c1);
                 assert_ok!(player.play_card(0));
+                assert_eq!(player.assets.len(), 1);
+                assert_eq!(player.cash, STARTING_CASH - 1);
 
                 player.hand = hand_asset(c2);
                 assert_matches!(
                     player.play_card(0),
                     Err(PlayCardError::ExceedsMaximumAssets)
                 );
+                assert_eq!(player.assets.len(), 1);
+                assert_eq!(player.cash, STARTING_CASH - 1);
             });
     }
 

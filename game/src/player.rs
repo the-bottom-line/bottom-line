@@ -512,7 +512,7 @@ impl From<RoundPlayer> for ResultsPlayer {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Asset {
     pub title: String,
     pub gold_value: u8,
@@ -533,7 +533,7 @@ impl std::fmt::Display for Asset {
     }
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum AssetPowerup {
     #[serde(rename = "At the end of the game, for one color, turn - into 0 or 0 into +")]
     MinusIntoPlus,
@@ -562,7 +562,7 @@ impl std::fmt::Display for AssetPowerup {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Liability {
     pub value: u8,
     pub rfr_type: LiabilityType,

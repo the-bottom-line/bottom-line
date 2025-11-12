@@ -5,30 +5,76 @@ use std::sync::Arc;
 
 use crate::{
     errors::*,
-    game::{Market, MarketCondition},
+    game::{Deck, Market, MarketCondition},
 };
 
 #[derive(Debug, Clone)]
 pub struct LobbyPlayer {
-    pub id: PlayerId,
-    pub name: String,
+    id: PlayerId,
+    name: String,
+}
+
+impl LobbyPlayer {
+    pub fn new(id: PlayerId, name: String) -> Self {
+        Self { id, name }
+    }
+
+    pub fn id(&self) -> PlayerId {
+        self.id
+    }
+
+    pub fn set_id(&mut self, id: PlayerId) {
+        self.id = id;
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct SelectingCharactersPlayer {
-    pub id: PlayerId,
-    pub name: String,
-    pub cash: u8,
-    pub assets: Vec<Asset>,
-    pub liabilities: Vec<Liability>,
-    pub character: Option<Character>,
-    pub hand: Vec<Either<Asset, Liability>>,
+    id: PlayerId,
+    name: String,
+    cash: u8,
+    assets: Vec<Asset>,
+    liabilities: Vec<Liability>,
+    character: Option<Character>,
+    hand: Vec<Either<Asset, Liability>>,
 }
 
 impl SelectingCharactersPlayer {
-    pub fn new(
-        name: &str,
-        id: u8,
+    pub fn id(&self) -> PlayerId {
+        self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn cash(&self) -> u8 {
+        self.cash
+    }
+
+    pub fn assets(&self) -> &[Asset] {
+        &self.assets
+    }
+
+    pub fn liabilities(&self) -> &[Liability] {
+        &self.liabilities
+    }
+
+    pub fn character(&self) -> Option<Character> {
+        self.character
+    }
+
+    pub fn hand(&self) -> &[Either<Asset, Liability>] {
+        &self.hand
+    }
+
+    pub(crate) fn new(
+        name: String,
+        id: PlayerId,
         assets: [Asset; 2],
         liabilities: [Liability; 2],
         cash: u8,
@@ -40,8 +86,8 @@ impl SelectingCharactersPlayer {
             .collect();
 
         SelectingCharactersPlayer {
-            id: PlayerId(id),
-            name: name.to_string(),
+            id,
+            name,
             cash,
             assets: vec![],
             liabilities: vec![],
@@ -80,22 +126,55 @@ impl From<RoundPlayer> for SelectingCharactersPlayer {
 
 #[derive(Debug, Clone)]
 pub struct RoundPlayer {
-    pub id: PlayerId,
-    pub name: String,
-    pub cash: u8,
-    pub assets: Vec<Asset>,
-    pub liabilities: Vec<Liability>,
-    pub character: Character,
-    pub hand: Vec<Either<Asset, Liability>>,
-    pub cards_drawn: Vec<usize>,
-    pub assets_to_play: u8,
-    pub playable_assets: PlayableAssets,
-    pub liabilities_to_play: u8,
-    pub total_cards_drawn: u8,
-    pub total_cards_given_back: u8,
+    id: PlayerId,
+    name: String,
+    cash: u8,
+    assets: Vec<Asset>,
+    liabilities: Vec<Liability>,
+    character: Character,
+    hand: Vec<Either<Asset, Liability>>,
+    cards_drawn: Vec<usize>,
+    assets_to_play: u8,
+    playable_assets: PlayableAssets,
+    liabilities_to_play: u8,
+    total_cards_drawn: u8,
+    total_cards_given_back: u8,
 }
 
 impl RoundPlayer {
+    pub fn id(&self) -> PlayerId {
+        self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn cash(&self) -> u8 {
+        self.cash
+    }
+
+    // TODO: Temporarily used in tests, remove when tests update
+    pub(crate) fn _set_cash(&mut self, cash: u8) {
+        self.cash = cash;
+    }
+
+    pub fn assets(&self) -> &[Asset] {
+        &self.assets
+    }
+
+    pub fn liabilities(&self) -> &[Liability] {
+        &self.liabilities
+    }
+
+    pub fn character(&self) -> Character {
+        self.character
+    }
+
+    pub fn hand(&self) -> &[Either<Asset, Liability>] {
+        &self.hand
+    }
+
     fn update_cards_drawn(&mut self, card_idx: usize) {
         self.cards_drawn = self
             .cards_drawn
@@ -105,7 +184,7 @@ impl RoundPlayer {
             .collect();
     }
 
-    fn can_play_asset(&self, color: Color) -> bool {
+    pub fn can_play_asset(&self, color: Color) -> bool {
         match self
             .assets_to_play
             .checked_sub(self.playable_assets.color_cost(color))
@@ -115,11 +194,11 @@ impl RoundPlayer {
         }
     }
 
-    fn can_play_liability(&self) -> bool {
+    pub fn can_play_liability(&self) -> bool {
         self.liabilities_to_play > 0
     }
 
-    pub fn redeem_liability(
+    pub(crate) fn redeem_liability(
         &mut self,
         liability_idx: usize,
     ) -> Result<Liability, RedeemLiabilityError> {
@@ -153,7 +232,7 @@ impl RoundPlayer {
 
     /// Plays card in players hand with index `card_idx`. If that index is valid, the card is played
     /// if
-    pub fn play_card(
+    pub(crate) fn play_card(
         &mut self,
         card_idx: usize,
     ) -> Result<Either<Asset, Liability>, PlayCardError> {
@@ -190,21 +269,38 @@ impl RoundPlayer {
         }
     }
 
-    pub fn draw_card(
-        &mut self,
-        card: Either<Asset, Liability>,
-    ) -> Result<either::Either<&Asset, &Liability>, DrawCardError> {
+    fn draw_card(&mut self, card: Either<Asset, Liability>) {
+        self.total_cards_drawn += 1;
+        self.cards_drawn.push(self.hand.len());
+        self.hand.push(card);
+    }
+
+    pub(crate) fn draw_asset(&mut self, deck: &mut Deck<Asset>) -> Result<&Asset, DrawCardError> {
         if self.can_draw_cards() {
-            self.total_cards_drawn += 1;
-            self.cards_drawn.push(self.hand.len());
-            self.hand.push(card);
-            Ok(self.hand.last().unwrap().as_ref())
+            let card = Either::Left(deck.draw());
+            self.draw_card(card);
+
+            Ok(self.hand.last().unwrap().as_ref().left().unwrap())
         } else {
             Err(DrawCardError::MaximumCardsDrawn(self.total_cards_drawn))
         }
     }
 
-    pub fn give_back_card(
+    pub(crate) fn draw_liability(
+        &mut self,
+        deck: &mut Deck<Liability>,
+    ) -> Result<&Liability, DrawCardError> {
+        if self.can_draw_cards() {
+            let card = Either::Right(deck.draw());
+            self.draw_card(card);
+
+            Ok(self.hand.last().unwrap().as_ref().right().unwrap())
+        } else {
+            Err(DrawCardError::MaximumCardsDrawn(self.total_cards_drawn))
+        }
+    }
+
+    pub(crate) fn give_back_card(
         &mut self,
         card_idx: usize,
     ) -> Result<Either<Asset, Liability>, GiveBackCardError> {
@@ -317,15 +413,39 @@ impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
 
 #[derive(Debug, Clone)]
 pub struct ResultsPlayer {
-    pub id: PlayerId,
-    pub name: String,
-    pub cash: u8,
-    pub assets: Vec<Asset>,
-    pub liabilities: Vec<Liability>,
-    pub hand: Vec<Either<Asset, Liability>>,
+    id: PlayerId,
+    name: String,
+    cash: u8,
+    assets: Vec<Asset>,
+    liabilities: Vec<Liability>,
+    hand: Vec<Either<Asset, Liability>>,
 }
 
 impl ResultsPlayer {
+    pub fn id(&self) -> PlayerId {
+        self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn cash(&self) -> u8 {
+        self.cash
+    }
+
+    pub fn assets(&self) -> &[Asset] {
+        &self.assets
+    }
+
+    pub fn liabilities(&self) -> &[Liability] {
+        &self.liabilities
+    }
+
+    pub fn hand(&self) -> &[Either<Asset, Liability>] {
+        &self.hand
+    }
+
     pub fn total_gold(&self) -> u8 {
         self.assets.iter().map(|a| a.gold_value).sum()
     }

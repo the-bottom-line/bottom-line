@@ -47,31 +47,31 @@ impl RoomState {
                 let player_id = state
                     .selecting_characters()?
                     .player_by_name(player_name)?
-                    .id;
+                    .id();
                 select_character(state, player_id, character)
             }
             FrontendRequest::DrawCard { card_type } => {
-                let player_id = state.round()?.player_by_name(player_name)?.id;
+                let player_id = state.round()?.player_by_name(player_name)?.id();
                 draw_card(state, card_type, player_id)
             }
             FrontendRequest::PutBackCard { card_idx } => {
-                let player_id = state.round()?.player_by_name(player_name)?.id;
+                let player_id = state.round()?.player_by_name(player_name)?.id();
                 put_back_card(state, card_idx, player_id)
             }
             FrontendRequest::BuyAsset { card_idx } => {
-                let player_id = state.round()?.player_by_name(player_name)?.id;
+                let player_id = state.round()?.player_by_name(player_name)?.id();
                 play_card(state, card_idx, player_id)
             }
             FrontendRequest::IssueLiability { card_idx } => {
-                let player_id = state.round()?.player_by_name(player_name)?.id;
+                let player_id = state.round()?.player_by_name(player_name)?.id();
                 play_card(state, card_idx, player_id)
             }
             FrontendRequest::RedeemLiability { liability_idx } => {
-                let player_id = state.round()?.player_by_name(player_name)?.id;
+                let player_id = state.round()?.player_by_name(player_name)?.id();
                 redeem_liability(state, liability_idx, player_id)
             }
             FrontendRequest::EndTurn => {
-                let player_id = state.round()?.player_by_name(player_name)?.id;
+                let player_id = state.round()?.player_by_name(player_name)?.id();
                 end_turn(state, player_id)
             }
         }

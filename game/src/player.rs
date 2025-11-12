@@ -417,15 +417,39 @@ impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
 
 #[derive(Debug, Clone)]
 pub struct ResultsPlayer {
-    pub id: PlayerId,
-    pub name: String,
-    pub cash: u8,
-    pub assets: Vec<Asset>,
-    pub liabilities: Vec<Liability>,
-    pub hand: Vec<Either<Asset, Liability>>,
+    id: PlayerId,
+    name: String,
+    cash: u8,
+    assets: Vec<Asset>,
+    liabilities: Vec<Liability>,
+    hand: Vec<Either<Asset, Liability>>,
 }
 
 impl ResultsPlayer {
+    pub fn id(&self) -> PlayerId {
+        self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn cash(&self) -> u8 {
+        self.cash
+    }
+
+    pub fn assets(&self) -> &[Asset] {
+        &self.assets
+    }
+
+    pub fn liabilities(&self) -> &[Liability] {
+        &self.liabilities
+    }
+
+    pub fn hand(&self) -> &[Either<Asset, Liability>] {
+        &self.hand
+    }
+
     pub fn total_gold(&self) -> u8 {
         self.assets.iter().map(|a| a.gold_value).sum()
     }

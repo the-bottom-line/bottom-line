@@ -1116,7 +1116,7 @@ impl Results {
     pub fn player_by_name(&self, name: &str) -> Result<&ResultsPlayer, GameError> {
         self.players()
             .iter()
-            .find(|p| p.name == name)
+            .find(|p| p.name() == name)
             .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
     }
 
@@ -1150,7 +1150,7 @@ impl Results {
 
         let fcf = red + green + yellow + purple + blue;
 
-        let score = (fcf / (10.0 * wacc)) + (debt / 3.0) + player.cash as f64;
+        let score = (fcf / (10.0 * wacc)) + (debt / 3.0) + player.cash() as f64;
 
         Ok(score)
     }
@@ -1158,7 +1158,7 @@ impl Results {
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
         self.players()
             .iter()
-            .filter(|p| p.id != id)
+            .filter(|p| p.id() != id)
             .map(Into::into)
             .collect()
     }

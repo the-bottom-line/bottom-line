@@ -5,6 +5,8 @@ use std::{collections::HashSet, path::Path, sync::Arc, vec};
 
 use crate::{cards::GameData, errors::*, player::*, utility::serde_asset_liability};
 
+pub const STARTING_GOLD: u8 = 1;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
     pub title: String,
@@ -577,17 +579,17 @@ impl Lobby {
     }
 
     pub fn usernames(&self) -> Vec<String> {
-        self.players().iter().map(|p| &p.name).cloned().collect()
+        self.players().iter().map(|p| p.name().to_owned()).collect()
     }
 
     pub fn join(&mut self, username: String) -> Result<&LobbyPlayer, LobbyError> {
-        match self.players().iter().find(|p| p.name == username) {
+        match self.players().iter().find(|p| p.name() == username) {
             Some(_) => Err(LobbyError::UsernameAlreadyTaken(username)),
             None => {
-                let player = LobbyPlayer {
-                    id: PlayerId(self.players.len() as u8),
-                    name: username.clone(),
-                };
+                let id = PlayerId(self.players.len() as u8);
+                let name = username.clone();
+                let player = LobbyPlayer::new(id, name);
+
                 self.players.0.push(player);
                 Ok(&self.players.0[self.players.len() - 1])
             }
@@ -595,13 +597,13 @@ impl Lobby {
     }
 
     pub fn leave(&mut self, username: &str) -> bool {
-        match self.players().iter().position(|p| p.name == username) {
+        match self.players().iter().position(|p| p.name() == username) {
             Some(pos) => {
                 self.players.0.remove(pos);
                 self.players_mut()
                     .iter_mut()
                     .zip(0u8..)
-                    .for_each(|(p, id)| p.id = PlayerId(id));
+                    .for_each(|(p, id)| p.set_id(PlayerId(id)));
                 true
             }
             None => false,
@@ -611,7 +613,7 @@ impl Lobby {
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
         self.players()
             .iter()
-            .filter(|p| p.id != id)
+            .filter(|p| p.id() != id)
             .map(Into::into)
             .collect()
     }
@@ -639,7 +641,7 @@ impl Lobby {
             let current_market =
                 Lobby::initial_market(&mut markets).expect("No markets in deck for some reason");
 
-            let chairman = players.players().first().unwrap().id;
+            let chairman = players.players().first().unwrap().id();
             debug_assert_eq!(chairman, PlayerId(0));
 
             let characters = ObtainingCharacters::new(players.len(), chairman)?;
@@ -666,7 +668,7 @@ impl Lobby {
         assets: &mut Deck<Asset>,
         liabilities: &mut Deck<Liability>,
     ) -> Players<SelectingCharactersPlayer> {
-        self.players.0.sort_by(|p1, p2| p1.id.cmp(&p2.id));
+        self.players.0.sort_by(|p1, p2| p1.id().cmp(&p2.id()));
 
         let players = self
             .players()
@@ -674,7 +676,13 @@ impl Lobby {
             .map(|p| {
                 let assets = [assets.draw(), assets.draw()];
                 let liabilities = [liabilities.draw(), liabilities.draw()];
-                SelectingCharactersPlayer::new(&p.name, p.id.0, assets, liabilities, 1)
+                SelectingCharactersPlayer::new(
+                    p.name().to_owned(),
+                    p.id(),
+                    assets,
+                    liabilities,
+                    STARTING_GOLD,
+                )
             })
             .collect();
 

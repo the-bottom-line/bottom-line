@@ -10,8 +10,26 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct LobbyPlayer {
-    pub id: PlayerId,
-    pub name: String,
+    id: PlayerId,
+    name: String,
+}
+
+impl LobbyPlayer {
+    pub fn new(id: PlayerId, name: String) -> Self {
+        Self { id, name }
+    }
+
+    pub fn id(&self) -> PlayerId {
+        self.id
+    }
+
+    pub fn set_id(&mut self, id: PlayerId) {
+        self.id = id;
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -27,8 +45,8 @@ pub struct SelectingCharactersPlayer {
 
 impl SelectingCharactersPlayer {
     pub(crate) fn new(
-        name: &str,
-        id: u8,
+        name: String,
+        id: PlayerId,
         assets: [Asset; 2],
         liabilities: [Liability; 2],
         cash: u8,
@@ -40,8 +58,8 @@ impl SelectingCharactersPlayer {
             .collect();
 
         SelectingCharactersPlayer {
-            id: PlayerId(id),
-            name: name.to_string(),
+            id,
+            name,
             cash,
             assets: vec![],
             liabilities: vec![],

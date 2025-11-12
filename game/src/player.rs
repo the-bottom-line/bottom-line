@@ -304,13 +304,17 @@ impl RoundPlayer {
         &mut self,
         card_idx: usize,
     ) -> Result<Either<Asset, Liability>, GiveBackCardError> {
-        match self.hand.get(card_idx) {
-            Some(_) => {
-                self.total_cards_given_back += 1;
-                self.update_cards_drawn(card_idx);
-                Ok(self.hand.remove(card_idx))
+        if self.should_give_back_cards() {
+            match self.hand.get(card_idx) {
+                Some(_) => {
+                    self.total_cards_given_back += 1;
+                    self.update_cards_drawn(card_idx);
+                    Ok(self.hand.remove(card_idx))
+                }
+                None => Err(GiveBackCardError::InvalidCardIndex(card_idx as u8)),
             }
-            None => Err(GiveBackCardError::InvalidCardIndex(card_idx as u8)),
+        } else {
+            Err(GiveBackCardError::Unnecessary)
         }
     }
 

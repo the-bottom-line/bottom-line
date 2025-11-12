@@ -994,19 +994,15 @@ impl Round {
     ) -> Result<CardType, GameError> {
         match self.players.player_mut(id) {
             Ok(player) if player.id() == self.current_player => {
-                if player.should_give_back_cards() {
-                    match player.give_back_card(card_idx)? {
-                        Either::Left(asset) => {
-                            self.assets.put_back(asset);
-                            Ok(CardType::Asset)
-                        }
-                        Either::Right(liability) => {
-                            self.liabilities.put_back(liability);
-                            Ok(CardType::Liability)
-                        }
+                match player.give_back_card(card_idx)? {
+                    Either::Left(asset) => {
+                        self.assets.put_back(asset);
+                        Ok(CardType::Asset)
                     }
-                } else {
-                    Err(GiveBackCardError::Unnecessary.into())
+                    Either::Right(liability) => {
+                        self.liabilities.put_back(liability);
+                        Ok(CardType::Liability)
+                    }
                 }
             }
             Ok(_) => Err(GameError::NotPlayersTurn),

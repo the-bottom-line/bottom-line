@@ -705,7 +705,7 @@ pub struct SelectingCharacters {
     assets: Deck<Asset>,
     liabilities: Deck<Liability>,
     markets: Deck<Either<Market, Event>>,
-    pub chairman: PlayerId,
+    chairman: PlayerId,
     current_market: Market,
     current_events: Vec<Event>,
 }
@@ -724,6 +724,10 @@ impl SelectingCharacters {
 
     pub fn players(&self) -> &[SelectingCharactersPlayer] {
         self.players.players()
+    }
+
+    pub fn chairman_id(&self) -> PlayerId {
+        self.chairman
     }
 
     pub fn currently_selecting_id(&self) -> PlayerId {

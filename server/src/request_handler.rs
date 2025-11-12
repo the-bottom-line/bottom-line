@@ -43,7 +43,7 @@ pub fn start_game(state: &mut GameState) -> Result<Response, GameError> {
                         player_info: selecting.player_info(p.id()),
                     },
                     UniqueResponse::SelectingCharacters {
-                        chairman_id: selecting.chairman,
+                        chairman_id: selecting.chairman_id(),
                         selectable_characters: selecting
                             .player_get_selectable_characters(p.id())
                             .ok(),
@@ -296,7 +296,7 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
                     (
                         p.id(),
                         vec![UniqueResponse::SelectingCharacters {
-                            chairman_id: selecting.chairman,
+                            chairman_id: selecting.chairman_id(),
                             selectable_characters: selecting
                                 .player_get_selectable_characters(p.id())
                                 .ok(),

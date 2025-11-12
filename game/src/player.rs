@@ -824,6 +824,89 @@ mod tests {
     }
 
     #[test]
+    fn draw_cards_head_rnd() {
+        let liability_value = 10;
+
+        let selecting_player = SelectingCharactersPlayer {
+            id: Default::default(),
+            name: Default::default(),
+            assets: Default::default(),
+            liabilities: Default::default(),
+            cash: Default::default(),
+            character: Some(Character::HeadRnD),
+            hand: Default::default(),
+        };
+        let round_player = RoundPlayer::try_from(selecting_player).unwrap();
+
+        std::iter::repeat_n([CardType::Asset, CardType::Liability], 7)
+            .multi_cartesian_product()
+            .map(|v| ([v[0], v[1], v[2], v[3], v[4], v[5]], v[6]))
+            .for_each(|(types, extra)| {
+                let mut player = round_player.clone();
+                for t in types {
+                    let card = match t {
+                        CardType::Asset => Either::Left(asset(Color::Red)),
+                        CardType::Liability => Either::Right(liability(liability_value)),
+                    };
+                    assert_ok!(player.draw_card(card));
+                }
+
+                let card = match extra {
+                    CardType::Asset => Either::Left(asset(Color::Red)),
+                    CardType::Liability => Either::Right(liability(liability_value)),
+                };
+                assert_matches!(
+                    player.draw_card(card),
+                    Err(DrawCardError::MaximumCardsDrawn(_))
+                );
+            });
+    }
+
+    #[test]
+    fn draw_cards_default() {
+        let liability_value = 10;
+
+        for character in Character::CHARACTERS
+            .into_iter()
+            .filter(|c| *c != Character::HeadRnD)
+        {
+            let selecting_player = SelectingCharactersPlayer {
+                id: Default::default(),
+                name: Default::default(),
+                assets: Default::default(),
+                liabilities: Default::default(),
+                cash: Default::default(),
+                character: Some(character),
+                hand: Default::default(),
+            };
+            let round_player = RoundPlayer::try_from(selecting_player).unwrap();
+
+            std::iter::repeat_n([CardType::Asset, CardType::Liability], 4)
+                .multi_cartesian_product()
+                .map(|v| ([v[0], v[1], v[2]], v[3]))
+                .for_each(|(types, extra)| {
+                    let mut player = round_player.clone();
+                    for t in types {
+                        let card = match t {
+                            CardType::Asset => Either::Left(asset(Color::Red)),
+                            CardType::Liability => Either::Right(liability(liability_value)),
+                        };
+                        assert_ok!(player.draw_card(card));
+                    }
+
+                    let card = match extra {
+                        CardType::Asset => Either::Left(asset(Color::Red)),
+                        CardType::Liability => Either::Right(liability(liability_value)),
+                    };
+                    assert_matches!(
+                        player.draw_card(card),
+                        Err(DrawCardError::MaximumCardsDrawn(_))
+                    );
+                });
+        }
+    }
+
+    #[test]
     fn should_give_back_cards() {
         let selecting_player = SelectingCharactersPlayer {
             id: Default::default(),

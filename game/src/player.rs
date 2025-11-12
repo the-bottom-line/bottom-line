@@ -1226,7 +1226,7 @@ mod tests {
             };
             let round_player = RoundPlayer::try_from(selecting_player).unwrap();
 
-            // All permutations of any color followed by blue, yellow or purple
+            // All permutations of any 2 colors
             std::iter::repeat_n(Color::COLORS, 2)
                 .multi_cartesian_product()
                 .map(|v| (v[0], v[1]))

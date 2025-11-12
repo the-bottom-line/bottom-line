@@ -304,10 +304,9 @@ impl RoundPlayer {
         &mut self,
         card_idx: usize,
     ) -> Result<Either<Asset, Liability>, GiveBackCardError> {
-        self.total_cards_given_back += 1;
-
         match self.hand.get(card_idx) {
             Some(_) => {
+                self.total_cards_given_back += 1;
                 self.update_cards_drawn(card_idx);
                 Ok(self.hand.remove(card_idx))
             }

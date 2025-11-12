@@ -792,6 +792,30 @@ mod tests {
     }
 
     #[test]
+    fn select_character() {
+        for character in Character::CHARACTERS {
+            let mut player = SelectingCharactersPlayer {
+                id: Default::default(),
+                name: Default::default(),
+                assets: Default::default(),
+                liabilities: Default::default(),
+                cash: Default::default(),
+                character: None,
+                hand: Default::default(),
+            };
+
+            assert_ok!(player.select_character(character));
+            
+            for character2 in Character::CHARACTERS {
+                assert_matches!(
+                    player.select_character(character2),
+                    Err(SelectingCharactersError::AlreadySelectedCharacter(c)) if c == character
+                );
+            }
+        }
+    }
+
+    #[test]
     fn should_give_back_cards() {
         let selecting_player = SelectingCharactersPlayer {
             id: Default::default(),

@@ -964,21 +964,34 @@ mod tests {
             .for_each(|(types, extra)| {
                 let mut player = round_player.clone();
                 for t in types {
-                    let card = match t {
-                        CardType::Asset => Either::Left(asset(Color::Red)),
-                        CardType::Liability => Either::Right(liability(liability_value)),
-                    };
-                    assert_ok!(player.draw_card(card));
+                    match t {
+                        CardType::Asset => {
+                            let mut assets = Deck::new(vec![asset(Color::Red)]);
+                            assert_ok!(player.draw_asset(&mut assets));
+                        }
+                        CardType::Liability => {
+                            let mut liabilities = Deck::new(vec![liability(liability_value)]);
+                            assert_ok!(player.draw_liability(&mut liabilities));
+                        }
+                    }
                 }
 
-                let card = match extra {
-                    CardType::Asset => Either::Left(asset(Color::Red)),
-                    CardType::Liability => Either::Right(liability(liability_value)),
-                };
-                assert_matches!(
-                    player.draw_card(card),
-                    Err(DrawCardError::MaximumCardsDrawn(_))
-                );
+                match extra {
+                    CardType::Asset => {
+                        let mut assets = Deck::new(vec![asset(Color::Red)]);
+                        assert_matches!(
+                            player.draw_asset(&mut assets),
+                            Err(DrawCardError::MaximumCardsDrawn(_))
+                        );
+                    }
+                    CardType::Liability => {
+                        let mut liabilities = Deck::new(vec![liability(liability_value)]);
+                        assert_matches!(
+                            player.draw_liability(&mut liabilities),
+                            Err(DrawCardError::MaximumCardsDrawn(_))
+                        );
+                    }
+                }
             });
     }
 
@@ -1007,21 +1020,34 @@ mod tests {
                 .for_each(|(types, extra)| {
                     let mut player = round_player.clone();
                     for t in types {
-                        let card = match t {
-                            CardType::Asset => Either::Left(asset(Color::Red)),
-                            CardType::Liability => Either::Right(liability(liability_value)),
-                        };
-                        assert_ok!(player.draw_card(card));
+                        match t {
+                            CardType::Asset => {
+                                let mut assets = Deck::new(vec![asset(Color::Red)]);
+                                assert_ok!(player.draw_asset(&mut assets));
+                            }
+                            CardType::Liability => {
+                                let mut liabilities = Deck::new(vec![liability(liability_value)]);
+                                assert_ok!(player.draw_liability(&mut liabilities));
+                            }
+                        }
                     }
 
-                    let card = match extra {
-                        CardType::Asset => Either::Left(asset(Color::Red)),
-                        CardType::Liability => Either::Right(liability(liability_value)),
-                    };
-                    assert_matches!(
-                        player.draw_card(card),
-                        Err(DrawCardError::MaximumCardsDrawn(_))
-                    );
+                    match extra {
+                        CardType::Asset => {
+                            let mut assets = Deck::new(vec![asset(Color::Red)]);
+                            assert_matches!(
+                                player.draw_asset(&mut assets),
+                                Err(DrawCardError::MaximumCardsDrawn(_))
+                            );
+                        }
+                        CardType::Liability => {
+                            let mut liabilities = Deck::new(vec![liability(liability_value)]);
+                            assert_matches!(
+                                player.draw_liability(&mut liabilities),
+                                Err(DrawCardError::MaximumCardsDrawn(_))
+                            );
+                        }
+                    }
                 });
         }
     }

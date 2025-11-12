@@ -130,22 +130,55 @@ impl From<RoundPlayer> for SelectingCharactersPlayer {
 
 #[derive(Debug, Clone)]
 pub struct RoundPlayer {
-    pub id: PlayerId,
-    pub name: String,
-    pub cash: u8,
-    pub assets: Vec<Asset>,
-    pub liabilities: Vec<Liability>,
-    pub character: Character,
-    pub hand: Vec<Either<Asset, Liability>>,
-    pub cards_drawn: Vec<usize>,
-    pub assets_to_play: u8,
-    pub playable_assets: PlayableAssets,
-    pub liabilities_to_play: u8,
-    pub total_cards_drawn: u8,
-    pub total_cards_given_back: u8,
+    id: PlayerId,
+    name: String,
+    cash: u8,
+    assets: Vec<Asset>,
+    liabilities: Vec<Liability>,
+    character: Character,
+    hand: Vec<Either<Asset, Liability>>,
+    cards_drawn: Vec<usize>,
+    assets_to_play: u8,
+    playable_assets: PlayableAssets,
+    liabilities_to_play: u8,
+    total_cards_drawn: u8,
+    total_cards_given_back: u8,
 }
 
 impl RoundPlayer {
+    pub fn id(&self) -> PlayerId {
+        self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn cash(&self) -> u8 {
+        self.cash
+    }
+
+    // TODO: Temporarily used in tests, remove when tests update
+    pub(crate) fn _set_cash(&mut self, cash: u8) {
+        self.cash = cash;
+    }
+
+    pub fn assets(&self) -> &[Asset] {
+        &self.assets
+    }
+
+    pub fn liabilities(&self) -> &[Liability] {
+        &self.liabilities
+    }
+
+    pub fn character(&self) -> Character {
+        self.character
+    }
+
+    pub fn hand(&self) -> &[Either<Asset, Liability>] {
+        &self.hand
+    }
+
     fn update_cards_drawn(&mut self, card_idx: usize) {
         self.cards_drawn = self
             .cards_drawn

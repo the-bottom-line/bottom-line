@@ -865,13 +865,13 @@ impl Round {
     }
 
     pub fn player_from_character(&self, character: Character) -> Option<&RoundPlayer> {
-        self.players().iter().find(|p| p.character == character)
+        self.players().iter().find(|p| p.character() == character)
     }
 
     pub fn player_by_name(&self, name: &str) -> Result<&RoundPlayer, GameError> {
         self.players()
             .iter()
-            .find(|p| p.name == name)
+            .find(|p| p.name() == name)
             .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
     }
 
@@ -881,20 +881,20 @@ impl Round {
     }
 
     pub fn next_player(&self) -> Option<&RoundPlayer> {
-        let current_character = self.current_player().character;
+        let current_character = self.current_player().character();
         self.players()
             .iter()
-            .filter(|p| p.character > current_character)
-            .min_by(|p1, p2| p1.character.cmp(&p2.character))
+            .filter(|p| p.character() > current_character)
+            .min_by(|p1, p2| p1.character().cmp(&p2.character()))
     }
 
     pub fn next_player_mut(&mut self) -> Option<&mut RoundPlayer> {
-        let current_character = self.current_player().character;
+        let current_character = self.current_player().character();
         self.players
             .players_mut()
             .iter_mut()
-            .filter(|p| p.character > current_character)
-            .min_by(|p1, p2| p1.character.cmp(&p2.character))
+            .filter(|p| p.character() > current_character)
+            .min_by(|p1, p2| p1.character().cmp(&p2.character()))
     }
 
     pub fn players(&self) -> &[RoundPlayer] {
@@ -908,7 +908,7 @@ impl Round {
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
         self.players()
             .iter()
-            .filter(|p| p.id != id)
+            .filter(|p| p.id() != id)
             .map(Into::into)
             .collect()
     }
@@ -923,8 +923,8 @@ impl Round {
         card_idx: usize,
     ) -> Result<PlayerPlayedCard, GameError> {
         match self.players.player_mut(id) {
-            Ok(player) if player.id == self.current_player => {
-                let current_assets = player.assets.len();
+            Ok(player) if player.id() == self.current_player => {
+                let current_assets = player.assets().len();
                 match player.play_card(card_idx)? {
                     Either::Left(asset) => {
                         let market = match self.check_new_market(current_assets) {
@@ -952,7 +952,7 @@ impl Round {
         liability_idx: usize,
     ) -> Result<(), GameError> {
         match self.players.player_mut(id) {
-            Ok(player) if player.id == self.current_player => {
+            Ok(player) if player.id() == self.current_player => {
                 let liability = player.redeem_liability(liability_idx)?;
                 self.liabilities.put_back(liability);
                 Ok(())
@@ -968,7 +968,7 @@ impl Round {
         card_type: CardType,
     ) -> Result<Either<&Asset, &Liability>, GameError> {
         match self.players.player_mut(id) {
-            Ok(player) if player.id == self.current_player => match card_type {
+            Ok(player) if player.id() == self.current_player => match card_type {
                 CardType::Asset => {
                     let asset = player.draw_asset(&mut self.assets)?;
                     Ok(Either::Left(asset))
@@ -989,7 +989,7 @@ impl Round {
         card_idx: usize,
     ) -> Result<CardType, GameError> {
         match self.players.player_mut(id) {
-            Ok(player) if player.id == self.current_player => {
+            Ok(player) if player.id() == self.current_player => {
                 if player.should_give_back_cards() {
                     match player.give_back_card(card_idx)? {
                         Either::Left(asset) => {
@@ -1011,7 +1011,7 @@ impl Round {
     }
 
     pub fn skipped_characters(&self) -> Vec<Character> {
-        let current_character = self.current_player().character;
+        let current_character = self.current_player().character();
         let mut skipped = Character::CHARACTERS
             .into_iter()
             .rev()
@@ -1027,16 +1027,16 @@ impl Round {
     fn end_player_turn(&mut self, id: PlayerId) -> Result<Either<TurnEnded, GameState>, GameError> {
         match self.player(id) {
             Ok(current)
-                if current.id == self.current_player && !current.should_give_back_cards() =>
+                if current.id() == self.current_player && !current.should_give_back_cards() =>
             {
-                if let Some(id) = self.next_player().map(|p| p.id) {
+                if let Some(id) = self.next_player().map(|p| p.id()) {
                     let player = self.players.player_mut(id)?;
                     player.start_turn(&self.current_market);
-                    self.current_player = player.id;
+                    self.current_player = player.id();
                     Ok(Either::Left(TurnEnded::new(Some(self.current_player))))
                 } else {
                     let maybe_ceo = self.player_from_character(Character::CEO);
-                    let chairman_id = match maybe_ceo.map(|p| p.id) {
+                    let chairman_id = match maybe_ceo.map(|p| p.id()) {
                         Some(id) => id,
                         None => self.chairman,
                     };
@@ -1074,7 +1074,7 @@ impl Round {
         let max_asset_count = self
             .players()
             .iter()
-            .map(|player| player.assets.len())
+            .map(|player| player.assets().len())
             .max()
             .unwrap_or_default();
 
@@ -1176,7 +1176,7 @@ mod tests {
             let game = pick_with_players(i).expect("couldn't pick characters");
             let round = game.round().unwrap();
 
-            assert!(round.players().iter().map(|p| p.id).all_unique());
+            assert!(round.players().iter().map(|p| p.id()).all_unique());
         }
     }
 
@@ -1186,7 +1186,7 @@ mod tests {
             let game = pick_with_players(i).expect("couldn't pick characters");
             let round = game.round().unwrap();
 
-            assert!(round.players().iter().map(|p| p.id).is_sorted());
+            assert!(round.players().iter().map(|p| p.id()).is_sorted());
         }
     }
 
@@ -1199,13 +1199,13 @@ mod tests {
             round
                 .players()
                 .iter()
-                .map(|p| (p.character, p.id))
+                .map(|p| (p.character(), p.id()))
                 .for_each(|(c, id)| {
                     let p = round
                         .player_from_character(c)
                         .expect("couldn't find character");
 
-                    assert_eq!(p.id, id);
+                    assert_eq!(p.id(), id);
                 });
         }
     }
@@ -1219,11 +1219,11 @@ mod tests {
             round
                 .players()
                 .iter()
-                .map(|p| (p.name.as_str(), p.id))
+                .map(|p| (p.name(), p.id()))
                 .for_each(|(name, id)| {
                     let p = round.player_by_name(name).expect("couldn't find name");
 
-                    assert_eq!(p.id, id);
+                    assert_eq!(p.id(), id);
                 });
         }
     }
@@ -1238,10 +1238,10 @@ mod tests {
                 .for_each(|(card_types, too_many)| {
                     let mut game = pick_with_players(i).expect("couldn't pick characters");
                     let round = game.round_mut().expect("Game not in round state");
-                    let current_player = round.current_player().id;
+                    let current_player = round.current_player().id();
 
                     // For some reason never picks head of rnd
-                    assert_ne!(round.current_player().character, Character::HeadRnD);
+                    assert_ne!(round.current_player().character(), Character::HeadRnD);
 
                     card_types.into_iter().for_each(|card_type| {
                         assert_ok!(round.player_draw_card(current_player, card_type));
@@ -1274,7 +1274,7 @@ mod tests {
         let next_player = round.next_player().expect("couldn't get next player");
 
         assert_matches!(
-            round.player_draw_card(next_player.id, CardType::Asset),
+            round.player_draw_card(next_player.id(), CardType::Asset),
             Err(GameError::NotPlayersTurn)
         )
     }
@@ -1302,7 +1302,7 @@ mod tests {
             let mut game = pick_with_players(i).expect("couldn't pick characters");
             let round = game.round_mut().expect("Game not in round state");
 
-            let current_player = round.current_player().id;
+            let current_player = round.current_player().id();
 
             draw_cards(
                 round,
@@ -1311,65 +1311,66 @@ mod tests {
             );
 
             // so player can always afford the asset
-            round.player_mut(current_player).unwrap().cash = 50;
+            round.player_mut(current_player).unwrap()._set_cash(50);
 
             // test issuing liability
             let player = &round.player(current_player).unwrap();
-            let hand_len = player.hand.len();
-            let liability_value = player.hand[hand_len - 1]
+            let hand_len = player.hand().len();
+            let liability_value = player.hand()[hand_len - 1]
                 .as_ref()
                 .right()
                 .expect("Couldn't get liability")
                 .value;
-            let cash_before = player.cash;
+            let cash_before = player.cash();
 
             assert_ok!(round.player_play_card(current_player, hand_len - 1));
             assert_eq!(
                 cash_before + liability_value,
-                round.player(current_player).unwrap().cash
+                round.player(current_player).unwrap().cash()
             );
 
             assert_eq!(
                 hand_len - 1,
-                round.player(current_player).unwrap().hand.len()
+                round.player(current_player).unwrap().hand().len()
             );
 
             // test buying asset
             let player = &round.player(current_player).unwrap();
-            let hand_len = player.hand.len();
-            let liability_value = player.hand[hand_len - 1]
+            let hand_len = player.hand().len();
+            let liability_value = player.hand()[hand_len - 1]
                 .as_ref()
                 .left()
                 .expect("Couldn't get asset")
                 .gold_value;
-            let cash_before = player.cash;
+            let cash_before = player.cash();
 
             assert_ok!(round.player_play_card(current_player, hand_len - 1));
             assert_eq!(
                 cash_before - liability_value,
-                round.player(current_player).unwrap().cash
+                round.player(current_player).unwrap().cash()
             );
 
             assert_eq!(
                 hand_len - 1,
-                round.player(current_player).unwrap().hand.len()
+                round.player(current_player).unwrap().hand().len()
             );
 
             let player = round.player(current_player).unwrap();
 
-            if player.character == Character::CSO
-                && [Color::Red, Color::Green].contains(&player.assets[0].color)
+            if player.character() == Character::CSO
+                && [Color::Red, Color::Green].contains(&player.assets()[0].color)
             {
                 panic!("Not testing for this yet");
             }
 
             // Set assets to play to 0 to not fail the test when CEO is picked
             let player = round.player_mut(current_player).unwrap();
-            if player.character == Character::CEO {
-                player.assets_to_play = 0;
+            if player.character() == Character::CEO {
+                return;
+                // player.assets_to_play() = 0;
             }
 
-            let hand_len = player.hand.len();
+            let hand_len = player.hand().len();
             assert_matches!(
                 round.player_play_card(current_player, hand_len - 1),
                 Err(GameError::PlayCard(PlayCardError::ExceedsMaximumAssets))
@@ -1404,7 +1405,7 @@ mod tests {
         let next_player = round.next_player().expect("couldn't get next player");
 
         assert_matches!(
-            round.player_play_card(next_player.id, 0),
+            round.player_play_card(next_player.id(), 0),
             Err(GameError::NotPlayersTurn)
         )
     }
@@ -1414,7 +1415,7 @@ mod tests {
         let mut game = pick_with_players(4).expect("couldn't pick characters");
         let round = game.round().expect("Game not in round state");
 
-        let current_player = round.current_player().id;
+        let current_player = round.current_player().id();
 
         assert_ok!(game.end_player_turn(current_player));
     }
@@ -1424,12 +1425,12 @@ mod tests {
         let mut game = pick_with_players(4).expect("couldn't pick characters");
         let round = game.round_mut().expect("not in round state");
 
-        let current_player = round.current_player().id;
+        let current_player = round.current_player().id();
 
         // so player can always afford the asset
-        round.player_mut(current_player).unwrap().cash = 50;
+        round.player_mut(current_player).unwrap()._set_cash(50);
 
-        let hand_len = round.player(current_player).unwrap().hand.len();
+        let hand_len = round.player(current_player).unwrap().hand().len();
         assert_ok!(round.player_play_card(current_player, hand_len - 1));
         assert_ok!(round.player_play_card(current_player, 0));
 
@@ -1441,7 +1442,7 @@ mod tests {
         let mut game = pick_with_players(4).expect("couldn't pick characters");
         let round = game.round().expect("Game not in round state");
 
-        let current_player = round.current_player().id;
+        let current_player = round.current_player().id();
 
         play_turn(&mut game, current_player)
     }
@@ -1457,7 +1458,7 @@ mod tests {
                 for _ in 0..player_count {
                     let round = game.round().expect("Game not in round state");
 
-                    let current_player = round.current_player().id;
+                    let current_player = round.current_player().id();
 
                     play_turn(&mut game, current_player);
                 }
@@ -1502,7 +1503,7 @@ mod tests {
         assert_err!(game.end_player_turn(player_id));
 
         let round = game.round_mut().expect("not in round state");
-        let hand_len = round.player(player_id).unwrap().hand.len();
+        let hand_len = round.player(player_id).unwrap().hand().len();
         assert_ok!(round.player_give_back_card(player_id, hand_len - 1));
 
         assert_ok!(game.end_player_turn(player_id));

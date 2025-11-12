@@ -115,8 +115,8 @@ impl<T> Default for Deck<T> {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PickableCharacters {
-    pub(crate) characters: Vec<Character>,
-    pub(crate) closed_character: Option<Character>,
+    characters: Vec<Character>,
+    closed_character: Option<Character>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

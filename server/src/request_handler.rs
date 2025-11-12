@@ -34,21 +34,21 @@ pub fn start_game(state: &mut GameState) -> Result<Response, GameError> {
         .iter()
         .map(|p| {
             (
-                p.id,
+                p.id(),
                 vec![
                     UniqueResponse::StartGame {
-                        id: p.id,
-                        hand: p.hand.clone(),
-                        cash: p.cash,
-                        player_info: selecting.player_info(p.id),
+                        id: p.id(),
+                        hand: p.hand().to_vec(),
+                        cash: p.cash(),
+                        player_info: selecting.player_info(p.id()),
                     },
                     UniqueResponse::SelectingCharacters {
                         chairman_id: selecting.chairman,
                         selectable_characters: selecting
-                            .player_get_selectable_characters(p.id)
+                            .player_get_selectable_characters(p.id())
                             .ok(),
                         open_characters: selecting.open_characters().to_vec(),
-                        closed_character: selecting.player_get_closed_character(p.id).ok(),
+                        closed_character: selecting.player_get_closed_character(p.id()).ok(),
                         turn_order: selecting.turn_order(),
                     },
                 ],
@@ -244,14 +244,14 @@ pub fn select_character(
                         .iter()
                         .map(|p| {
                             (
-                                p.id,
+                                p.id(),
                                 vec![UniqueResponse::SelectedCharacter {
                                     currently_picking_id: Some(selecting.currently_selecting_id()),
                                     selectable_characters: selecting
-                                        .player_get_selectable_characters(p.id)
+                                        .player_get_selectable_characters(p.id())
                                         .ok(),
                                     closed_character: selecting
-                                        .player_get_closed_character(p.id)
+                                        .player_get_closed_character(p.id())
                                         .ok(),
                                 }],
                             )
@@ -294,14 +294,14 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
                 .iter()
                 .map(|p| {
                     (
-                        p.id,
+                        p.id(),
                         vec![UniqueResponse::SelectingCharacters {
                             chairman_id: selecting.chairman,
                             selectable_characters: selecting
-                                .player_get_selectable_characters(p.id)
+                                .player_get_selectable_characters(p.id())
                                 .ok(),
                             open_characters: selecting.open_characters().to_vec(),
-                            closed_character: selecting.player_get_closed_character(p.id).ok(),
+                            closed_character: selecting.player_get_closed_character(p.id()).ok(),
                             turn_order: selecting.turn_order(),
                         }],
                     )

@@ -34,16 +34,44 @@ impl LobbyPlayer {
 
 #[derive(Debug, Clone)]
 pub struct SelectingCharactersPlayer {
-    pub id: PlayerId,
-    pub name: String,
-    pub cash: u8,
-    pub assets: Vec<Asset>,
-    pub liabilities: Vec<Liability>,
-    pub character: Option<Character>,
-    pub hand: Vec<Either<Asset, Liability>>,
+    id: PlayerId,
+    name: String,
+    cash: u8,
+    assets: Vec<Asset>,
+    liabilities: Vec<Liability>,
+    character: Option<Character>,
+    hand: Vec<Either<Asset, Liability>>,
 }
 
 impl SelectingCharactersPlayer {
+    pub fn id(&self) -> PlayerId {
+        self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn cash(&self) -> u8 {
+        self.cash
+    }
+
+    pub fn assets(&self) -> &[Asset] {
+        &self.assets
+    }
+
+    pub fn liabilities(&self) -> &[Liability] {
+        &self.liabilities
+    }
+
+    pub fn character(&self) -> Option<Character> {
+        self.character
+    }
+
+    pub fn hand(&self) -> &[Either<Asset, Liability>] {
+        &self.hand
+    }
+
     pub(crate) fn new(
         name: String,
         id: PlayerId,

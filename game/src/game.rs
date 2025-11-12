@@ -718,7 +718,7 @@ impl SelectingCharacters {
     pub fn player_by_name(&self, name: &str) -> Result<&SelectingCharactersPlayer, GameError> {
         self.players()
             .iter()
-            .find(|p| p.name == name)
+            .find(|p| p.name() == name)
             .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
     }
 
@@ -735,7 +735,7 @@ impl SelectingCharacters {
         id: PlayerId,
     ) -> Result<Vec<Character>, GameError> {
         match self.player(id) {
-            Ok(p) if p.id == self.currently_selecting_id() => self
+            Ok(p) if p.id() == self.currently_selecting_id() => self
                 .characters
                 .peek()
                 .map(|pc| pc.characters)
@@ -747,7 +747,7 @@ impl SelectingCharacters {
 
     pub fn player_get_closed_character(&self, id: PlayerId) -> Result<Character, GameError> {
         match self.player(id) {
-            Ok(p) if p.id == self.currently_selecting_id() => {
+            Ok(p) if p.id() == self.currently_selecting_id() => {
                 match self.characters.peek()?.closed_character {
                     Some(closed_character) => Ok(closed_character),
                     None => Err(SelectableCharactersError::NotChairman.into()),
@@ -766,7 +766,7 @@ impl SelectingCharacters {
         let currently_selecting_id = self.currently_selecting_id();
 
         match self.players.player_mut(id) {
-            Ok(p) if p.id == currently_selecting_id => {
+            Ok(p) if p.id() == currently_selecting_id => {
                 self.characters.pick(character)?;
 
                 p.select_character(character);
@@ -776,8 +776,8 @@ impl SelectingCharacters {
                     let current_player = self
                         .players()
                         .iter()
-                        .min_by(|p1, p2| p1.character.cmp(&p2.character))
-                        .map(|p| p.id)
+                        .min_by(|p1, p2| p1.character().cmp(&p2.character()))
+                        .map(|p| p.id())
                         .unwrap();
 
                     let players = std::mem::take(&mut self.players);
@@ -836,7 +836,7 @@ impl SelectingCharacters {
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
         self.players()
             .iter()
-            .filter(|p| p.id != id)
+            .filter(|p| p.id() != id)
             .map(Into::into)
             .collect()
     }
@@ -1588,7 +1588,9 @@ mod tests {
 
         (0..(player_count as u8))
             .map(|i| (i, format!("Player {i}")))
-            .for_each(|(i, name)| assert_matches!(lobby.join(name), Ok(p) if p.id == PlayerId(i)));
+            .for_each(
+                |(i, name)| assert_matches!(lobby.join(name), Ok(p) if p.id() == PlayerId(i)),
+            );
 
         game.start_game("../assets/cards/boardgame.json")?;
 

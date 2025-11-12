@@ -47,7 +47,7 @@ impl RoomState {
                 let player_id = state
                     .selecting_characters()?
                     .player_by_name(player_name)?
-                    .id;
+                    .id();
                 select_character(state, player_id, character)
             }
             FrontendRequest::DrawCard { card_type } => {

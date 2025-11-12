@@ -1088,6 +1088,49 @@ mod tests {
     }
 
     #[test]
+    fn give_back_cards_default() {
+        for character in Character::CHARACTERS
+            .into_iter()
+            .filter(|c| *c != Character::HeadRnD)
+        {
+            let selecting_player = SelectingCharactersPlayer {
+                id: Default::default(),
+                name: Default::default(),
+                assets: Default::default(),
+                liabilities: Default::default(),
+                cash: Default::default(),
+                character: Some(character),
+                hand: Default::default(),
+            };
+            let mut player = RoundPlayer::try_from(selecting_player).unwrap();
+
+            let asset_vec = std::iter::repeat_with(|| asset(Color::Blue))
+                .take(3)
+                .collect();
+            let mut assets = Deck::new(asset_vec);
+            for _ in 0..assets.len() {
+                assert_ok!(player.draw_asset(&mut assets));
+            }
+
+            assert!(player.should_give_back_cards());
+            assert_eq!(player.total_cards_given_back, 0);
+
+            let player_cards_given_back = player.total_cards_given_back;
+
+            assert_err!(player.give_back_card(123));
+            assert_eq!(player.total_cards_given_back, player_cards_given_back);
+
+            assert_ok!(player.give_back_card(0));
+            assert_eq!(player.total_cards_given_back, player_cards_given_back + 1);
+
+            let player_cards_given_back = player.total_cards_given_back;
+
+            assert_err!(player.give_back_card(0));
+            assert_eq!(player.total_cards_given_back, player_cards_given_back);
+        }
+    }
+
+    #[test]
     fn should_give_back_cards() {
         let selecting_player = SelectingCharactersPlayer {
             id: Default::default(),

@@ -853,7 +853,7 @@ pub struct Round {
     assets: Deck<Asset>,
     liabilities: Deck<Liability>,
     markets: Deck<Either<Market, Event>>,
-    pub chairman: PlayerId,
+    chairman: PlayerId,
     current_market: Market,
     current_events: Vec<Event>,
     open_characters: Vec<Character>,

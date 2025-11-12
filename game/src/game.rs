@@ -960,18 +960,16 @@ impl Round {
         card_type: CardType,
     ) -> Result<Either<&Asset, &Liability>, GameError> {
         match self.players.player_mut(id) {
-            Ok(player) if player.id == self.current_player => {
-                if player.can_draw_cards() {
-                    let card = match card_type {
-                        CardType::Asset => Either::Left(self.assets.draw()),
-                        CardType::Liability => Either::Right(self.liabilities.draw()),
-                    };
-                    player.draw_card(card);
-                    Ok(player.hand.last().unwrap().as_ref())
-                } else {
-                    Err(DrawCardError::MaximumCardsDrawn(player.total_cards_drawn).into())
+            Ok(player) if player.id == self.current_player => match card_type {
+                CardType::Asset => {
+                    let asset = player.draw_asset(&mut self.assets)?;
+                    Ok(Either::Left(asset))
                 }
-            }
+                CardType::Liability => {
+                    let liability = player.draw_liability(&mut self.liabilities)?;
+                    Ok(Either::Right(liability))
+                }
+            },
             Ok(_) => Err(GameError::NotPlayersTurn),
             Err(e) => Err(e),
         }

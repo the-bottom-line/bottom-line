@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use crate::{
     errors::*,
-    game::{Market, MarketCondition},
+    game::{Deck, Market, MarketCondition},
 };
 
 #[derive(Debug, Clone)]
@@ -198,6 +198,31 @@ impl RoundPlayer {
         self.total_cards_drawn += 1;
         self.cards_drawn.push(self.hand.len());
         self.hand.push(card);
+    }
+
+    pub fn draw_asset(&mut self, deck: &mut Deck<Asset>) -> Result<&Asset, DrawCardError> {
+        if self.can_draw_cards() {
+            let card = Either::Left(deck.draw());
+            self.draw_card(card);
+
+            Ok(self.hand.last().unwrap().as_ref().left().unwrap())
+        } else {
+            Err(DrawCardError::MaximumCardsDrawn(self.total_cards_drawn))
+        }
+    }
+
+    pub fn draw_liability(
+        &mut self,
+        deck: &mut Deck<Liability>,
+    ) -> Result<&Liability, DrawCardError> {
+        if self.can_draw_cards() {
+            let card = Either::Right(deck.draw());
+            self.draw_card(card);
+
+            Ok(self.hand.last().unwrap().as_ref().right().unwrap())
+        } else {
+            Err(DrawCardError::MaximumCardsDrawn(self.total_cards_drawn))
+        }
     }
 
     pub fn give_back_card(

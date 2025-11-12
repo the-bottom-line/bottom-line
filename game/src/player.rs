@@ -1092,13 +1092,15 @@ mod tests {
 
     #[test]
     fn give_back_cards_head_rnd() {
+        const CHARACTER: Character = Character::HeadRnD;
+
         let selecting_player = SelectingCharactersPlayer {
             id: Default::default(),
             name: Default::default(),
             assets: Default::default(),
             liabilities: Default::default(),
             cash: Default::default(),
-            character: Some(Character::HeadRnD),
+            character: Some(CHARACTER),
             hand: Default::default(),
         };
         let mut player = RoundPlayer::try_from(selecting_player).unwrap();
@@ -1113,21 +1115,26 @@ mod tests {
 
         assert!(player.should_give_back_cards());
         assert_eq!(player.total_cards_given_back, 0);
+        assert_eq!(CHARACTER.draws_n_cards(), player.hand.len() as u8);
 
         assert_err!(player.give_back_card(123));
         assert_eq!(player.total_cards_given_back, 0);
+        assert_eq!(CHARACTER.draws_n_cards(), player.hand.len() as u8);
 
         assert_ok!(player.give_back_card(0));
         assert_eq!(player.total_cards_given_back, 1);
+        assert_eq!(CHARACTER.draws_n_cards() - 1, player.hand.len() as u8);
 
         assert!(player.should_give_back_cards());
 
         assert_ok!(player.give_back_card(0));
         assert_eq!(player.total_cards_given_back, 2);
+        assert_eq!(CHARACTER.draws_n_cards() - 2, player.hand.len() as u8);
 
         assert!(!player.should_give_back_cards());
         assert_err!(player.give_back_card(0));
         assert_eq!(player.total_cards_given_back, 2);
+        assert_eq!(CHARACTER.draws_n_cards() - 2, player.hand.len() as u8);
     }
 
     #[test]
@@ -1157,16 +1164,20 @@ mod tests {
 
             assert!(player.should_give_back_cards());
             assert_eq!(player.total_cards_given_back, 0);
+            assert_eq!(character.draws_n_cards(), player.hand.len() as u8);
 
             assert_err!(player.give_back_card(123));
             assert_eq!(player.total_cards_given_back, 0);
+            assert_eq!(character.draws_n_cards(), player.hand.len() as u8);
 
             assert_ok!(player.give_back_card(0));
             assert_eq!(player.total_cards_given_back, 1);
+            assert_eq!(character.draws_n_cards() - 1, player.hand.len() as u8);
 
             assert!(!player.should_give_back_cards());
             assert_err!(player.give_back_card(0));
             assert_eq!(player.total_cards_given_back, 1);
+            assert_eq!(character.draws_n_cards() - 1, player.hand.len() as u8);
         }
     }
 

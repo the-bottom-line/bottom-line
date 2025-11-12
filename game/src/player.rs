@@ -50,20 +50,16 @@ impl SelectingCharactersPlayer {
         }
     }
 
-    pub fn select_character(&mut self, character: Character) {
-        use Character::*;
-
-        self.character = Some(character);
-
-        match character {
-            Shareholder => {}
-            Banker => {}
-            Regulator => {}
-            CEO => {}
-            CFO => {}
-            CSO => {}
-            HeadRnD => {}
-            Stakeholder => {}
+    pub fn select_character(
+        &mut self,
+        character: Character,
+    ) -> Result<(), SelectingCharactersError> {
+        match self.character {
+            Some(c) => Err(SelectingCharactersError::AlreadySelectedCharacter(c)),
+            None => {
+                self.character = Some(character);
+                Ok(())
+            }
         }
     }
 }

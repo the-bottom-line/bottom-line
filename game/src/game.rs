@@ -174,7 +174,7 @@ impl ObtainingCharacters {
         })
     }
 
-    pub fn peek(&self) -> Result<PickableCharacters, SelectableCharactersError> {
+    pub fn peek(&self) -> Result<PickableCharacters, SelectingCharactersError> {
         match self.draw_idx {
             0 => Ok(PickableCharacters {
                 characters: self.available_characters.deck.to_vec(),
@@ -194,11 +194,11 @@ impl ObtainingCharacters {
                     .collect(),
                 closed_character: None,
             }),
-            _ => Err(SelectableCharactersError::NotPickingCharacters),
+            _ => Err(SelectingCharactersError::NotPickingCharacters),
         }
     }
 
-    pub fn pick(&mut self, character: Character) -> Result<(), SelectableCharactersError> {
+    pub fn pick(&mut self, character: Character) -> Result<(), SelectingCharactersError> {
         match self.peek() {
             Ok(PickableCharacters { mut characters, .. }) => {
                 match characters.iter().position(|&c| c == character) {
@@ -208,7 +208,7 @@ impl ObtainingCharacters {
                         self.available_characters.deck = characters;
                         Ok(())
                     }
-                    None => Err(SelectableCharactersError::UnavailableCharacter),
+                    None => Err(SelectingCharactersError::UnavailableCharacter),
                 }
             }
             Err(e) => Err(e),
@@ -742,7 +742,7 @@ impl SelectingCharacters {
             Ok(p) if p.id == self.currently_selecting_id() => {
                 match self.characters.peek()?.closed_character {
                     Some(closed_character) => Ok(closed_character),
-                    None => Err(SelectableCharactersError::NotChairman.into()),
+                    None => Err(SelectingCharactersError::NotChairman.into()),
                 }
             }
             Ok(_) => Err(GameError::NotPlayersTurn),
@@ -761,7 +761,7 @@ impl SelectingCharacters {
             Ok(p) if p.id == currently_selecting_id => {
                 self.characters.pick(character)?;
 
-                p.select_character(character);
+                p.select_character(character)?;
 
                 // Start round when no more characters can be picked
                 if self.characters.peek().is_err() {

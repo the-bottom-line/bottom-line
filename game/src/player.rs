@@ -964,18 +964,35 @@ mod tests {
             .for_each(|(types, extra)| {
                 let mut player = round_player.clone();
                 for t in types {
+                    let hand_len = player.hand.len();
+                    let total_cards_drawn = player.total_cards_drawn;
                     match t {
                         CardType::Asset => {
                             let mut assets = Deck::new(vec![asset(Color::Red)]);
-                            assert_ok!(player.draw_asset(&mut assets));
+                            let asset = assert_ok!(player.draw_asset(&mut assets)).clone();
+                            let cmp = player.hand[*player.cards_drawn.last().unwrap()]
+                                .as_ref()
+                                .left()
+                                .unwrap();
+                            assert_eq!(&asset, cmp);
                         }
                         CardType::Liability => {
                             let mut liabilities = Deck::new(vec![liability(liability_value)]);
-                            assert_ok!(player.draw_liability(&mut liabilities));
+                            let liability =
+                                assert_ok!(player.draw_liability(&mut liabilities)).clone();
+                            let cmp = player.hand[*player.cards_drawn.last().unwrap()]
+                                .as_ref()
+                                .right()
+                                .unwrap();
+                            assert_eq!(&liability, cmp);
                         }
                     }
+                    assert_eq!(hand_len, player.hand.len() - 1);
+                    assert_eq!(total_cards_drawn, player.total_cards_drawn - 1);
                 }
 
+                let hand_len = player.hand.len();
+                let cards_drawn = player.total_cards_drawn;
                 match extra {
                     CardType::Asset => {
                         let mut assets = Deck::new(vec![asset(Color::Red)]);
@@ -992,6 +1009,8 @@ mod tests {
                         );
                     }
                 }
+                assert_eq!(hand_len, player.hand.len());
+                assert_eq!(cards_drawn, player.total_cards_drawn);
             });
     }
 
@@ -1023,15 +1042,28 @@ mod tests {
                         match t {
                             CardType::Asset => {
                                 let mut assets = Deck::new(vec![asset(Color::Red)]);
-                                assert_ok!(player.draw_asset(&mut assets));
+                                let asset = assert_ok!(player.draw_asset(&mut assets)).clone();
+                                let cmp = player.hand[*player.cards_drawn.last().unwrap()]
+                                    .as_ref()
+                                    .left()
+                                    .unwrap();
+                                assert_eq!(&asset, cmp);
                             }
                             CardType::Liability => {
                                 let mut liabilities = Deck::new(vec![liability(liability_value)]);
-                                assert_ok!(player.draw_liability(&mut liabilities));
+                                let liability =
+                                    assert_ok!(player.draw_liability(&mut liabilities)).clone();
+                                let cmp = player.hand[*player.cards_drawn.last().unwrap()]
+                                    .as_ref()
+                                    .right()
+                                    .unwrap();
+                                assert_eq!(&liability, cmp);
                             }
                         }
                     }
 
+                    let hand_len = player.hand.len();
+                    let cards_drawn = player.total_cards_drawn;
                     match extra {
                         CardType::Asset => {
                             let mut assets = Deck::new(vec![asset(Color::Red)]);
@@ -1048,6 +1080,8 @@ mod tests {
                             );
                         }
                     }
+                    assert_eq!(hand_len, player.hand.len());
+                    assert_eq!(cards_drawn, player.total_cards_drawn);
                 });
         }
     }

@@ -26,7 +26,7 @@ pub struct SelectingCharactersPlayer {
 }
 
 impl SelectingCharactersPlayer {
-    pub fn new(
+    pub(crate) fn new(
         name: &str,
         id: u8,
         assets: [Asset; 2],
@@ -50,7 +50,7 @@ impl SelectingCharactersPlayer {
         }
     }
 
-    pub fn select_character(&mut self, character: Character) {
+    pub(crate) fn select_character(&mut self, character: Character) {
         use Character::*;
 
         self.character = Some(character);
@@ -109,7 +109,7 @@ impl RoundPlayer {
             .collect();
     }
 
-    fn can_play_asset(&self, color: Color) -> bool {
+    pub fn can_play_asset(&self, color: Color) -> bool {
         match self
             .assets_to_play
             .checked_sub(self.playable_assets.color_cost(color))
@@ -119,11 +119,11 @@ impl RoundPlayer {
         }
     }
 
-    fn can_play_liability(&self) -> bool {
+    pub fn can_play_liability(&self) -> bool {
         self.liabilities_to_play > 0
     }
 
-    pub fn redeem_liability(
+    pub(crate) fn redeem_liability(
         &mut self,
         liability_idx: usize,
     ) -> Result<Liability, RedeemLiabilityError> {
@@ -157,7 +157,7 @@ impl RoundPlayer {
 
     /// Plays card in players hand with index `card_idx`. If that index is valid, the card is played
     /// if
-    pub fn play_card(
+    pub(crate) fn play_card(
         &mut self,
         card_idx: usize,
     ) -> Result<Either<Asset, Liability>, PlayCardError> {
@@ -194,13 +194,13 @@ impl RoundPlayer {
         }
     }
 
-    pub fn draw_card(&mut self, card: Either<Asset, Liability>) {
+    fn draw_card(&mut self, card: Either<Asset, Liability>) {
         self.total_cards_drawn += 1;
         self.cards_drawn.push(self.hand.len());
         self.hand.push(card);
     }
 
-    pub fn draw_asset(&mut self, deck: &mut Deck<Asset>) -> Result<&Asset, DrawCardError> {
+    pub(crate) fn draw_asset(&mut self, deck: &mut Deck<Asset>) -> Result<&Asset, DrawCardError> {
         if self.can_draw_cards() {
             let card = Either::Left(deck.draw());
             self.draw_card(card);
@@ -211,7 +211,7 @@ impl RoundPlayer {
         }
     }
 
-    pub fn draw_liability(
+    pub(crate) fn draw_liability(
         &mut self,
         deck: &mut Deck<Liability>,
     ) -> Result<&Liability, DrawCardError> {
@@ -225,7 +225,7 @@ impl RoundPlayer {
         }
     }
 
-    pub fn give_back_card(
+    pub(crate) fn give_back_card(
         &mut self,
         card_idx: usize,
     ) -> Result<Either<Asset, Liability>, GiveBackCardError> {

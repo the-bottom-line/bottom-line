@@ -1347,6 +1347,8 @@ mod tests {
 
     #[test]
     fn issue_liabilities_cfo() {
+        const LIABILITY_VALUE: u8 = 10;
+
         #[derive(Copy, Clone, Debug)]
         enum IR {
             Issue,
@@ -1357,58 +1359,65 @@ mod tests {
             .multi_cartesian_product()
             .map(|v| ([v[0], v[1], v[2]], v[3]))
             .for_each(|(irs, extra)| {
-                let liability_value = 10;
-
                 let selecting_player = SelectingCharactersPlayer {
                     id: Default::default(),
                     name: Default::default(),
                     assets: Default::default(),
                     liabilities: vec![
-                        liability(liability_value),
-                        liability(liability_value),
-                        liability(liability_value),
+                        liability(LIABILITY_VALUE),
+                        liability(LIABILITY_VALUE),
+                        liability(LIABILITY_VALUE),
                     ],
                     cash: 100,
                     character: Some(Character::CFO),
                     hand: vec![
-                        Either::Right(liability(liability_value)),
-                        Either::Right(liability(liability_value)),
-                        Either::Right(liability(liability_value)),
+                        Either::Right(liability(LIABILITY_VALUE)),
+                        Either::Right(liability(LIABILITY_VALUE)),
+                        Either::Right(liability(LIABILITY_VALUE)),
                     ],
                 };
                 let mut player = RoundPlayer::try_from(selecting_player).unwrap();
 
-                for (i, ir) in irs.into_iter().enumerate() {
+                for ir in irs {
+                    let player_cash = player.cash;
+                    let hand_len = player.hand.len();
+                    let liabilities_len = player.liabilities.len();
                     match ir {
                         IR::Issue => {
-                            assert_matches!(
-                                player.play_card(0),
-                                Ok(Either::Right(l)) if l.value == liability_value,
-                                "i: {i} => {ir:?}"
-                            );
+                            let liability = assert_ok!(player.play_card(0)).right().unwrap();
+                            assert_eq!(liability.value, LIABILITY_VALUE);
+                            assert_eq!(player.cash, player_cash + LIABILITY_VALUE);
+                            assert_eq!(player.hand.len(), hand_len - 1);
+                            assert_eq!(player.liabilities.len(), liabilities_len + 1);
                         }
                         IR::Redeem => {
-                            assert_ok!(player.redeem_liability(0));
+                            let liability = assert_ok!(player.redeem_liability(0));
+                            assert_eq!(liability.value, LIABILITY_VALUE);
+                            assert_eq!(player.cash, player_cash - LIABILITY_VALUE);
+                            assert_eq!(player.liabilities.len(), liabilities_len - 1);
                         }
                     }
                 }
 
                 match extra {
                     IR::Issue => {
+                        let player_cash = player.cash;
                         player.hand = vec![];
                         assert_matches!(
                             player.play_card(0),
                             Err(PlayCardError::InvalidCardIndex(_))
                         );
+                        assert_eq!(player.cash, player_cash);
 
-                        player.hand = hand_liability(liability_value);
+                        player.hand = hand_liability(LIABILITY_VALUE);
                         assert_matches!(
                             player.play_card(0),
                             Err(PlayCardError::ExceedsMaximumLiabilities)
                         );
+                        assert_eq!(player.cash, player_cash);
                     }
                     IR::Redeem => {
-                        player.liabilities = vec![liability(liability_value)];
+                        player.liabilities = vec![liability(LIABILITY_VALUE)];
                         assert_matches!(
                             player.redeem_liability(0),
                             Err(RedeemLiabilityError::ExceedsMaximumLiabilities)
@@ -1420,12 +1429,12 @@ mod tests {
 
     #[test]
     fn issue_liabilities_default() {
+        const LIABILITY_VALUE: u8 = 10;
+
         for character in Character::CHARACTERS
             .into_iter()
             .filter(|c| *c != Character::CFO)
         {
-            let liability_value = 10;
-
             let selecting_player = SelectingCharactersPlayer {
                 id: Default::default(),
                 name: Default::default(),
@@ -1433,27 +1442,38 @@ mod tests {
                 liabilities: Default::default(),
                 cash: 100,
                 character: Some(character),
-                hand: hand_liability(liability_value),
+                hand: hand_liability(LIABILITY_VALUE),
             };
             let mut player = RoundPlayer::try_from(selecting_player).unwrap();
 
-            assert_matches!(
-                player.play_card(0),
-                Ok(Either::Right(l)) if l.value == liability_value
-            );
+            let player_cash = player.cash;
+            let hand_len = player.hand.len();
+            let liabilities_len = player.liabilities.len();
+
+            let liability = assert_ok!(player.play_card(0)).right().unwrap();
+
+            assert_eq!(liability.value, LIABILITY_VALUE);
+            assert_eq!(player.cash, player_cash + LIABILITY_VALUE);
+            assert_eq!(player.hand.len(), hand_len - 1);
+            assert_eq!(player.liabilities.len(), liabilities_len + 1);
+
+            let player_cash = player.cash;
 
             assert_matches!(player.play_card(0), Err(PlayCardError::InvalidCardIndex(_)));
+            assert_eq!(player.cash, player_cash);
 
-            player.hand = hand_liability(liability_value);
+            player.hand = hand_liability(LIABILITY_VALUE);
             assert_matches!(
                 player.play_card(0),
                 Err(PlayCardError::ExceedsMaximumLiabilities)
             );
+            assert_eq!(player.cash, player_cash);
 
             assert_matches!(
                 player.redeem_liability(0),
                 Err(RedeemLiabilityError::NotAllowedToRedeemLiability(_))
             );
+            assert_eq!(player.cash, player_cash);
         }
     }
 }

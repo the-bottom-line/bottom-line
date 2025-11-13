@@ -791,32 +791,38 @@ impl Round {
         &self.current_market
     }
 
+    /// Internally used function that checks whether a player with such an `id` exists, and whether
+    /// that player is actually the current player.
+    fn player_as_current_mut(&mut self, id: PlayerId) -> Result<&mut RoundPlayer, GameError> {
+        match self.players.player_mut(id) {
+            Ok(player) if player.id() == self.current_player => Ok(player),
+            Ok(_) => Err(GameError::NotPlayersTurn),
+            Err(e) => Err(e),
+        }
+    }
+
     pub fn player_play_card(
         &mut self,
         id: PlayerId,
         card_idx: usize,
     ) -> Result<PlayerPlayedCard, GameError> {
-        match self.players.player_mut(id) {
-            Ok(player) if player.id() == self.current_player => {
-                let current_assets = player.assets().len();
-                match player.play_card(card_idx)? {
-                    Either::Left(asset) => {
-                        let market = match self.check_new_market(current_assets) {
-                            true => Some(self.new_market()),
-                            false => None,
-                        };
-                        let used_card = Either::Left(asset.clone());
-                        Ok(PlayerPlayedCard { market, used_card })
-                    }
-                    Either::Right(liability) => {
-                        let market = None;
-                        let used_card = Either::Right(liability);
-                        Ok(PlayerPlayedCard { market, used_card })
-                    }
-                }
+        let player = self.player_as_current_mut(id)?;
+        let assets_len = player.assets().len();
+
+        match player.play_card(card_idx)? {
+            Either::Left(asset) => {
+                let market = match self.check_new_market(assets_len) {
+                    true => Some(self.new_market()),
+                    false => None,
+                };
+                let used_card = Either::Left(asset.clone());
+                Ok(PlayerPlayedCard { market, used_card })
             }
-            Ok(_) => Err(GameError::NotPlayersTurn),
-            Err(e) => Err(e),
+            Either::Right(liability) => {
+                let market = None;
+                let used_card = Either::Right(liability);
+                Ok(PlayerPlayedCard { market, used_card })
+            }
         }
     }
 
@@ -825,15 +831,12 @@ impl Round {
         id: PlayerId,
         liability_idx: usize,
     ) -> Result<(), GameError> {
-        match self.players.player_mut(id) {
-            Ok(player) if player.id() == self.current_player => {
-                let liability = player.redeem_liability(liability_idx)?;
-                self.liabilities.put_back(liability);
-                Ok(())
-            }
-            Ok(_) => Err(GameError::NotPlayersTurn),
-            Err(e) => Err(e),
-        }
+        let player = self.player_as_current_mut(id)?;
+
+        let liability = player.redeem_liability(liability_idx)?;
+        self.liabilities.put_back(liability);
+
+        Ok(())
     }
 
     pub fn player_draw_card(
@@ -841,6 +844,8 @@ impl Round {
         id: PlayerId,
         card_type: CardType,
     ) -> Result<Either<&Asset, &Liability>, GameError> {
+        // TODO: think of way to use `player_as_current_mut()` without taking `&mut self` to be
+        // able to do `&mut self.assets` later in the function
         match self.players.player_mut(id) {
             Ok(player) if player.id() == self.current_player => match card_type {
                 CardType::Asset => {
@@ -862,21 +867,17 @@ impl Round {
         id: PlayerId,
         card_idx: usize,
     ) -> Result<CardType, GameError> {
-        match self.players.player_mut(id) {
-            Ok(player) if player.id() == self.current_player => {
-                match player.give_back_card(card_idx)? {
-                    Either::Left(asset) => {
-                        self.assets.put_back(asset);
-                        Ok(CardType::Asset)
-                    }
-                    Either::Right(liability) => {
-                        self.liabilities.put_back(liability);
-                        Ok(CardType::Liability)
-                    }
-                }
+        let player = self.player_as_current_mut(id)?;
+
+        match player.give_back_card(card_idx)? {
+            Either::Left(asset) => {
+                self.assets.put_back(asset);
+                Ok(CardType::Asset)
             }
-            Ok(_) => Err(GameError::NotPlayersTurn),
-            Err(e) => Err(e),
+            Either::Right(liability) => {
+                self.liabilities.put_back(liability);
+                Ok(CardType::Liability)
+            }
         }
     }
 
@@ -885,15 +886,10 @@ impl Round {
         id: PlayerId,
         character: Character,
     ) -> Result<Character, GameError> {
-        match self.players.player_mut(id) {
-            Ok(player) if player.id() == self.current_player => {
-                let character = player.fire_character(character)?;
-                self.fired_characters.push(character);
-                Ok(character)
-            }
-            Ok(_) => Err(GameError::NotPlayersTurn),
-            Err(e) => Err(e),
-        }
+        let player = self.player_as_current_mut(id)?;
+        let character = player.fire_character(character)?;
+        self.fired_characters.push(character);
+        Ok(character)
     }
 
     pub fn skipped_characters(&self) -> Vec<Character> {
@@ -913,48 +909,45 @@ impl Round {
     }
 
     fn end_player_turn(&mut self, id: PlayerId) -> Result<Either<TurnEnded, GameState>, GameError> {
-        match self.player(id) {
-            Ok(current)
-                if current.id() == self.current_player && !current.should_give_back_cards() =>
-            {
-                if let Some(id) = self.next_player().map(|p| p.id()) {
-                    let player = self.players.player_mut(id)?;
-                    player.start_turn(&self.current_market);
-                    self.current_player = player.id();
-                    Ok(Either::Left(TurnEnded::new(Some(self.current_player))))
-                } else {
-                    let maybe_ceo = self.player_from_character(Character::CEO);
-                    let chairman_id = match maybe_ceo.map(|p| p.id()) {
-                        Some(id) => id,
-                        None => self.chairman,
-                    };
+        let player = self.player_as_current_mut(id)?;
+        if !player.should_give_back_cards() {
+            if let Some(id) = self.next_player().map(|p| p.id()) {
+                let player = self.players.player_mut(id)?;
+                player.start_turn(&self.current_market);
+                self.current_player = player.id();
+                Ok(Either::Left(TurnEnded::new(Some(self.current_player))))
+            } else {
+                let maybe_ceo = self.player_from_character(Character::CEO);
+                let chairman_id = match maybe_ceo.map(|p| p.id()) {
+                    Some(id) => id,
+                    None => self.chairman,
+                };
 
-                    let characters = ObtainingCharacters::new(self.players.len(), chairman_id)?;
-                    let players = std::mem::take(&mut self.players);
-                    let assets = std::mem::take(&mut self.assets);
-                    let liabilities = std::mem::take(&mut self.liabilities);
-                    let markets = std::mem::take(&mut self.markets);
-                    let current_market = std::mem::take(&mut self.current_market);
-                    let current_events = std::mem::take(&mut self.current_events);
+                let characters = ObtainingCharacters::new(self.players.len(), chairman_id)?;
+                let players = std::mem::take(&mut self.players);
+                let assets = std::mem::take(&mut self.assets);
+                let liabilities = std::mem::take(&mut self.liabilities);
+                let markets = std::mem::take(&mut self.markets);
+                let current_market = std::mem::take(&mut self.current_market);
+                let current_events = std::mem::take(&mut self.current_events);
 
-                    let players = Players(players.0.into_iter().map(Into::into).collect());
+                let players = Players(players.0.into_iter().map(Into::into).collect());
 
-                    let state = GameState::SelectingCharacters(SelectingCharacters {
-                        players,
-                        characters,
-                        assets,
-                        liabilities,
-                        markets,
-                        chairman: chairman_id,
-                        current_market,
-                        current_events,
-                    });
+                let state = GameState::SelectingCharacters(SelectingCharacters {
+                    players,
+                    characters,
+                    assets,
+                    liabilities,
+                    markets,
+                    chairman: chairman_id,
+                    current_market,
+                    current_events,
+                });
 
-                    Ok(Either::Right(state))
-                }
+                Ok(Either::Right(state))
             }
-            Ok(_) => Err(GameError::NotPlayersTurn),
-            Err(e) => Err(e),
+        } else {
+            Err(GameError::PlayerShouldGiveBackCard)
         }
     }
 

@@ -330,6 +330,7 @@ impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
                     liabilities_to_play: character.playable_liabilities(),
                     total_cards_drawn: 0,
                     total_cards_given_back: 0,
+                    has_fired_this_round: false,
                 })
             }
             None => Err(GameError::PlayerMissingCharacter),

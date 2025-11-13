@@ -117,6 +117,14 @@ pub enum UniqueResponse {
         player_id: PlayerId,
         liability: Liability,
     },
+    RedeemedLiability {
+        player_id: PlayerId,
+        liability_idx: usize,
+    },
+    FiredCharacter {
+        player_id: PlayerId,
+        character: Character,
+    },
     TurnEnded {
         player_id: PlayerId,
     },

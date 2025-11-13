@@ -1016,14 +1016,9 @@ impl Round {
     ) -> Result<Character, GameError> {
         match self.players.player_mut(id) {
             Ok(player) if player.id == self.current_player => {
-                match player.fire_character(character) {
-                    Ok(character) =>{
-                        self.fired_characters.push(character);
-                        Ok(character)
-                    } 
-                    Err(e) => Err(e)
-                }
-                
+                let character = player.fire_character(character)?;
+                self.fired_characters.push(character);
+                Ok(character)
             }
             Ok(_) => Err(GameError::NotPlayersTurn),
             Err(e) => Err(e),

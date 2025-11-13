@@ -283,6 +283,38 @@ pub fn select_character(
     }
 }
 
+pub fn fire_character(
+    state: &mut GameState,
+    player_id: PlayerId,
+    character: Character,
+) -> Result<Response, GameError> {
+    let round = state.round_mut()?;
+
+    match round.player_fire_character(player_id, character) {
+        Ok(_c) => {
+            let internal = round
+                .players()
+                .iter()
+                .filter(|p| p.id != player_id)
+                .map(|p| {
+                    (
+                        p.id,
+                        vec![UniqueResponse::FiredCharacter {
+                            player_id,
+                            character,
+                        }],
+                    )
+                })
+                .collect();
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouFiredCharacter { character },
+            ))
+        }
+        Err(e) => Err(e),
+    }
+}
+
 pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, GameError> {
     state.end_player_turn(player_id)?;
 

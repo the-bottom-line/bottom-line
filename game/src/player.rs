@@ -97,6 +97,7 @@ pub struct RoundPlayer {
     pub liabilities_to_play: u8,
     pub total_cards_drawn: u8,
     pub total_cards_given_back: u8,
+    pub has_fired_this_round: bool,
 }
 
 impl RoundPlayer {

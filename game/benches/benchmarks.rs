@@ -8,7 +8,7 @@ fn get_gamestate(player_count: usize) -> GameState {
 
     (0..(player_count as u8))
         .map(|i| (i, format!("Player {i}")))
-        .for_each(|(i, name)| assert_matches!(lobby.join(name), Ok(p) if p.id == PlayerId(i)));
+        .for_each(|(i, name)| assert_matches!(lobby.join(name), Ok(p) if p.id() == PlayerId(i)));
 
     game.start_game("../assets/cards/boardgame.json").unwrap();
 

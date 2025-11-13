@@ -1,5 +1,4 @@
 use game::player::{CardType, Character};
-use responses;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]

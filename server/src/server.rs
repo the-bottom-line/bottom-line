@@ -105,9 +105,9 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     match &mut *room.game.lock().unwrap() {
                         GameState::Lobby(lobby) => match lobby.join(connect_username.clone()) {
                             Ok(player) => {
-                                debug_assert_eq!(player.name, connect_username);
-                                username = player.name.clone();
-                                channel_idx = player.id.into();
+                                debug_assert_eq!(player.name(), connect_username);
+                                username = player.name().to_owned();
+                                channel_idx = player.id().into();
                                 break;
                             }
                             Err(e) => DirectResponse::from(GameError::from(e)),

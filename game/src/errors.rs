@@ -7,19 +7,19 @@ use crate::player::Character;
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
 pub enum GameError {
     #[error(transparent)]
-    LobbyError(#[from] LobbyError),
+    Lobby(#[from] LobbyError),
+    #[error(transparent)]
+    SelectingCharacters(#[from] SelectingCharactersError),
     #[error(transparent)]
     PlayCard(#[from] PlayCardError),
     #[error(transparent)]
-    RedeemLiabilityError(#[from] RedeemLiabilityError),
+    RedeemLiability(#[from] RedeemLiabilityError),
     #[error(transparent)]
     GiveBackCard(#[from] GiveBackCardError),
     #[error(transparent)]
     DrawCard(#[from] DrawCardError),
     #[error(transparent)]
     FireCharacter(#[from] FireCharacterError),
-    #[error(transparent)]
-    SelectableCharacters(#[from] SelectableCharactersError),
     #[error("Player count should be between 4 and 7, {0} is invalid")]
     InvalidPlayerCount(u8),
     #[error("Player index {0} is invalid")]
@@ -103,9 +103,11 @@ pub enum DrawCardError {
 }
 
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
-pub enum SelectableCharactersError {
+pub enum SelectingCharactersError {
     #[error("Game is not in a state where characters are being picked")]
     NotPickingCharacters,
+    #[error("Already selected character {0:?}")]
+    AlreadySelectedCharacter(Character),
     #[error("Character is not availalble to pick")]
     UnavailableCharacter,
     #[error("Player is not chairman")]

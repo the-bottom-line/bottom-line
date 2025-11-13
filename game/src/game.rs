@@ -597,31 +597,35 @@ impl SelectingCharacters {
         (self.characters.applies_to_player() as u8).into()
     }
 
-    pub fn player_get_selectable_characters(
-        &self,
-        id: PlayerId,
-    ) -> Result<Vec<Character>, GameError> {
-        match self.player(id) {
-            Ok(p) if p.id() == self.currently_selecting_id() => self
-                .characters
-                .peek()
-                .map(|pc| pc.characters)
-                .map_err(Into::into),
+    /// Internally used function that checks whether a player with such an `id` exists, and whether
+    /// that player is actually the current player.
+    fn player_as_current(&self, id: PlayerId) -> Result<&SelectingCharactersPlayer, GameError> {
+        let currently_selecting_id = self.currently_selecting_id();
+        match self.players.player(id) {
+            Ok(player) if player.id() == currently_selecting_id => Ok(player),
             Ok(_) => Err(GameError::NotPlayersTurn),
             Err(e) => Err(e),
         }
     }
 
+    pub fn player_get_selectable_characters(
+        &self,
+        id: PlayerId,
+    ) -> Result<Vec<Character>, GameError> {
+        let _ = self.player_as_current(id)?;
+
+        self.characters
+            .peek()
+            .map(|pc| pc.characters)
+            .map_err(Into::into)
+    }
+
     pub fn player_get_closed_character(&self, id: PlayerId) -> Result<Character, GameError> {
-        match self.player(id) {
-            Ok(p) if p.id() == self.currently_selecting_id() => {
-                match self.characters.peek()?.closed_character {
-                    Some(closed_character) => Ok(closed_character),
-                    None => Err(SelectingCharactersError::NotChairman.into()),
-                }
-            }
-            Ok(_) => Err(GameError::NotPlayersTurn),
-            Err(e) => Err(e),
+        let _ = self.player_as_current(id)?;
+
+        match self.characters.peek()?.closed_character {
+            Some(closed_character) => Ok(closed_character),
+            None => Err(SelectingCharactersError::NotChairman.into()),
         }
     }
 

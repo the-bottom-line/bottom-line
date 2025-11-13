@@ -156,6 +156,29 @@ impl RoundPlayer {
         }
     }
 
+    pub fn fire_character(
+        &mut self,
+        character: Character
+    ) -> Result<Character, GameError> {
+        if character == Character::Shareholder {
+                    if !self.has_fired_this_round {
+                        if character != Character::Banker
+                            && character != Character::Regulator
+                            && character != Character::Shareholder
+                        {
+                            self.has_fired_this_round = true;
+                            Ok(character)
+                        } else {
+                            Err(FireCharacterError::InvalidCharacter.into())
+                        }
+                    } else {
+                        Err(FireCharacterError::AlreadyFiredThisTurn.into())
+                    }
+                } else {
+                    Err(FireCharacterError::InvalidPlayerCharacter.into())
+                }
+    }
+
     /// Plays card in players hand with index `card_idx`. If that index is valid, the card is played
     /// if
     pub fn play_card(

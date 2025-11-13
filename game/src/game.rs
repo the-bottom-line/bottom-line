@@ -1016,24 +1016,14 @@ impl Round {
     ) -> Result<Character, GameError> {
         match self.players.player_mut(id) {
             Ok(player) if player.id == self.current_player => {
-                if player.character == Character::Shareholder {
-                    if !player.has_fired_this_round {
-                        if character != Character::Banker
-                            && character != Character::Regulator
-                            && character != Character::Shareholder
-                        {
-                            player.has_fired_this_round = true;
-                            self.fired_characters.push(character);
-                            Ok(character)
-                        } else {
-                            Err(FireCharacterError::InvalidCharacter.into())
-                        }
-                    } else {
-                        Err(FireCharacterError::AlreadyFiredThisTurn.into())
-                    }
-                } else {
-                    Err(FireCharacterError::InvalidPlayerCharacter.into())
+                match player.fire_character(character) {
+                    Ok(character) =>{
+                        self.fired_characters.push(character);
+                        Ok(character)
+                    } 
+                    Err(e) => Err(e)
                 }
+                
             }
             Ok(_) => Err(GameError::NotPlayersTurn),
             Err(e) => Err(e),

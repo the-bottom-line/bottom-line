@@ -23,6 +23,7 @@
             pkg-config
             pre-commit
             binaryen
+            docker
             # wasm-bindgen-cli    # cargo install -f wasm-bindgen-cli --version 0.2.105
           ];
         };

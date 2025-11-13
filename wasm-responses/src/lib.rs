@@ -1,5 +1,4 @@
 use game::player::{CardType, Character};
-use responses;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -59,6 +58,13 @@ impl CreateRequest {
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
+    #[wasm_bindgen(js_name = fireCharacter)]
+    pub fn fire_character(character: JsValue) -> Result<String, JsValue> {
+        let character: Character = serde_wasm_bindgen::from_value(character)?;
+        serde_json::to_string(&responses::FrontendRequest::FireCharacter { character })
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
     #[wasm_bindgen(js_name = endTurn)]
     pub fn end_turn() -> Result<String, JsValue> {
         serde_json::to_string(&responses::FrontendRequest::EndTurn)
@@ -84,6 +90,9 @@ impl CreateRequest {
             }
             responses::FrontendRequest::RedeemLiability { liability_idx } => {
                 Self::redeem_liability(liability_idx)
+            }
+            responses::FrontendRequest::FireCharacter { .. } => {
+                Self::fire_character(JsValue::null())
             }
             responses::FrontendRequest::EndTurn => Self::end_turn(),
         };

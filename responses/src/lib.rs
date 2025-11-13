@@ -19,6 +19,7 @@ pub enum FrontendRequest {
     BuyAsset { card_idx: usize },
     IssueLiability { card_idx: usize },
     RedeemLiability { liability_idx: usize },
+    FireCharacter { character: Character },
     EndTurn,
 }
 
@@ -28,6 +29,9 @@ pub enum DirectResponse {
     Error(ResponseError),
     YouStartedGame,
     YouSelectedCharacter {
+        character: Character,
+    },
+    YouFiredCharacter {
         character: Character,
     },
     YouDrewCard {
@@ -116,6 +120,10 @@ pub enum UniqueResponse {
     RedeemedLiability {
         player_id: PlayerId,
         liability_idx: usize,
+    },
+    FiredCharacter {
+        player_id: PlayerId,
+        character: Character,
     },
     TurnEnded {
         player_id: PlayerId,

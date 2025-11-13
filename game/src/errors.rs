@@ -17,6 +17,8 @@ pub enum GameError {
     #[error(transparent)]
     DrawCard(#[from] DrawCardError),
     #[error(transparent)]
+    FireCharacter(#[from] FireCharacterError),
+    #[error(transparent)]
     SelectableCharacters(#[from] SelectableCharactersError),
     #[error("Player count should be between 4 and 7, {0} is invalid")]
     InvalidPlayerCount(u8),
@@ -82,6 +84,16 @@ pub enum GiveBackCardError {
     InvalidCardIndex(u8),
     #[error("Player does not have to give back card")]
     Unnecessary,
+}
+
+#[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
+pub enum FireCharacterError {
+    #[error("Character is not allowed to be fired")]
+    InvalidCharacter,
+    #[error("Only the stakeholder can fire a character")]
+    InvalidPlayerCharacter,
+    #[error("Player has already fired a character this turn")]
+    AlreadyFiredThisTurn,
 }
 
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]

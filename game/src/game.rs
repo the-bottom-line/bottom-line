@@ -779,6 +779,7 @@ impl SelectingCharacters {
                     let current_market = std::mem::take(&mut self.current_market);
                     let current_events = std::mem::take(&mut self.current_events);
                     let open_characters = self.characters.open_characters().to_vec();
+                    let fired_characters: Vec<Character> = vec![];
 
                     let players = players
                         .0
@@ -798,6 +799,7 @@ impl SelectingCharacters {
                         current_market,
                         current_events,
                         open_characters,
+                        fired_characters,
                     };
 
                     round
@@ -845,6 +847,7 @@ pub struct Round {
     current_market: Market,
     current_events: Vec<Event>,
     open_characters: Vec<Character>,
+    fired_characters: Vec<Character>,
 }
 
 impl Round {
@@ -876,7 +879,9 @@ impl Round {
         let current_character = self.current_player().character;
         self.players()
             .iter()
-            .filter(|p| p.character > current_character)
+            .filter(|p| {
+                p.character > current_character && !self.fired_characters.contains(&p.character)
+            })
             .min_by(|p1, p2| p1.character.cmp(&p2.character))
     }
 
@@ -885,7 +890,9 @@ impl Round {
         self.players
             .players_mut()
             .iter_mut()
-            .filter(|p| p.character > current_character)
+            .filter(|p| {
+                p.character > current_character && !self.fired_characters.contains(&p.character)
+            })
             .min_by(|p1, p2| p1.character.cmp(&p2.character))
     }
 
@@ -1002,13 +1009,46 @@ impl Round {
         }
     }
 
+    pub fn player_fire_character(
+        &mut self,
+        id: PlayerId,
+        character: Character,
+    ) -> Result<Character, GameError> {
+        match self.players.player_mut(id) {
+            Ok(player) if player.id == self.current_player => {
+                if player.character == Character::Shareholder {
+                    if !player.has_fired_this_round {
+                        if character != Character::Banker
+                            && character != Character::Regulator
+                            && character != Character::Shareholder
+                        {
+                            player.has_fired_this_round = true;
+                            self.fired_characters.push(character);
+                            Ok(character)
+                        } else {
+                            Err(FireCharacterError::InvalidCharacter.into())
+                        }
+                    } else {
+                        Err(FireCharacterError::AlreadyFiredThisTurn.into())
+                    }
+                } else {
+                    Err(FireCharacterError::InvalidPlayerCharacter.into())
+                }
+            }
+            Ok(_) => Err(GameError::NotPlayersTurn),
+            Err(e) => Err(e),
+        }
+    }
+
     pub fn skipped_characters(&self) -> Vec<Character> {
         let current_character = self.current_player().character;
         let mut skipped = Character::CHARACTERS
             .into_iter()
             .rev()
-            .skip_while(|c| c.ge(&current_character))
-            .take_while(|c| self.player_from_character(*c).is_none())
+            .skip_while(|c| *c >= current_character)
+            .take_while(|c| {
+                self.player_from_character(*c).is_none() || self.fired_characters.contains(c)
+            })
             .collect::<Vec<_>>();
 
         skipped.sort();

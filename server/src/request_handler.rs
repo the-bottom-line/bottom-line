@@ -200,7 +200,10 @@ pub fn redeem_liability(
         .map(|p| {
             (
                 p.id,
-                vec![UniqueResponse::RedeemedLiability { liability_idx }],
+                vec![UniqueResponse::RedeemedLiability {
+                    player_id,
+                    liability_idx,
+                }],
             )
         })
         .collect();
@@ -219,6 +222,7 @@ fn turn_starts(round: &Round) -> UniqueResponse {
         player_turn_cash: current_player.turn_cash(round.current_market()),
         player_character: current_player.character,
         draws_n_cards: current_player.draws_n_cards(),
+        gives_back_n_cards: current_player.gives_back_n_cards(),
         playable_assets: current_player.playable_assets(),
         playable_liabilities: current_player.playable_liabilities(),
         skipped_characters: round.skipped_characters(),

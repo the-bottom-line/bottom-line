@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use crate::{
     errors::*,
-    game::{Market, MarketCondition},
+    game::{Deck, Market, MarketCondition},
 };
 
 #[derive(Debug, Clone)]
@@ -200,6 +200,31 @@ impl RoundPlayer {
         self.hand.push(card);
     }
 
+    pub fn draw_asset(&mut self, deck: &mut Deck<Asset>) -> Result<&Asset, DrawCardError> {
+        if self.can_draw_cards() {
+            let card = Either::Left(deck.draw());
+            self.draw_card(card);
+
+            Ok(self.hand.last().unwrap().as_ref().left().unwrap())
+        } else {
+            Err(DrawCardError::MaximumCardsDrawn(self.total_cards_drawn))
+        }
+    }
+
+    pub fn draw_liability(
+        &mut self,
+        deck: &mut Deck<Liability>,
+    ) -> Result<&Liability, DrawCardError> {
+        if self.can_draw_cards() {
+            let card = Either::Right(deck.draw());
+            self.draw_card(card);
+
+            Ok(self.hand.last().unwrap().as_ref().right().unwrap())
+        } else {
+            Err(DrawCardError::MaximumCardsDrawn(self.total_cards_drawn))
+        }
+    }
+
     pub fn give_back_card(
         &mut self,
         card_idx: usize,
@@ -216,17 +241,24 @@ impl RoundPlayer {
     }
 
     pub fn should_give_back_cards(&self) -> bool {
-        // TODO: add head rnd ability
-        self.total_cards_drawn - self.total_cards_given_back >= 3
+        // For every 3 cards drawn one needs to give one back
+        match (self.total_cards_drawn / 3).checked_sub(self.total_cards_given_back) {
+            Some(v) => v > 0,
+            None => false,
+        }
     }
 
     pub fn can_draw_cards(&self) -> bool {
-        // TODO: add head rnd ability
-        self.total_cards_drawn < 3
+        self.total_cards_drawn < self.draws_n_cards()
     }
 
     pub fn draws_n_cards(&self) -> u8 {
         self.character.draws_n_cards()
+    }
+
+    pub fn gives_back_n_cards(&self) -> u8 {
+        // Give back one card for every 3 drawn
+        self.draws_n_cards() / 3
     }
 
     pub fn playable_assets(&self) -> PlayableAssets {
@@ -682,7 +714,7 @@ impl Character {
     pub fn draws_n_cards(&self) -> u8 {
         // TODO: fix head rnd ability when ready
         match self {
-            Self::HeadRnD => 3,
+            Self::HeadRnD => 6,
             _ => 3,
         }
     }
@@ -786,6 +818,32 @@ mod tests {
 
     fn hand_liability(value: u8) -> Vec<Either<Asset, Liability>> {
         vec![Either::Right(liability(value))]
+    }
+
+    #[test]
+    fn should_give_back_cards() {
+        let selecting_player = SelectingCharactersPlayer {
+            id: Default::default(),
+            name: Default::default(),
+            assets: Default::default(),
+            liabilities: Default::default(),
+            cash: Default::default(),
+            character: Some(Character::HeadRnD),
+            hand: Default::default(),
+        };
+        let mut round_player = RoundPlayer::try_from(selecting_player).unwrap();
+
+        for total_cards_drawn in 0..100u8 {
+            for total_cards_given_back in 0..33u8 {
+                let cmp = match (total_cards_drawn / 3).checked_sub(total_cards_given_back) {
+                    Some(v) => v > 0,
+                    None => false,
+                };
+                round_player.total_cards_drawn = total_cards_drawn;
+                round_player.total_cards_given_back = total_cards_given_back;
+                assert_eq!(round_player.should_give_back_cards(), cmp);
+            }
+        }
     }
 
     #[test]

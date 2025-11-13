@@ -362,23 +362,6 @@ impl GameState {
         }
     }
 
-    // pub fn join(&mut self, username: String) -> Result<PlayerId, GameError> {
-    //     match self {
-    //         Self::Lobby(lobby) => match lobby.join(username) {
-    //             Ok(player) => Ok(player.id),
-    //             Err(e) => Err(e.into()),
-    //         },
-    //         _ => Err(GameError::NotLobbyState),
-    //     }
-    // }
-
-    // pub fn leave(&mut self, username: &str) -> Result<bool, GameError> {
-    //     match self {
-    //         Self::Lobby(lobby) => Ok(lobby.leave(username)),
-    //         _ => Err(GameError::NotLobbyState),
-    //     }
-    // }
-
     pub fn start_game<P: AsRef<Path>>(&mut self, data_path: P) -> Result<(), GameError> {
         match self {
             Self::Lobby(lobby) => {
@@ -406,110 +389,6 @@ impl GameState {
         Ok(())
     }
 
-    // pub fn player_get_selectable_characters(
-    //     &self,
-    //     id: PlayerId,
-    // ) -> Result<PickableCharacters, GameError> {
-    //     match self {
-    //         Self::SelectingCharacters(s) => s.player_get_selectable_characters(id),
-    //         _ => Err(GameError::NotSelectingCharactersState),
-    //     }
-    // }
-
-    // pub fn open_characters(&self) -> Result<&[Character], GameError> {
-    //     match self {
-    //         Self::SelectingCharacters(s) => Ok(s.open_characters()),
-    //         Self::Round(r) => Ok(r.open_characters()),
-    //         GameState::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
-    //         GameState::Results(_) => Err(GameError::NotAvailableInResultsState),
-    //     }
-    // }
-
-    // pub fn player(&self, id: PlayerId) -> Result<&Player, GameError> {
-    //     match self {
-    //         Self::SelectingCharacters(s) => s.player(id),
-    //         Self::Round(r) => r.player(id),
-    //         Self::Results(r) => r.player(id),
-    //         Self::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
-    //     }
-    // }
-
-    // pub fn current_player(&self) -> Result<&Player, GameError> {
-    //     match self {
-    //         Self::Round(r) => Ok(r.current_player()),
-    //         _ => Err(GameError::NotRoundState),
-    //     }
-    // }
-
-    // pub fn next_player(&self) -> Option<&Player> {
-    //     match self {
-    //         Self::Round(r) => r.next_player(),
-    //         _ => None,
-    //     }
-    // }
-
-    // pub fn player_by_name(&self, name: &str) -> Result<&Player, GameError> {
-    //     match self {
-    //         Self::SelectingCharacters(s) => s.player_by_name(name),
-    //         Self::Round(r) => r.player_by_name(name),
-    //         Self::Results(r) => r.player_by_name(name),
-    //         Self::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
-    //     }
-    // }
-
-    // pub fn player_from_character(&self, character: Character) -> Option<&Player> {
-    //     let players = match self {
-    //         Self::SelectingCharacters(s) => &s.players,
-    //         Self::Round(r) => &r.players,
-    //         Self::Results(r) => &r.players,
-    //         Self::Lobby(_) => return None,
-    //     };
-
-    //     players.iter().find(|p| p.character == Some(character))
-    // }
-
-    // pub fn players(&self) -> Result<&[Player], GameError> {
-    //     match self {
-    //         GameState::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
-    //         GameState::SelectingCharacters(selecting) => Ok(selecting.players()),
-    //         GameState::Round(round) => Ok(round.players()),
-    //         GameState::Results(results) => Ok(results.players()),
-    //     }
-    // }
-
-    // pub fn player_play_card(
-    //     &mut self,
-    //     id: PlayerId,
-    //     card_idx: usize,
-    // ) -> Result<PlayerPlayedCard, GameError> {
-    //     match self {
-    //         Self::Round(r) => r.player_play_card(id, card_idx),
-    //         _ => Err(GameError::NotRoundState),
-    //     }
-    // }
-
-    // pub fn player_draw_card(
-    //     &mut self,
-    //     id: PlayerId,
-    //     card_type: CardType,
-    // ) -> Result<Either<&Asset, &Liability>, GameError> {
-    //     match self {
-    //         Self::Round(r) => r.player_draw_card(id, card_type),
-    //         _ => Err(GameError::NotRoundState),
-    //     }
-    // }
-
-    // pub fn player_give_back_card(
-    //     &mut self,
-    //     id: PlayerId,
-    //     card_idx: usize,
-    // ) -> Result<CardType, GameError> {
-    //     match self {
-    //         Self::Round(r) => r.player_give_back_card(id, card_idx),
-    //         _ => Err(GameError::NotRoundState),
-    //     }
-    // }
-
     pub fn end_player_turn(&mut self, id: PlayerId) -> Result<TurnEnded, GameError> {
         let round = match self {
             Self::Round(r) => r,
@@ -524,22 +403,6 @@ impl GameState {
             }
         }
     }
-
-    // pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
-    //     match self {
-    //         Self::Lobby(l) => l.player_info(id),
-    //         Self::SelectingCharacters(s) => s.player_info(id),
-    //         Self::Round(r) => r.player_info(id),
-    //         Self::Results(r) => r.player_info(id),
-    //     }
-    // }
-
-    // pub fn turn_order(&self) -> Result<Vec<PlayerId>, GameError> {
-    //     match self {
-    //         Self::SelectingCharacters(s) => Ok(s.turn_order()),
-    //         _ => Err(GameError::NotSelectingCharactersState),
-    //     }
-    // }
 }
 
 impl Default for GameState {

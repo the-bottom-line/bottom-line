@@ -1045,8 +1045,10 @@ impl Round {
         let mut skipped = Character::CHARACTERS
             .into_iter()
             .rev()
-            .skip_while(|c| c.ge(&current_character))
-            .take_while(|c| self.player_from_character(*c).is_none())
+            .skip_while(|c| *c >= current_character)
+            .take_while(|c| {
+                self.player_from_character(*c).is_none() || self.fired_characters.contains(c)
+            })
             .collect::<Vec<_>>();
 
         skipped.sort();

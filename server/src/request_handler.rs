@@ -34,21 +34,21 @@ pub fn start_game(state: &mut GameState) -> Result<Response, GameError> {
         .iter()
         .map(|p| {
             (
-                p.id,
+                p.id(),
                 vec![
                     UniqueResponse::StartGame {
-                        id: p.id,
-                        hand: p.hand.clone(),
-                        cash: p.cash,
-                        player_info: selecting.player_info(p.id),
+                        id: p.id(),
+                        hand: p.hand().to_vec(),
+                        cash: p.cash(),
+                        player_info: selecting.player_info(p.id()),
                     },
                     UniqueResponse::SelectingCharacters {
-                        chairman_id: selecting.chairman,
+                        chairman_id: selecting.chairman_id(),
                         selectable_characters: selecting
-                            .player_get_selectable_characters(p.id)
+                            .player_get_selectable_characters(p.id())
                             .ok(),
                         open_characters: selecting.open_characters().to_vec(),
-                        closed_character: selecting.player_get_closed_character(p.id).ok(),
+                        closed_character: selecting.player_get_closed_character(p.id()).ok(),
                         turn_order: selecting.turn_order(),
                     },
                 ],
@@ -74,10 +74,10 @@ pub fn draw_card(
     let internal = round
         .players()
         .iter()
-        .filter(|p| p.id != player_id)
+        .filter(|p| p.id() != player_id)
         .map(|p| {
             (
-                p.id,
+                p.id(),
                 vec![UniqueResponse::DrewCard {
                     player_id,
                     card_type,
@@ -108,10 +108,10 @@ pub fn put_back_card(
     let internal = round
         .players()
         .iter()
-        .filter(|p| p.id != player_id)
+        .filter(|p| p.id() != player_id)
         .map(|p| {
             (
-                p.id,
+                p.id(),
                 vec![UniqueResponse::PutBackCard {
                     player_id,
                     card_type,
@@ -143,10 +143,10 @@ pub fn play_card(
             let internal = round
                 .players()
                 .iter()
-                .filter(|p| p.id != player_id)
+                .filter(|p| p.id() != player_id)
                 .map(|p| {
                     (
-                        p.id,
+                        p.id(),
                         vec![UniqueResponse::BoughtAsset {
                             player_id,
                             asset: asset.clone(),
@@ -164,10 +164,10 @@ pub fn play_card(
             let internal = round
                 .players()
                 .iter()
-                .filter(|p| p.id != player_id)
+                .filter(|p| p.id() != player_id)
                 .map(|p| {
                     (
-                        p.id,
+                        p.id(),
                         vec![UniqueResponse::IssuedLiability {
                             player_id,
                             liability: liability.clone(),
@@ -196,10 +196,10 @@ pub fn redeem_liability(
     let internal = round
         .players()
         .iter()
-        .filter(|p| p.id != player_id)
+        .filter(|p| p.id() != player_id)
         .map(|p| {
             (
-                p.id,
+                p.id(),
                 vec![UniqueResponse::RedeemedLiability {
                     player_id,
                     liability_idx,
@@ -218,9 +218,9 @@ fn turn_starts(round: &Round) -> UniqueResponse {
     let current_player = round.current_player();
 
     UniqueResponse::TurnStarts {
-        player_turn: current_player.id,
+        player_turn: current_player.id(),
         player_turn_cash: current_player.turn_cash(round.current_market()),
-        player_character: current_player.character,
+        player_character: current_player.character(),
         draws_n_cards: current_player.draws_n_cards(),
         gives_back_n_cards: current_player.gives_back_n_cards(),
         playable_assets: current_player.playable_assets(),
@@ -244,14 +244,14 @@ pub fn select_character(
                         .iter()
                         .map(|p| {
                             (
-                                p.id,
+                                p.id(),
                                 vec![UniqueResponse::SelectedCharacter {
                                     currently_picking_id: Some(selecting.currently_selecting_id()),
                                     selectable_characters: selecting
-                                        .player_get_selectable_characters(p.id)
+                                        .player_get_selectable_characters(p.id())
                                         .ok(),
                                     closed_character: selecting
-                                        .player_get_closed_character(p.id)
+                                        .player_get_closed_character(p.id())
                                         .ok(),
                                 }],
                             )
@@ -268,7 +268,7 @@ pub fn select_character(
                     let internal = round
                         .players()
                         .iter()
-                        .map(|p| (p.id, vec![turn_starts(round)]))
+                        .map(|p| (p.id(), vec![turn_starts(round)]))
                         .collect();
 
                     Ok(Response(
@@ -295,10 +295,10 @@ pub fn fire_character(
             let internal = round
                 .players()
                 .iter()
-                .filter(|p| p.id != player_id)
+                .filter(|p| p.id() != player_id)
                 .map(|p| {
                     (
-                        p.id,
+                        p.id(),
                         vec![UniqueResponse::FiredCharacter {
                             player_id,
                             character,
@@ -326,14 +326,14 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
                 .iter()
                 .map(|p| {
                     (
-                        p.id,
+                        p.id(),
                         vec![UniqueResponse::SelectingCharacters {
-                            chairman_id: selecting.chairman,
+                            chairman_id: selecting.chairman_id(),
                             selectable_characters: selecting
-                                .player_get_selectable_characters(p.id)
+                                .player_get_selectable_characters(p.id())
                                 .ok(),
                             open_characters: selecting.open_characters().to_vec(),
-                            closed_character: selecting.player_get_closed_character(p.id).ok(),
+                            closed_character: selecting.player_get_closed_character(p.id()).ok(),
                             turn_order: selecting.turn_order(),
                         }],
                     )
@@ -349,7 +349,7 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
             let internal = round
                 .players()
                 .iter()
-                .map(|p| (p.id, vec![turn_starts(round)]))
+                .map(|p| (p.id(), vec![turn_starts(round)]))
                 .collect();
 
             Ok(Response(

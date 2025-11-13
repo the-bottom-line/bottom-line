@@ -111,13 +111,9 @@ impl RoundPlayer {
     }
 
     fn can_play_asset(&self, color: Color) -> bool {
-        match self
-            .assets_to_play
+        self.assets_to_play
             .checked_sub(self.playable_assets.color_cost(color))
-        {
-            Some(_) => true,
-            None => false,
-        }
+            .is_some()
     }
 
     fn can_play_liability(&self) -> bool {
@@ -156,27 +152,24 @@ impl RoundPlayer {
         }
     }
 
-    pub fn fire_character(
-        &mut self,
-        character: Character
-    ) -> Result<Character, GameError> {
+    pub fn fire_character(&mut self, character: Character) -> Result<Character, GameError> {
         if character == Character::Shareholder {
-                    if !self.has_fired_this_round {
-                        if character != Character::Banker
-                            && character != Character::Regulator
-                            && character != Character::Shareholder
-                        {
-                            self.has_fired_this_round = true;
-                            Ok(character)
-                        } else {
-                            Err(FireCharacterError::InvalidCharacter.into())
-                        }
-                    } else {
-                        Err(FireCharacterError::AlreadyFiredThisTurn.into())
-                    }
+            if !self.has_fired_this_round {
+                if character != Character::Banker
+                    && character != Character::Regulator
+                    && character != Character::Shareholder
+                {
+                    self.has_fired_this_round = true;
+                    Ok(character)
                 } else {
-                    Err(FireCharacterError::InvalidPlayerCharacter.into())
+                    Err(FireCharacterError::InvalidCharacter.into())
                 }
+            } else {
+                Err(FireCharacterError::AlreadyFiredThisTurn.into())
+            }
+        } else {
+            Err(FireCharacterError::InvalidPlayerCharacter.into())
+        }
     }
 
     /// Plays card in players hand with index `card_idx`. If that index is valid, the card is played
@@ -1071,7 +1064,7 @@ mod tests {
         std::iter::repeat_n(Color::COLORS, 2)
             .multi_cartesian_product()
             .map(|v| (v[0], v[1]))
-            .filter(|(_, c2)| [Color::Blue, Color::Yellow, Color::Purple].contains(&c2))
+            .filter(|(_, c2)| [Color::Blue, Color::Yellow, Color::Purple].contains(c2))
             .for_each(|(c1, c2)| {
                 let mut player = round_player.clone();
                 player.hand = hand_asset(c1);

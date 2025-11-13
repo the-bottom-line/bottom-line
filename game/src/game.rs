@@ -569,7 +569,7 @@ impl Lobby {
     }
 
     pub fn players(&self) -> &[LobbyPlayer] {
-        &self.players.players()
+        self.players.players()
     }
 
     pub fn players_mut(&mut self) -> &mut [LobbyPlayer] {

@@ -227,8 +227,8 @@ impl RoundPlayer {
         }
     }
 
-    pub fn fire_character(&mut self, character: Character) -> Result<Character, GameError> {
-        if character == Character::Shareholder {
+    pub fn fire_character(&mut self, character: Character) -> Result<Character, FireCharacterError> {
+        if self.character == Character::Shareholder {
             if !self.has_fired_this_round {
                 if character != Character::Banker
                     && character != Character::Regulator
@@ -1105,6 +1105,60 @@ mod tests {
                     assert_eq!(hand_len, player.hand.len());
                     assert_eq!(cards_drawn, player.total_cards_drawn);
                 });
+        }
+    }
+
+    #[test]
+    fn fire_character_shareholder() {
+        const CHARACTER: Character = Character::Shareholder;
+
+        let selecting_player = SelectingCharactersPlayer {
+            id: Default::default(),
+            name: Default::default(),
+            assets: Default::default(),
+            liabilities: Default::default(),
+            cash: Default::default(),
+            character: Some(CHARACTER),
+            hand: Default::default(),
+        };
+        let mut player = RoundPlayer::try_from(selecting_player).unwrap();
+
+        //test firing unfireable characters
+        assert_matches!(player.fire_character(Character::Shareholder),Err(FireCharacterError::InvalidCharacter));
+        assert_matches!(player.fire_character(Character::Banker),Err(FireCharacterError::InvalidCharacter));
+        assert_matches!(player.fire_character(Character::Regulator),Err(FireCharacterError::InvalidCharacter));
+
+        //test regular fire functionality
+        assert_matches!(player.fire_character(Character::CEO), Ok(Character::CEO));
+
+        //test already fired this round
+        assert_matches!(player.fire_character(Character::CEO), Err(FireCharacterError::AlreadyFiredThisTurn));
+        assert_matches!(player.fire_character(Character::Stakeholder), Err(FireCharacterError::AlreadyFiredThisTurn));
+
+
+
+    }
+
+    #[test]
+    fn fire_character_not_shareholder() {
+        for character in Character::CHARACTERS
+            .into_iter()
+            .filter(|c| *c != Character::Shareholder)
+        {
+            let selecting_player = SelectingCharactersPlayer {
+                id: Default::default(),
+                name: Default::default(),
+                assets: Default::default(),
+                liabilities: Default::default(),
+                cash: Default::default(),
+                character: Some(character),
+                hand: Default::default(),
+            };
+
+            let mut player = RoundPlayer::try_from(selecting_player).unwrap();
+
+        //test firing unfireable characters
+        assert_matches!(player.fire_character(Character::CEO),Err(FireCharacterError::InvalidPlayerCharacter));
         }
     }
 

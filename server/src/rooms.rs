@@ -1,4 +1,4 @@
-use game::{errors::GameError, game::GameState};
+use game::{errors::GameError, game::GameState, player::Character};
 use responses::*;
 use tokio::sync::broadcast;
 
@@ -69,6 +69,21 @@ impl RoomState {
             FrontendRequest::RedeemLiability { liability_idx } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
                 redeem_liability(state, liability_idx, player_id)
+            }
+            FrontendRequest::UseAbility => {
+                let round = state.round()?;
+                let player = round.player_by_name(player_name)?;
+                match player.character() {
+                    Character::Shareholder if round.current_player().id() == player.id() => {
+                        Ok(Response(
+                            InternalResponse(std::collections::HashMap::new()),
+                            DirectResponse::YouAreFiringSomeone {
+                                characters: Character::CHARACTERS[3..].to_vec(),
+                            },
+                        ))
+                    }
+                    _ => Err(GameError::InvalidPlayerIndex(0)),
+                }
             }
             FrontendRequest::FireCharacter { character } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();

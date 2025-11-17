@@ -58,6 +58,12 @@ impl CreateRequest {
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
+    #[wasm_bindgen(js_name = useAbility)]
+    pub fn use_ability() -> Result<String, JsValue> {
+        serde_json::to_string(&responses::FrontendRequest::UseAbility)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
     #[wasm_bindgen(js_name = fireCharacter)]
     pub fn fire_character(character: JsValue) -> Result<String, JsValue> {
         let character: Character = serde_wasm_bindgen::from_value(character)?;
@@ -91,6 +97,7 @@ impl CreateRequest {
             responses::FrontendRequest::RedeemLiability { liability_idx } => {
                 Self::redeem_liability(liability_idx)
             }
+            responses::FrontendRequest::UseAbility => Self::use_ability(),
             responses::FrontendRequest::FireCharacter { .. } => {
                 Self::fire_character(JsValue::null())
             }

@@ -19,6 +19,7 @@ pub enum FrontendRequest {
     BuyAsset { card_idx: usize },
     IssueLiability { card_idx: usize },
     RedeemLiability { liability_idx: usize },
+    UseAbility,
     FireCharacter { character: Character },
     EndTurn,
 }
@@ -53,6 +54,9 @@ pub enum DirectResponse {
     },
     YouIssuedLiability {
         liability: Liability,
+    },
+    YouAreFiringSomeone {
+        characters: Vec<Character>,
     },
     YouRedeemedLiability {
         liability_idx: usize,

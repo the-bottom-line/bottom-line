@@ -748,6 +748,19 @@ impl Color {
     ];
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DivestPlayer {
+    player_id: PlayerId,
+    assets: Vec<DivestAsset>
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DivestAsset {
+    asset: Asset,
+    divest_cost: u8,
+    is_divestable: bool
+}
+
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Character {
     Shareholder,

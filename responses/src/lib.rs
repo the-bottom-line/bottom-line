@@ -34,6 +34,9 @@ pub enum DirectResponse {
     YouFiredCharacter {
         character: Character,
     },
+    YouAreDivesting {
+        options: Vec<DivestPlayer>
+    },
     YouDrewCard {
         #[serde(with = "serde_asset_liability::value")]
         card: Either<Asset, Liability>,

@@ -54,7 +54,7 @@ pub enum DirectResponse {
     },
     YouCharacterAbility {
         character: Character,
-        perk: str
+        perk: String,
     },
     YouBoughtAsset {
         asset: Asset,
@@ -63,6 +63,9 @@ pub enum DirectResponse {
         liability: Liability,
     },
     YouAreFiringSomeone {
+        characters: Vec<Character>,
+    },
+    YouAreTerminatingSomeone {
         characters: Vec<Character>,
     },
     YouRedeemedLiability {

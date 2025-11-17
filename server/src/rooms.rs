@@ -72,7 +72,7 @@ impl RoomState {
             }
             FrontendRequest::UseAbility => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
-                use_ability(state,player_id)
+                use_ability(state, player_id)
             }
             FrontendRequest::FireCharacter { character } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();

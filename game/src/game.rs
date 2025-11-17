@@ -805,6 +805,19 @@ impl Round {
         }
     }
 
+    pub fn player_get_fireble_characters(
+        &mut self,
+    ) -> Vec<Character> {
+        Character::CHARACTERS
+            .into_iter()
+            .filter(|c| {
+                *c as u8 > 2
+                    && !self.fired_characters.contains(c)
+                    && !self.open_characters.contains(c)
+            })
+            .clone().collect()
+    }
+
     pub fn player_play_card(
         &mut self,
         id: PlayerId,
@@ -895,6 +908,15 @@ impl Round {
         self.fired_characters.push(character);
         Ok(character)
     }
+
+    pub fn player_terminate_character(
+        &mut self,
+        id: PlayerId,
+        character: Character,
+    ) -> Result<Character, GameError> {
+        // TODO: 
+    }
+    
 
     pub fn skipped_characters(&self) -> Vec<Character> {
         let current_character = self.current_player().character();

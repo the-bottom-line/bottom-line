@@ -32,11 +32,14 @@ pub enum DirectResponse {
     YouSelectedCharacter {
         character: Character,
     },
+    YouAreFiring {
+        characters: Vec<Character>,
+    },
     YouFiredCharacter {
         character: Character,
     },
     YouAreDivesting {
-        options: Vec<DivestPlayer>
+        options: Vec<DivestPlayer>,
     },
     YouDrewCard {
         #[serde(with = "serde_asset_liability::value")]
@@ -48,6 +51,10 @@ pub enum DirectResponse {
         card_idx: usize,
         can_draw_cards: bool,
         can_give_back_cards: bool,
+    },
+    YouCharacterAbility {
+        character: Character,
+        perk: str
     },
     YouBoughtAsset {
         asset: Asset,
@@ -128,6 +135,7 @@ pub enum UniqueResponse {
         player_id: PlayerId,
         liability_idx: usize,
     },
+    ShareholderIsFiring {},
     FiredCharacter {
         player_id: PlayerId,
         character: Character,

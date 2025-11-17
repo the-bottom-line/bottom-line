@@ -62,6 +62,51 @@ pub fn start_game(state: &mut GameState) -> Result<Response, GameError> {
     ))
 }
 
+pub fn use_ability(
+    state: &mut GameState,
+    player_id: PlayerId
+) -> Result<Response, GameError> {
+    let round = state.round()?;
+    let player = round.player(player_id)?;
+    match player.character() {
+        Character::Shareholder if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouAreFiringSomeone {
+                characters: Character::CHARACTERS[3..].to_vec(),
+            },
+        )),
+        Character::Banker if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouCharacterAbility { character: Character::Banker, perk: "text" } ,
+        )),
+        Character::Regulator if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouCharacterAbility { character: Character::Regulator, perk: "text" } ,
+        )),
+        Character::CEO if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouCharacterAbility { character: Character::CEO, perk: "- You can buy up to 3 assets \n- Next turn you become chairman" } ,
+        )),
+        Character::CFO if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouCharacterAbility { character: Character::CFO, perk: "You can issue or redeem 3 liabilities" } ,
+        )),
+        Character::CSO if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouCharacterAbility { character: Character::CSO, perk: "You can buy up to 2 red or green assets" } ,
+        )),
+        Character::HeadRnD if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouCharacterAbility { character: Character::HeadRnD, perk: "You can draw six cards and only have to put 2 back" } ,
+        )),
+        Character::Stakeholder if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouCharacterAbility { character: Character::CEO, perk: "text" } ,
+        )),
+        _ => Err(GameError::InvalidPlayerIndex(0)),
+    }
+}
+
 pub fn draw_card(
     state: &mut GameState,
     card_type: CardType,

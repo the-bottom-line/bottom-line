@@ -549,7 +549,7 @@ pub struct Asset {
 
 impl Asset {
     ///returns the current value of the asset acording to market condition
-    pub fn market_value(&self, market: Market) -> i8 {
+    pub fn market_value(&self, market: &Market) -> i8 {
         let mul: i8 = match market.color_condition(self.color) {
             MarketCondition::Plus => 1,
             MarketCondition::Minus => -1,
@@ -558,7 +558,7 @@ impl Asset {
         self.gold_value as i8 + self.silver_value as i8 * mul
     }
 
-    pub fn divest_cost(&self, market: Market) -> u8 {
+    pub fn divest_cost(&self, market: &Market) -> u8 {
         let mv = self.market_value(market);
         if mv <= 1 { 0 } else { (mv - 1) as u8 }
     }

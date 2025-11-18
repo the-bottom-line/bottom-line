@@ -115,9 +115,9 @@ pub fn use_ability(state: &mut GameState, player_id: PlayerId) -> Result<Respons
         )),
         Character::Stakeholder if round.current_player().id() == player.id() => Ok(Response(
             InternalResponse(std::collections::HashMap::new()),
-            ///todo send other players divest message
+            //TODO send other players divest message
             DirectResponse::YouAreDivesting {
-                options: round.get_divest_assets(player_id),
+                options: round.get_divest_assets(player_id)?
             },
         )),
         _ => Err(GameError::InvalidPlayerIndex(0)),

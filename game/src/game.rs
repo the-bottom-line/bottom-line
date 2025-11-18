@@ -921,8 +921,8 @@ impl Round {
                         .assets()
                         .iter()
                         .map(|a| DivestAsset {
-                            asset: *a,
-                            divest_cost: a.divest_cost(self.current_market),
+                            asset: a.clone(),
+                            divest_cost: a.divest_cost(&self.current_market),
                             is_divestable: a.color != Color::Red && a.color != Color::Green,
                         })
                         .collect(),

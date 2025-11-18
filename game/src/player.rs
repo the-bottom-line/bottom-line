@@ -508,8 +508,8 @@ impl ResultsPlayer {
 
         let mul = match market_condition {
             MarketCondition::Plus => 1.0,
-            MarketCondition::Minus => 0.0,
-            MarketCondition::Zero => -1.0,
+            MarketCondition::Minus => -1.0,
+            MarketCondition::Zero => 0.0,
         };
 
         self.assets
@@ -545,6 +545,23 @@ pub struct Asset {
     pub ability: Option<AssetPowerup>,
     pub image_front_url: String,
     pub image_back_url: Arc<String>,
+}
+
+impl Asset {
+    ///returns the current value of the asset acording to market condition
+    pub fn market_value(&self, market: Market) -> i8 {
+        let mul: i8 = match market.color_condition(self.color) {
+            MarketCondition::Plus => 1,
+            MarketCondition::Minus => -1,
+            MarketCondition::Zero => 0,
+        };
+        self.gold_value as i8 + self.silver_value as i8 * mul
+    }
+
+    pub fn divest_cost(&self, market: Market) -> u8 {
+        let mv = self.market_value(market);
+        if mv <= 1 { 0 } else { (mv - 1) as u8 }
+    }
 }
 
 impl std::fmt::Display for Asset {
@@ -753,15 +770,15 @@ impl Color {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DivestPlayer {
-    player_id: PlayerId,
-    assets: Vec<DivestAsset>,
+    pub player_id: PlayerId,
+    pub assets: Vec<DivestAsset>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DivestAsset {
-    asset: Asset,
-    divest_cost: u8,
-    is_divestable: bool,
+    pub asset: Asset,
+    pub divest_cost: u8,
+    pub is_divestable: bool,
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]

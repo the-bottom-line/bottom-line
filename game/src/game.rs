@@ -908,14 +908,6 @@ impl Round {
         self.fired_characters.push(character);
         Ok(character)
     }
-
-    pub fn player_terminate_character(
-        &mut self,
-        id: PlayerId,
-        character: Character,
-    ) -> Result<Character, GameError> {
-        // TODO: 
-    }
     
 
     pub fn skipped_characters(&self) -> Vec<Character> {

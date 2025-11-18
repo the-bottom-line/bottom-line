@@ -20,6 +20,8 @@ pub enum GameError {
     DrawCard(#[from] DrawCardError),
     #[error(transparent)]
     FireCharacter(#[from] FireCharacterError),
+    #[error(transparent)]
+    GetDivestAssets(#[from] GetDivestAssetsError),
     #[error("Player count should be between 4 and 7, {0} is invalid")]
     InvalidPlayerCount(u8),
     #[error("Player index {0} is invalid")]
@@ -94,6 +96,12 @@ pub enum FireCharacterError {
     InvalidPlayerCharacter,
     #[error("Player has already fired a character this turn")]
     AlreadyFiredThisTurn,
+}
+
+#[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
+pub enum GetDivestAssetsError {
+    #[error("Only the stakeholder force a player to divest")]
+    InvalidPlayerCharacter,
 }
 
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]

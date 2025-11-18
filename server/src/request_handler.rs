@@ -62,6 +62,68 @@ pub fn start_game(state: &mut GameState) -> Result<Response, GameError> {
     ))
 }
 
+pub fn use_ability(state: &mut GameState, player_id: PlayerId) -> Result<Response, GameError> {
+    let round = state.round_mut()?;
+    let player = round.player(player_id)?;
+    match player.character() {
+        Character::Shareholder if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouAreFiringSomeone {
+                characters: round.player_get_fireble_characters(),
+            },
+        )),
+        Character::Banker if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouAreTerminatingSomeone {
+                characters: round.player_get_fireble_characters(),
+            },
+        )),
+        Character::Regulator if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouCharacterAbility {
+                character: Character::Regulator,
+                perk: "text".to_string(),
+            },
+        )),
+        Character::CEO if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouCharacterAbility {
+                character: Character::CEO,
+                perk: "- You can buy up to 3 assets \n- Next turn you become chairman".to_string(),
+            },
+        )),
+        Character::CFO if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouCharacterAbility {
+                character: Character::CFO,
+                perk: "You can issue or redeem 3 liabilities".to_string(),
+            },
+        )),
+        Character::CSO if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouCharacterAbility {
+                character: Character::CSO,
+                perk: "You can buy up to 2 red or green assets".to_string(),
+            },
+        )),
+        Character::HeadRnD if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouCharacterAbility {
+                character: Character::HeadRnD,
+                perk: "You can draw six cards and only have to put 2 back".to_string(),
+            },
+        )),
+        Character::Stakeholder if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            //TODO send other players divest message
+            DirectResponse::YouAreDivesting {
+                options: round.get_divest_assets(player_id)?
+            },
+        )),
+        _ => Err(GameError::InvalidPlayerIndex(0)),
+    }
+}
+
 pub fn draw_card(
     state: &mut GameState,
     card_type: CardType,

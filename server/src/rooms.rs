@@ -71,19 +71,8 @@ impl RoomState {
                 redeem_liability(state, liability_idx, player_id)
             }
             FrontendRequest::UseAbility => {
-                let round = state.round()?;
-                let player = round.player_by_name(player_name)?;
-                match player.character() {
-                    Character::Shareholder if round.current_player().id() == player.id() => {
-                        Ok(Response(
-                            InternalResponse(std::collections::HashMap::new()),
-                            DirectResponse::YouAreFiringSomeone {
-                                characters: Character::CHARACTERS[3..].to_vec(),
-                            },
-                        ))
-                    }
-                    _ => Err(GameError::InvalidPlayerIndex(0)),
-                }
+                let player_id = state.round()?.player_by_name(player_name)?.id();
+                use_ability(state, player_id)
             }
             FrontendRequest::FireCharacter { character } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();

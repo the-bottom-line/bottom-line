@@ -805,6 +805,18 @@ impl Round {
         }
     }
 
+    pub fn player_get_fireble_characters(&mut self) -> Vec<Character> {
+        Character::CHARACTERS
+            .into_iter()
+            .filter(|c| {
+                *c as u8 > 2
+                    && !self.fired_characters.contains(c)
+                    && !self.open_characters.contains(c)
+            })
+            .clone()
+            .collect()
+    }
+
     pub fn player_play_card(
         &mut self,
         id: PlayerId,
@@ -894,6 +906,31 @@ impl Round {
         let character = player.fire_character(character)?;
         self.fired_characters.push(character);
         Ok(character)
+    }
+
+    pub fn get_divest_assets(&mut self, id: PlayerId) -> Result<Vec<DivestPlayer>, GameError> {
+        let player = self.player_as_current_mut(id)?;
+        if player.character() == Character::Stakeholder {
+            Ok(self
+                .players()
+                .iter()
+                .filter(|p| p.character() != Character::CSO)
+                .map(|p| DivestPlayer {
+                    player_id: p.id(),
+                    assets: p
+                        .assets()
+                        .iter()
+                        .map(|a| DivestAsset {
+                            asset: a.clone(),
+                            divest_cost: a.divest_cost(&self.current_market),
+                            is_divestable: a.color != Color::Red && a.color != Color::Green,
+                        })
+                        .collect(),
+                })
+                .collect())
+        } else {
+            Err(GetDivestAssetsError::InvalidPlayerCharacter.into())
+        }
     }
 
     pub fn skipped_characters(&self) -> Vec<Character> {

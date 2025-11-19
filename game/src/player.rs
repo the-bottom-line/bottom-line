@@ -227,7 +227,10 @@ impl RoundPlayer {
         }
     }
 
-    pub fn fire_character(&mut self, character: Character) -> Result<Character, FireCharacterError> {
+    pub fn fire_character(
+        &mut self,
+        character: Character,
+    ) -> Result<Character, FireCharacterError> {
         if self.character == Character::Shareholder {
             if !self.has_fired_this_round {
                 if character != Character::Banker
@@ -505,8 +508,8 @@ impl ResultsPlayer {
 
         let mul = match market_condition {
             MarketCondition::Plus => 1.0,
-            MarketCondition::Minus => 0.0,
-            MarketCondition::Zero => -1.0,
+            MarketCondition::Minus => -1.0,
+            MarketCondition::Zero => 0.0,
         };
 
         self.assets
@@ -542,6 +545,23 @@ pub struct Asset {
     pub ability: Option<AssetPowerup>,
     pub image_front_url: String,
     pub image_back_url: Arc<String>,
+}
+
+impl Asset {
+    ///returns the current value of the asset acording to market condition
+    pub fn market_value(&self, market: &Market) -> i8 {
+        let mul: i8 = match market.color_condition(self.color) {
+            MarketCondition::Plus => 1,
+            MarketCondition::Minus => -1,
+            MarketCondition::Zero => 0,
+        };
+        self.gold_value as i8 + self.silver_value as i8 * mul
+    }
+
+    pub fn divest_cost(&self, market: &Market) -> u8 {
+        let mv = self.market_value(market);
+        if mv <= 1 { 0 } else { (mv - 1) as u8 }
+    }
 }
 
 impl std::fmt::Display for Asset {
@@ -746,6 +766,19 @@ impl Color {
         Self::Yellow,
         Self::Blue,
     ];
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DivestPlayer {
+    pub player_id: PlayerId,
+    pub assets: Vec<DivestAsset>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DivestAsset {
+    pub asset: Asset,
+    pub divest_cost: u8,
+    pub is_divestable: bool,
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -1124,19 +1157,31 @@ mod tests {
         let mut player = RoundPlayer::try_from(selecting_player).unwrap();
 
         //test firing unfireable characters
-        assert_matches!(player.fire_character(Character::Shareholder),Err(FireCharacterError::InvalidCharacter));
-        assert_matches!(player.fire_character(Character::Banker),Err(FireCharacterError::InvalidCharacter));
-        assert_matches!(player.fire_character(Character::Regulator),Err(FireCharacterError::InvalidCharacter));
+        assert_matches!(
+            player.fire_character(Character::Shareholder),
+            Err(FireCharacterError::InvalidCharacter)
+        );
+        assert_matches!(
+            player.fire_character(Character::Banker),
+            Err(FireCharacterError::InvalidCharacter)
+        );
+        assert_matches!(
+            player.fire_character(Character::Regulator),
+            Err(FireCharacterError::InvalidCharacter)
+        );
 
         //test regular fire functionality
         assert_matches!(player.fire_character(Character::CEO), Ok(Character::CEO));
 
         //test already fired this round
-        assert_matches!(player.fire_character(Character::CEO), Err(FireCharacterError::AlreadyFiredThisTurn));
-        assert_matches!(player.fire_character(Character::Stakeholder), Err(FireCharacterError::AlreadyFiredThisTurn));
-
-
-
+        assert_matches!(
+            player.fire_character(Character::CEO),
+            Err(FireCharacterError::AlreadyFiredThisTurn)
+        );
+        assert_matches!(
+            player.fire_character(Character::Stakeholder),
+            Err(FireCharacterError::AlreadyFiredThisTurn)
+        );
     }
 
     #[test]
@@ -1157,8 +1202,11 @@ mod tests {
 
             let mut player = RoundPlayer::try_from(selecting_player).unwrap();
 
-        //test firing unfireable characters
-        assert_matches!(player.fire_character(Character::CEO),Err(FireCharacterError::InvalidPlayerCharacter));
+            //test firing unfireable characters
+            assert_matches!(
+                player.fire_character(Character::CEO),
+                Err(FireCharacterError::InvalidPlayerCharacter)
+            );
         }
     }
 

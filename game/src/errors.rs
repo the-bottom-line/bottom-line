@@ -21,6 +21,8 @@ pub enum GameError {
     #[error(transparent)]
     FireCharacter(#[from] FireCharacterError),
     #[error(transparent)]
+    DivestAsset(#[from] DivestAssetError),
+    #[error(transparent)]
     GetDivestAssets(#[from] GetDivestAssetsError),
     #[error("Player count should be between 4 and 7, {0} is invalid")]
     InvalidPlayerCount(u8),
@@ -92,10 +94,24 @@ pub enum GiveBackCardError {
 pub enum FireCharacterError {
     #[error("Character is not allowed to be fired")]
     InvalidCharacter,
-    #[error("Only the stakeholder can fire a character")]
+    #[error("Only the shareholder can fire a character")]
     InvalidPlayerCharacter,
     #[error("Player has already fired a character this turn")]
     AlreadyFiredThisTurn,
+}
+
+#[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
+pub enum DivestAssetError {
+    #[error("Can't divest assets from this character")]
+    InvalidCharacter,
+    #[error("Only the stakeholder can divest assets")]
+    InvalidPlayerCharacter,
+    #[error("Player has already divested an asset this turn")]
+    AlreadyDivestedThisTurn,
+    #[error("can't divest red or green assets")]
+    CantDivestAssetType,
+    #[error("invalid card idex")]
+    InvalidCardIdx,
 }
 
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]

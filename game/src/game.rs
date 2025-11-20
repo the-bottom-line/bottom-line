@@ -805,6 +805,13 @@ impl Round {
         }
     }
 
+    fn player_as_mut(&mut self, id: PlayerId) -> Result<&mut RoundPlayer, GameError> {
+        match self.players.player_mut(id) {
+            Ok(player) => Ok(player),
+            Err(e) => Err(e),
+        }
+    }
+
     pub fn player_get_fireble_characters(&mut self) -> Vec<Character> {
         Character::CHARACTERS
             .into_iter()
@@ -906,6 +913,25 @@ impl Round {
         let character = player.fire_character(character)?;
         self.fired_characters.push(character);
         Ok(character)
+    }
+
+    pub fn player_divest_asset(
+        &mut self,
+        id: PlayerId,
+        target_id: PlayerId,
+        asset_idx: usize,
+    ) -> Result<u8, DivestAssetError> {
+        if id != target_id {
+            self.players.0.get_disjoint_mut([0,1]);
+            let player = self.player_as_current_mut(id)?;
+            let target_player = self.player_as_mut(target_id)?;
+            let cost = player.divest_asset(target_player,asset_idx, &self.current_market)?;
+            Ok(cost)
+        }
+        else{
+            Err(DivestAssetError::InvalidCharacter)
+        }
+        
     }
 
     pub fn get_divest_assets(&mut self, id: PlayerId) -> Result<Vec<DivestPlayer>, GameError> {

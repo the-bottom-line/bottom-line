@@ -1,5 +1,5 @@
 use either::Either;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::value::Error};
 
 use std::sync::Arc;
 
@@ -249,10 +249,17 @@ impl RoundPlayer {
             Err(FireCharacterError::InvalidPlayerCharacter.into())
         }
     }
-    
+
+    pub fn remove_asset(
+        &mut self,
+        asset_idx: usize
+    ) -> Result<Asset, Error> {
+        Ok(self.assets.remove(asset_idx))
+    }
+
     pub fn divest_asset(
         &mut self,
-        player: &mut RoundPlayer,
+        player: &RoundPlayer,
         asset_idx: usize,
         market: &Market,
     ) -> Result<u8, DivestAssetError> {
@@ -262,9 +269,15 @@ impl RoundPlayer {
                     if asset_idx < player.assets.len() {
                         let asset = &player.assets[asset_idx];
                         if asset.color != Color::Red && asset.color != Color::Green {
-                            self.has_used_ability = true;
-                            player.assets.remove(asset_idx);
-                            Ok(asset.divest_cost(&market))
+                            let cost = asset.divest_cost(market);
+                            if cost <= self.cash {
+                                self.has_used_ability = true;
+                                self.cash -= cost;
+                                Ok(cost)
+                            }else{
+                                Err(DivestAssetError::NotEnoughCash)
+                            }
+                            
                         } else {
                             Err(DivestAssetError::CantDivestAssetType)
                         }

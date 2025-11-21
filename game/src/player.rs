@@ -250,10 +250,7 @@ impl RoundPlayer {
         }
     }
 
-    pub fn remove_asset(
-        &mut self,
-        asset_idx: usize
-    ) -> Result<Asset, Error> {
+    pub fn remove_asset(&mut self, asset_idx: usize) -> Result<Asset, Error> {
         Ok(self.assets.remove(asset_idx))
     }
 
@@ -274,10 +271,9 @@ impl RoundPlayer {
                                 self.has_used_ability = true;
                                 self.cash -= cost;
                                 Ok(cost)
-                            }else{
+                            } else {
                                 Err(DivestAssetError::NotEnoughCash)
                             }
-                            
                         } else {
                             Err(DivestAssetError::CantDivestAssetType)
                         }

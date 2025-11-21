@@ -929,13 +929,16 @@ impl Round {
         {
             match self.players.0.get_disjoint_mut([psi, pti]) {
                 Ok(players) => {
-                            let cost =
-                                players[0].divest_asset(&players[1].clone(), asset_idx, &self.current_market)?;
-                            players[1].remove_asset(asset_idx);
-                            Ok(cost)
-                    }
-                    Err(_) => Err(DivestAssetError::InvalidCharacter.into()),
+                    let cost = players[0].divest_asset(
+                        &players[1].clone(),
+                        asset_idx,
+                        &self.current_market,
+                    )?;
+                    players[1].remove_asset(asset_idx);
+                    Ok(cost)
                 }
+                Err(_) => Err(DivestAssetError::InvalidCharacter.into()),
+            }
         } else {
             Err(DivestAssetError::InvalidCharacter.into())
         }

@@ -20,7 +20,7 @@ pub enum GameError {
     DrawCard(#[from] DrawCardError),
     #[error(transparent)]
     FireCharacter(#[from] FireCharacterError),
-     #[error(transparent)]
+    #[error(transparent)]
     Swap(#[from] SwapError),
     #[error(transparent)]
     DivestAsset(#[from] DivestAssetError),
@@ -110,6 +110,8 @@ pub enum SwapError {
     InvalidPlayerCharacter,
     #[error("invalid card indexes")]
     InvalidCardIdxs,
+    #[error("cant swap with this player")]
+    InvalidTargetPlayer,
 }
 
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]

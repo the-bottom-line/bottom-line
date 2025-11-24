@@ -251,20 +251,17 @@ impl RoundPlayer {
         }
     }
 
-        pub fn swap_with_deck(
-        &mut self,
-        mut card_idxs: Vec<usize>,
-    ) -> Result<usize, SwapError> {
+    pub fn swap_with_deck(&mut self, mut card_idxs: Vec<usize>) -> Result<usize, SwapError> {
         if self.character == Character::Regulator {
             if !self.has_used_ability {
                 card_idxs.sort();
-                if *card_idxs.last().unwrap() <= self.hand.len() && card_idxs.iter().all_unique(){
-                    for card in card_idxs.iter().rev(){
+                if *card_idxs.last().unwrap() <= self.hand.len() && card_idxs.iter().all_unique() {
+                    for card in card_idxs.iter().rev() {
                         self.hand.remove(*card);
                     }
                     self.has_used_ability = true;
-                    Ok( card_idxs.len())
-                }else{
+                    Ok(card_idxs.len())
+                } else {
                     Err(SwapError::InvalidCardIdxs.into())
                 }
             } else {
@@ -273,6 +270,32 @@ impl RoundPlayer {
         } else {
             Err(SwapError::AlreadySwapedThisTurn.into())
         }
+    }
+
+    pub fn swap_with_player(
+        &mut self,
+        player: RoundPlayer,
+    ) -> Result<Vec<Either<Asset, Liability>>, SwapError> {
+        if self.character == Character::Regulator {
+            if !self.has_used_ability {
+                self.has_used_ability = true;
+                let old_hand = self.swap_hand(player.hand);
+                Ok(old_hand)
+            } else {
+                Err(SwapError::AlreadySwapedThisTurn.into())
+            }
+        } else {
+            Err(SwapError::AlreadySwapedThisTurn.into())
+        }
+    }
+
+    pub fn swap_hand(
+        &mut self,
+        new_hand: Vec<Either<Asset, Liability>>,
+    ) -> Vec<Either<Asset, Liability>> {
+        let oldhand = self.hand.clone();
+        self.hand = new_hand;
+        oldhand
     }
 
     pub fn remove_asset(&mut self, asset_idx: usize) -> Result<Asset, Error> {

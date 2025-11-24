@@ -82,6 +82,10 @@ impl RoomState {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
                 swap_with_deck(state, player_id, card_idxs)
             }
+            FrontendRequest::SwapWithPlayer { target_player_id } => {
+                let player_id = state.round()?.player_by_name(player_name)?.id();
+                swap_with_player(state, player_id, target_player_id)
+            }
             FrontendRequest::DivestAsset {
                 target_player_id,
                 card_idx,

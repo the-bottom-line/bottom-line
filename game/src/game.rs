@@ -825,10 +825,10 @@ impl Round {
     }
 
     pub fn player_get_regulator_swap_players(&mut self) -> Vec<RegulatorSwapPlayer> {
-        self.players().iter().map(|p| RegulatorSwapPlayer {
+        self.players().iter().filter(|p| p.character() != Character::Regulator).map(|p| RegulatorSwapPlayer {
             player_id: p.id(),
-            asset_count: p.hand().iter().filter(|c| c.is_right() ).count(),
-            liability_count: p.hand().iter().filter(|c| c.is_left() ).count()
+            asset_count: p.hand().iter().filter(|c| c.is_left() ).count(),
+            liability_count: p.hand().iter().filter(|c| c.is_right() ).count()
         }).collect()
     }
 

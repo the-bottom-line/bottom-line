@@ -920,18 +920,28 @@ impl Round {
         id: PlayerId,
         target_id: PlayerId,
         asset_idx: usize,
-    ) -> Result<u8, DivestAssetError> {
-        if id != target_id {
-            self.players.0.get_disjoint_mut([0,1]);
-            let player = self.player_as_current_mut(id)?;
-            let target_player = self.player_as_mut(target_id)?;
-            let cost = player.divest_asset(target_player,asset_idx, &self.current_market)?;
-            Ok(cost)
+    ) -> Result<u8, GameError> {
+        let ps_index = self.players().iter().position(|p| p.id() == id);
+        let pt_index = self.players().iter().position(|p| p.id() == target_id);
+        if let Some(psi) = ps_index
+            && let Some(pti) = pt_index
+            && pt_index != ps_index
+        {
+            match self.players.0.get_disjoint_mut([psi, pti]) {
+                Ok(players) => {
+                    let cost = players[0].divest_asset(
+                        &players[1].clone(),
+                        asset_idx,
+                        &self.current_market,
+                    )?;
+                    players[1].remove_asset(asset_idx);
+                    Ok(cost)
+                }
+                Err(_) => Err(DivestAssetError::InvalidCharacter.into()),
+            }
+        } else {
+            Err(DivestAssetError::InvalidCharacter.into())
         }
-        else{
-            Err(DivestAssetError::InvalidCharacter)
-        }
-        
     }
 
     pub fn get_divest_assets(&mut self, id: PlayerId) -> Result<Vec<DivestPlayer>, GameError> {

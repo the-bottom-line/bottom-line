@@ -37,7 +37,7 @@ pub enum FrontendRequest {
     },
     DivestAsset {
         target_player_id: PlayerId,
-        card_idx: u8,
+        card_idx: usize,
     },
     EndTurn,
 }
@@ -166,8 +166,8 @@ pub enum UniqueResponse {
     },
     AssetDivested {
         player_id: PlayerId,
-        character: Character,
-        card_idx: u8,
+        target_id: PlayerId,
+        card_idx: usize,
         paid_gold: u8,
     },
     TurnEnded {

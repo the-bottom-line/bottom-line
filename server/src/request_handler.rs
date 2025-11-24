@@ -381,7 +381,7 @@ pub fn divest_asset(
     state: &mut GameState,
     player_id: PlayerId,
     target_player_id: PlayerId,
-    asset_idx: u8,
+    asset_idx: usize,
 ) -> Result<Response, GameError> {
     let round = state.round_mut()?;
 
@@ -396,16 +396,16 @@ pub fn divest_asset(
                         p.id(),
                         vec![UniqueResponse::AssetDivested {
                             player_id,
-                            character: (),
+                            target_id: target_player_id,
                             card_idx: asset_idx,
-                            paid_gold: (),
+                            paid_gold: _c,
                         }],
                     )
                 })
                 .collect();
             Ok(Response(
                 InternalResponse(internal),
-                DirectResponse::YouFiredCharacter { character },
+                DirectResponse::YouDivestedAnAsset { gold_cost: _c },
             ))
         }
         Err(e) => Err(e),

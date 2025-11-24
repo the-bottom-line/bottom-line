@@ -110,6 +110,8 @@ pub enum DivestAssetError {
     AlreadyDivestedThisTurn,
     #[error("can't divest red or green assets")]
     CantDivestAssetType,
+    #[error("You don't have enough cach to divest this asset")]
+    NotEnoughCash,
     #[error("invalid card idex")]
     InvalidCardIdx,
 }

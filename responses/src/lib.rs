@@ -50,14 +50,18 @@ pub enum DirectResponse {
     YouSelectedCharacter {
         character: Character,
     },
-    YouAreFiring {
-        characters: Vec<Character>,
-    },
     YouFiredCharacter {
         character: Character,
     },
+    YouRegulatorOptions{
+        options: Vec<RegulatorSwapPlayer>,
+        character: Character,
+        perk: String,
+    },
     YouAreDivesting {
         options: Vec<DivestPlayer>,
+        character: Character,
+        perk: String,
     },
     YouDrewCard {
         #[serde(with = "serde_asset_liability::value")]
@@ -82,12 +86,16 @@ pub enum DirectResponse {
     },
     YouAreFiringSomeone {
         characters: Vec<Character>,
+        character: Character,
+        perk: String,
     },
     YouDivestedAnAsset {
         gold_cost: u8,
     },
     YouAreTerminatingSomeone {
         characters: Vec<Character>,
+        character: Character,
+        perk: String,
     },
     YouRedeemedLiability {
         liability_idx: usize,

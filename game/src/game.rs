@@ -1,7 +1,7 @@
 use either::Either;
 use serde::{Deserialize, Serialize};
 
-use std::{collections::HashSet, path::Path, sync::Arc, vec};
+use std::{any::Any, collections::HashSet, path::Path, sync::Arc, vec};
 
 use crate::{cards::GameData, errors::*, player::*, utility::serde_asset_liability};
 
@@ -824,6 +824,14 @@ impl Round {
             .collect()
     }
 
+    pub fn player_get_regulator_swap_players(&mut self) -> Vec<RegulatorSwapPlayer> {
+        self.players().iter().map(|p| RegulatorSwapPlayer {
+            player_id: p.id(),
+            asset_count: p.hand().iter().filter(|c| c.is_right() ).count(),
+            liability_count: p.hand().iter().filter(|c| c.is_left() ).count()
+        }).collect()
+    }
+
     pub fn player_play_card(
         &mut self,
         id: PlayerId,
@@ -950,7 +958,7 @@ impl Round {
             Ok(self
                 .players()
                 .iter()
-                .filter(|p| p.character() != Character::CSO)
+                .filter(|p| p.character() != Character::CSO && p.character() != Character::Stakeholder)
                 .map(|p| DivestPlayer {
                     player_id: p.id(),
                     assets: p

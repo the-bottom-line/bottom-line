@@ -923,6 +923,16 @@ impl Round {
         Ok(character)
     }
 
+    pub fn player_swap_with_deck(
+        &mut self,
+        id: PlayerId,
+        card_idx: Vec<usize>,
+    ) -> Result<usize, GameError> {
+        let player = self.player_as_current_mut(id)?;
+        let drawcount = player.swap_with_deck(card_idx)?;
+        Ok(drawcount)
+    }
+
     pub fn player_divest_asset(
         &mut self,
         id: PlayerId,

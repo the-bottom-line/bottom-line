@@ -35,6 +35,9 @@ pub enum FrontendRequest {
     FireCharacter {
         character: Character,
     },
+    SwapWithDeck {
+        card_idxs: Vec<usize>,
+    },
     DivestAsset {
         target_player_id: PlayerId,
         card_idx: usize,
@@ -57,6 +60,9 @@ pub enum DirectResponse {
         options: Vec<RegulatorSwapPlayer>,
         character: Character,
         perk: String,
+    },
+    YouSwapDeck {
+        cards_to_draw: usize
     },
     YouAreDivesting {
         options: Vec<DivestPlayer>,
@@ -171,6 +177,9 @@ pub enum UniqueResponse {
     FiredCharacter {
         player_id: PlayerId,
         character: Character,
+    },
+    SwapedWithDeck {
+        card_count: usize
     },
     AssetDivested {
         player_id: PlayerId,

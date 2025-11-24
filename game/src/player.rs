@@ -1,4 +1,5 @@
-use either::Either;
+use either::Either::{self, Left, Right};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize, de::value::Error};
 
 use std::sync::Arc;
@@ -247,6 +248,30 @@ impl RoundPlayer {
             }
         } else {
             Err(FireCharacterError::InvalidPlayerCharacter.into())
+        }
+    }
+
+        pub fn swap_with_deck(
+        &mut self,
+        mut card_idxs: Vec<usize>,
+    ) -> Result<usize, SwapError> {
+        if self.character == Character::Regulator {
+            if !self.has_used_ability {
+                card_idxs.sort();
+                if *card_idxs.last().unwrap() <= self.hand.len() && card_idxs.iter().all_unique(){
+                    for card in card_idxs.iter().rev(){
+                        self.hand.remove(*card);
+                    }
+                    self.has_used_ability = true;
+                    Ok( card_idxs.len())
+                }else{
+                    Err(SwapError::InvalidCardIdxs.into())
+                }
+            } else {
+                Err(SwapError::AlreadySwapedThisTurn.into())
+            }
+        } else {
+            Err(SwapError::AlreadySwapedThisTurn.into())
         }
     }
 

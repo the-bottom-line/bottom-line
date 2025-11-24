@@ -20,6 +20,8 @@ pub enum GameError {
     DrawCard(#[from] DrawCardError),
     #[error(transparent)]
     FireCharacter(#[from] FireCharacterError),
+     #[error(transparent)]
+    Swap(#[from] SwapError),
     #[error(transparent)]
     DivestAsset(#[from] DivestAssetError),
     #[error(transparent)]
@@ -98,6 +100,16 @@ pub enum FireCharacterError {
     InvalidPlayerCharacter,
     #[error("Player has already fired a character this turn")]
     AlreadyFiredThisTurn,
+}
+
+#[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
+pub enum SwapError {
+    #[error("Player has already swaped their hand this turn")]
+    AlreadySwapedThisTurn,
+    #[error("Only the regulator can swap their hand")]
+    InvalidPlayerCharacter,
+    #[error("invalid card indexes")]
+    InvalidCardIdxs,
 }
 
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]

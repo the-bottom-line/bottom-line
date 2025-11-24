@@ -70,20 +70,25 @@ pub fn use_ability(state: &mut GameState, player_id: PlayerId) -> Result<Respons
             InternalResponse(std::collections::HashMap::new()),
             DirectResponse::YouAreFiringSomeone {
                 characters: round.player_get_fireble_characters(),
+                 character: Character::Shareholder,
+                perk: "You can fire a character \n- A fired character skips their turs ".to_string(),
             },
         )),
         Character::Banker if round.current_player().id() == player.id() => Ok(Response(
             InternalResponse(std::collections::HashMap::new()),
             DirectResponse::YouAreTerminatingSomeone {
                 characters: round.player_get_fireble_characters(),
+                 character: Character::Banker,
+                perk: "You can force a player to give you cash based on the amount of different color assets they have +1".to_string(),
             },
         )),
         Character::Regulator if round.current_player().id() == player.id() => Ok(Response(
             InternalResponse(std::collections::HashMap::new()),
-            DirectResponse::YouCharacterAbility {
+            DirectResponse::YouRegulatorOptions { 
+                options: round.player_get_regulator_swap_players(),
                 character: Character::Regulator,
-                perk: "text".to_string(),
-            },
+                perk: "You can swap your hand with another player or swap any number of cards with the deck".to_string(),
+             } 
         )),
         Character::CEO if round.current_player().id() == player.id() => Ok(Response(
             InternalResponse(std::collections::HashMap::new()),
@@ -118,6 +123,8 @@ pub fn use_ability(state: &mut GameState, player_id: PlayerId) -> Result<Respons
             //TODO send other players divest message
             DirectResponse::YouAreDivesting {
                 options: round.get_divest_assets(player_id)?,
+                character: Character::Stakeholder,
+                perk: "you can force a player to divest from an asset by spending the assets market value -1".to_string(),
             },
         )),
         _ => Err(GameError::InvalidPlayerIndex(0)),

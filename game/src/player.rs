@@ -810,6 +810,13 @@ impl Color {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RegulatorSwapPlayer {
+    pub player_id: PlayerId,
+    pub asset_count: usize,
+    pub liability_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DivestPlayer {
     pub player_id: PlayerId,
     pub assets: Vec<DivestAsset>,

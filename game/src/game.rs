@@ -990,7 +990,7 @@ impl Round {
                         asset_idx,
                         &self.current_market,
                     )?;
-                    players[1].remove_asset(asset_idx);
+                    players[1].remove_asset(asset_idx)?;
                     Ok(cost)
                 }
                 Err(_) => Err(DivestAssetError::InvalidCharacter.into()),

@@ -298,8 +298,13 @@ impl RoundPlayer {
         oldhand
     }
 
-    pub fn remove_asset(&mut self, asset_idx: usize) -> Result<Asset, Error> {
-        Ok(self.assets.remove(asset_idx))
+    pub fn remove_asset(&mut self, asset_idx: usize) -> Result<Asset, GameError> {
+        if asset_idx < self.assets.len(){
+            Ok(self.assets.remove(asset_idx))
+        }else{
+            Err(GameError::InvalidAssetIndex(asset_idx as u8))
+        }
+        
     }
 
     pub fn divest_asset(

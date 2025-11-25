@@ -26,6 +26,8 @@ pub enum GameError {
     DivestAsset(#[from] DivestAssetError),
     #[error(transparent)]
     GetDivestAssets(#[from] GetDivestAssetsError),
+    #[error("Asset index {0} is invalid")]
+    InvalidAssetIndex(u8),
     #[error("Player count should be between 4 and 7, {0} is invalid")]
     InvalidPlayerCount(u8),
     #[error("Player index {0} is invalid")]

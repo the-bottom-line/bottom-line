@@ -384,6 +384,77 @@ pub fn fire_character(
     }
 }
 
+pub fn swap_with_deck(
+    state: &mut GameState,
+    player_id: PlayerId,
+    card_idsx: Vec<usize>,
+) -> Result<Response, GameError> {
+    let round = state.round_mut()?;
+
+    match round.player_swap_with_deck(player_id, card_idsx) {
+        Ok(_c) => {
+            let internal = round
+                .players()
+                .iter()
+                .filter(|p| p.id() != player_id)
+                .map(|p| {
+                    (
+                        p.id(),
+                        vec![UniqueResponse::SwapedWithDeck { card_count: _c }],
+                    )
+                })
+                .collect();
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouSwapDeck { cards_to_draw: _c },
+            ))
+        }
+        Err(e) => Err(e),
+    }
+}
+
+pub fn swap_with_player(
+    state: &mut GameState,
+    player_id: PlayerId,
+    target_player_id: PlayerId,
+) -> Result<Response, GameError> {
+    let round = state.round_mut()?;
+
+    match round.player_swap_with_player(player_id, target_player_id) {
+        Ok(_c) => {
+            let mut internal: HashMap<PlayerId, Vec<_>> = round
+                .players()
+                .iter()
+                .filter(|p| p.id() != player_id)
+                .map(|p| {
+                    (
+                        p.id(),
+                        vec![UniqueResponse::SwapedWithPlayer {
+                            regulator_id: player_id,
+                            target_id: target_player_id,
+                        }],
+                    )
+                })
+                .collect();
+            if _c.contains_key(&target_player_id) {
+                internal.insert(
+                    target_player_id,
+                    vec![UniqueResponse::RegulatorSwapedYourCards {
+                        new_cards: _c.get(&target_player_id).unwrap().clone().to_vec(),
+                    }],
+                );
+            }
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouSwapPlayer {
+                    new_cards: _c.get(&player_id).unwrap().clone().to_vec(),
+                },
+            ))
+        }
+        Err(e) => Err(e),
+    }
+}
+
 pub fn divest_asset(
     state: &mut GameState,
     player_id: PlayerId,

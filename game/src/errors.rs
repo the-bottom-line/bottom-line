@@ -21,9 +21,13 @@ pub enum GameError {
     #[error(transparent)]
     FireCharacter(#[from] FireCharacterError),
     #[error(transparent)]
+    Swap(#[from] SwapError),
+    #[error(transparent)]
     DivestAsset(#[from] DivestAssetError),
     #[error(transparent)]
     GetDivestAssets(#[from] GetDivestAssetsError),
+    #[error("Asset index {0} is invalid")]
+    InvalidAssetIndex(u8),
     #[error("Player count should be between 4 and 7, {0} is invalid")]
     InvalidPlayerCount(u8),
     #[error("Player index {0} is invalid")]
@@ -98,6 +102,18 @@ pub enum FireCharacterError {
     InvalidPlayerCharacter,
     #[error("Player has already fired a character this turn")]
     AlreadyFiredThisTurn,
+}
+
+#[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
+pub enum SwapError {
+    #[error("Player has already swaped their hand this turn")]
+    AlreadySwapedThisTurn,
+    #[error("Only the regulator can swap their hand")]
+    InvalidPlayerCharacter,
+    #[error("invalid card indexes")]
+    InvalidCardIdxs,
+    #[error("cant swap with this player")]
+    InvalidTargetPlayer,
 }
 
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]

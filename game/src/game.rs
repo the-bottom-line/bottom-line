@@ -11,6 +11,7 @@ use std::{
 use crate::{cards::GameData, errors::*, player::*, utility::serde_asset_liability};
 
 pub const STARTING_GOLD: u8 = 1;
+pub const ASSETS_FOR_END_OF_GAME: usize = 6;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
@@ -247,12 +248,7 @@ pub struct PlayerPlayedCard {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TurnEnded {
     pub next_player: Option<PlayerId>,
-}
-
-impl TurnEnded {
-    pub fn new(next_player: Option<PlayerId>) -> Self {
-        Self { next_player }
-    }
+    pub game_ended: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -404,7 +400,10 @@ impl GameState {
             Either::Left(te) => Ok(te),
             Either::Right(state) => {
                 *self = state;
-                Ok(TurnEnded::new(None))
+                Ok(TurnEnded {
+                    next_player: None,
+                    game_ended: true,
+                })
             }
         }
     }
@@ -839,13 +838,13 @@ impl Round {
         id: PlayerId,
         card_idx: usize,
     ) -> Result<PlayerPlayedCard, GameError> {
+        let old_max_bought_assets = self.max_bought_assets();
         let player = self.player_as_current_mut(id)?;
-        let assets_len = player.assets().len();
 
         match player.play_card(card_idx)? {
             Either::Left(asset) => {
-                let market = match self.check_new_market(assets_len) {
-                    true => Some(self.new_market()),
+                let market = match self.should_refresh_market(old_max_bought_assets) {
+                    true => Some(self.refresh_market()),
                     false => None,
                 };
                 let used_card = Either::Left(asset.clone());
@@ -1048,10 +1047,18 @@ impl Round {
         if !player.should_give_back_cards() {
             if let Some(id) = self.next_player().map(|p| p.id()) {
                 let player = self.players.player_mut(id)?;
+
                 player.start_turn(&self.current_market);
+
                 self.current_player = player.id();
-                Ok(Either::Left(TurnEnded::new(Some(self.current_player))))
-            } else {
+
+                let turn_ended = TurnEnded {
+                    next_player: Some(self.current_player),
+                    game_ended: false,
+                };
+
+                Ok(Either::Left(turn_ended))
+            } else if !self.is_last_round() {
                 let maybe_ceo = self.player_from_character(Character::CEO);
                 let chairman_id = match maybe_ceo.map(|p| p.id()) {
                     Some(id) => id,
@@ -1080,25 +1087,44 @@ impl Round {
                 });
 
                 Ok(Either::Right(state))
+            } else {
+                let final_market = std::mem::take(&mut self.current_market);
+                let final_events = std::mem::take(&mut self.current_events);
+                let players = std::mem::take(&mut self.players);
+
+                let players = Players(players.0.into_iter().map(Into::into).collect());
+
+                let state = GameState::Results(Results {
+                    players,
+                    final_market,
+                    final_events,
+                });
+
+                Ok(Either::Right(state))
             }
         } else {
             Err(GameError::PlayerShouldGiveBackCard)
         }
     }
 
-    fn check_new_market(&self, player_assets: usize) -> bool {
-        let max_asset_count = self
-            .players()
+    fn max_bought_assets(&self) -> usize {
+        self.players()
             .iter()
             .map(|player| player.assets().len())
             .max()
-            .unwrap_or_default();
-
-        max_asset_count > player_assets
+            .unwrap_or_default()
     }
 
-    /// Starts a new market. Automatically triggers if any player gets the first, second, third, fourth, fifth, seventh or eight asset. Loops through the deck and fetches events as they come.
-    fn new_market(&mut self) -> MarketChange {
+    fn should_refresh_market(&self, old_max_bought_assets: usize) -> bool {
+        let max_bought_assets = self.max_bought_assets();
+
+        max_bought_assets > old_max_bought_assets && max_bought_assets != ASSETS_FOR_END_OF_GAME
+    }
+
+    /// Starts a new market. Automatically triggers if any player gets the first, second, third,
+    /// fourth, fifth, seventh or eight asset. Loops through the deck and fetches events as they
+    /// come.
+    fn refresh_market(&mut self) -> MarketChange {
         let mut events = vec![];
 
         loop {
@@ -1114,6 +1140,10 @@ impl Round {
             }
         }
     }
+
+    fn is_last_round(&self) -> bool {
+        self.max_bought_assets() >= ASSETS_FOR_END_OF_GAME
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -1121,7 +1151,7 @@ pub struct Results {
     players: Players<ResultsPlayer>,
     final_market: Market,
     // TODO: implement events
-    _final_events: Vec<Event>,
+    final_events: Vec<Event>,
 }
 
 impl Results {
@@ -1177,6 +1207,14 @@ impl Results {
             .filter(|p| p.id() != id)
             .map(Into::into)
             .collect()
+    }
+
+    pub fn final_market(&self) -> &Market {
+        &self.final_market
+    }
+
+    pub fn final_events(&self) -> &[Event] {
+        &self.final_events
     }
 }
 

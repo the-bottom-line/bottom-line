@@ -929,8 +929,14 @@ impl Round {
         id: PlayerId,
         card_idx: Vec<usize>,
     ) -> Result<usize, GameError> {
-        let player = self.player_as_current_mut(id)?;
-        let drawcount = player.swap_with_deck(card_idx)?;
+        // cant use player_as_current_mut here because of multiple mutable borrows of self. hmm.
+        let player = match self.players.player_mut(id) {
+            Ok(player) if player.id() == self.current_player => player,
+            Ok(_) => return Err(GameError::NotPlayersTurn),
+            Err(e) => return Err(e),
+        };
+
+        let drawcount = player.swap_with_deck(card_idx, &mut self.assets, &mut self.liabilities)?;
         Ok(drawcount)
     }
 

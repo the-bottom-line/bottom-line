@@ -249,17 +249,33 @@ impl RoundPlayer {
         }
     }
 
-    pub fn swap_with_deck(&mut self, mut card_idxs: Vec<usize>) -> Result<usize, SwapError> {
+    pub fn swap_with_deck(
+        &mut self,
+        mut card_idxs: Vec<usize>,
+        asset_deck: &mut Deck<Asset>,
+        liability_deck: &mut Deck<Liability>,
+    ) -> Result<usize, SwapError> {
+        if card_idxs.is_empty() {
+            return Ok(0);
+        }
+
         if self.character == Character::Regulator {
             if !self.has_used_ability {
                 card_idxs.sort();
-                if *card_idxs.last().unwrap() <= self.hand.len() && card_idxs.iter().all_unique() {
-                    for card in card_idxs.iter().rev() {
-                        self.hand.remove(*card);
+                if card_idxs.last().copied().unwrap_or_default() <= self.hand.len()
+                    && card_idxs.iter().all_unique()
+                {
+                    let removed_card_len = card_idxs.len();
+
+                    for card in card_idxs.into_iter().rev() {
+                        match self.hand.remove(card) {
+                            Either::Left(a) => asset_deck.put_back(a),
+                            Either::Right(l) => liability_deck.put_back(l),
+                        }
                     }
-                    self.bonus_draw_cards += card_idxs.len() as u8;
                     self.has_used_ability = true;
-                    Ok(card_idxs.len())
+                    self.bonus_draw_cards += removed_card_len as u8;
+                    Ok(removed_card_len)
                 } else {
                     Err(SwapError::InvalidCardIdxs)
                 }
@@ -430,8 +446,11 @@ impl RoundPlayer {
     }
 
     pub fn should_give_back_cards(&self) -> bool {
-        // For every 3 cards drawn one needs to give one back
-        match (self.total_cards_drawn / 3).checked_sub(self.total_cards_given_back) {
+        // For every 3 cards drawn one needs to give one back. Subtract any bonus drawing cards a
+        // player may draw.
+        match (self.total_cards_drawn.saturating_sub(self.bonus_draw_cards) / 3)
+            .checked_sub(self.total_cards_given_back)
+        {
             Some(v) => v > 0,
             None => false,
         }

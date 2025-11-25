@@ -1,7 +1,13 @@
 use either::Either;
 use serde::{Deserialize, Serialize};
 
-use std::{any::Any, collections::HashSet, path::Path, sync::Arc, vec};
+use std::{
+    any::Any,
+    collections::{HashMap, HashSet},
+    path::Path,
+    sync::Arc,
+    vec,
+};
 
 use crate::{cards::GameData, errors::*, player::*, utility::serde_asset_liability};
 
@@ -825,11 +831,15 @@ impl Round {
     }
 
     pub fn player_get_regulator_swap_players(&mut self) -> Vec<RegulatorSwapPlayer> {
-        self.players().iter().map(|p| RegulatorSwapPlayer {
-            player_id: p.id(),
-            asset_count: p.hand().iter().filter(|c| c.is_right() ).count(),
-            liability_count: p.hand().iter().filter(|c| c.is_left() ).count()
-        }).collect()
+        self.players()
+            .iter()
+            .filter(|p| p.character() != Character::Regulator)
+            .map(|p| RegulatorSwapPlayer {
+                player_id: p.id(),
+                asset_count: p.hand().iter().filter(|c| c.is_left()).count(),
+                liability_count: p.hand().iter().filter(|c| c.is_right()).count(),
+            })
+            .collect()
     }
 
     pub fn player_play_card(
@@ -923,6 +933,44 @@ impl Round {
         Ok(character)
     }
 
+    pub fn player_swap_with_deck(
+        &mut self,
+        id: PlayerId,
+        card_idx: Vec<usize>,
+    ) -> Result<usize, GameError> {
+        let player = self.player_as_current_mut(id)?;
+        let drawcount = player.swap_with_deck(card_idx)?;
+        Ok(drawcount)
+    }
+
+    pub fn player_swap_with_player(
+        &mut self,
+        id: PlayerId,
+        target_id: PlayerId,
+    ) -> Result<HashMap<PlayerId, Vec<Either<Asset, Liability>>>, GameError> {
+        let ps_index = self.players().iter().position(|p| p.id() == id);
+        let pt_index = self.players().iter().position(|p| p.id() == target_id);
+        if let Some(psi) = ps_index
+            && let Some(pti) = pt_index
+            && pt_index != ps_index
+        {
+            match self.players.0.get_disjoint_mut([psi, pti]) {
+                Ok(players) => {
+                    let cards = players[0].swap_with_player(players[1].clone())?;
+                    let newcards = players[1].swap_hand(cards.clone());
+                    let mut result: HashMap<PlayerId, Vec<Either<Asset, Liability>>> =
+                        Default::default();
+                    result.insert(id, newcards);
+                    result.insert(target_id, cards);
+                    Ok(result)
+                }
+                Err(_) => Err(SwapError::InvalidTargetPlayer.into()),
+            }
+        } else {
+            Err(SwapError::InvalidTargetPlayer.into())
+        }
+    }
+
     pub fn player_divest_asset(
         &mut self,
         id: PlayerId,
@@ -942,7 +990,7 @@ impl Round {
                         asset_idx,
                         &self.current_market,
                     )?;
-                    players[1].remove_asset(asset_idx);
+                    players[1].remove_asset(asset_idx)?;
                     Ok(cost)
                 }
                 Err(_) => Err(DivestAssetError::InvalidCharacter.into()),
@@ -958,7 +1006,9 @@ impl Round {
             Ok(self
                 .players()
                 .iter()
-                .filter(|p| p.character() != Character::CSO && p.character() != Character::Stakeholder)
+                .filter(|p| {
+                    p.character() != Character::CSO && p.character() != Character::Stakeholder
+                })
                 .map(|p| DivestPlayer {
                     player_id: p.id(),
                     assets: p

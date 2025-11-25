@@ -1,4 +1,5 @@
-use either::Either;
+use either::Either::{self, Left, Right};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize, de::value::Error};
 
 use std::sync::Arc;
@@ -134,6 +135,7 @@ pub struct RoundPlayer {
     character: Character,
     hand: Vec<Either<Asset, Liability>>,
     cards_drawn: Vec<usize>,
+    bonus_draw_cards: u8,
     assets_to_play: u8,
     playable_assets: PlayableAssets,
     liabilities_to_play: u8,
@@ -250,8 +252,61 @@ impl RoundPlayer {
         }
     }
 
-    pub fn remove_asset(&mut self, asset_idx: usize) -> Result<Asset, Error> {
-        Ok(self.assets.remove(asset_idx))
+    pub fn swap_with_deck(&mut self, mut card_idxs: Vec<usize>) -> Result<usize, SwapError> {
+        if self.character == Character::Regulator {
+            if !self.has_used_ability {
+                card_idxs.sort();
+                if *card_idxs.last().unwrap() <= self.hand.len() && card_idxs.iter().all_unique() {
+                    for card in card_idxs.iter().rev() {
+                        self.hand.remove(*card);
+                    }
+                    self.bonus_draw_cards += card_idxs.len() as u8;
+                    self.has_used_ability = true;
+                    Ok(card_idxs.len())
+                } else {
+                    Err(SwapError::InvalidCardIdxs.into())
+                }
+            } else {
+                Err(SwapError::AlreadySwapedThisTurn.into())
+            }
+        } else {
+            Err(SwapError::AlreadySwapedThisTurn.into())
+        }
+    }
+
+    pub fn swap_with_player(
+        &mut self,
+        player: RoundPlayer,
+    ) -> Result<Vec<Either<Asset, Liability>>, SwapError> {
+        if self.character == Character::Regulator {
+            if !self.has_used_ability {
+                self.has_used_ability = true;
+                let old_hand = self.swap_hand(player.hand);
+                Ok(old_hand)
+            } else {
+                Err(SwapError::AlreadySwapedThisTurn.into())
+            }
+        } else {
+            Err(SwapError::AlreadySwapedThisTurn.into())
+        }
+    }
+
+    pub fn swap_hand(
+        &mut self,
+        new_hand: Vec<Either<Asset, Liability>>,
+    ) -> Vec<Either<Asset, Liability>> {
+        let oldhand = self.hand.clone();
+        self.hand = new_hand;
+        oldhand
+    }
+
+    pub fn remove_asset(&mut self, asset_idx: usize) -> Result<Asset, GameError> {
+        if asset_idx < self.assets.len(){
+            Ok(self.assets.remove(asset_idx))
+        }else{
+            Err(GameError::InvalidAssetIndex(asset_idx as u8))
+        }
+        
     }
 
     pub fn divest_asset(
@@ -388,7 +443,7 @@ impl RoundPlayer {
     }
 
     pub fn can_draw_cards(&self) -> bool {
-        self.total_cards_drawn < self.draws_n_cards()
+        self.total_cards_drawn < self.draws_n_cards() + self.bonus_draw_cards
     }
 
     pub fn draws_n_cards(&self) -> u8 {
@@ -467,6 +522,7 @@ impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
                     playable_assets,
                     liabilities_to_play: character.playable_liabilities(),
                     total_cards_drawn: 0,
+                    bonus_draw_cards: 0,
                     total_cards_given_back: 0,
                     has_used_ability: false,
                 })

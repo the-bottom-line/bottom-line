@@ -35,6 +35,12 @@ pub enum FrontendRequest {
     FireCharacter {
         character: Character,
     },
+    SwapWithDeck {
+        card_idxs: Vec<usize>,
+    },
+    SwapWithPlayer {
+        target_player_id: PlayerId,
+    },
     DivestAsset {
         target_player_id: PlayerId,
         card_idx: usize,
@@ -53,10 +59,17 @@ pub enum DirectResponse {
     YouFiredCharacter {
         character: Character,
     },
-    YouRegulatorOptions{
+    YouRegulatorOptions {
         options: Vec<RegulatorSwapPlayer>,
         character: Character,
         perk: String,
+    },
+    YouSwapDeck {
+        cards_to_draw: usize,
+    },
+    YouSwapPlayer {
+        #[serde(with = "serde_asset_liability::vec")]
+        new_cards: Vec<Either<Asset, Liability>>,
     },
     YouAreDivesting {
         options: Vec<DivestPlayer>,
@@ -171,6 +184,17 @@ pub enum UniqueResponse {
     FiredCharacter {
         player_id: PlayerId,
         character: Character,
+    },
+    RegulatorSwapedYourCards {
+        #[serde(with = "serde_asset_liability::vec")]
+        new_cards: Vec<Either<Asset, Liability>>,
+    },
+    SwapedWithPlayer {
+        regulator_id: PlayerId,
+        target_id: PlayerId,
+    },
+    SwapedWithDeck {
+        card_count: usize,
     },
     AssetDivested {
         player_id: PlayerId,

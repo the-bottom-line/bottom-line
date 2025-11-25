@@ -960,8 +960,8 @@ impl Round {
                     let newcards = players[1].swap_hand(cards.clone());
                     let mut result: HashMap<PlayerId, Vec<Either<Asset, Liability>>> =
                         Default::default();
-                    result.insert(id, cards);
-                    result.insert(target_id, newcards);
+                    result.insert(id, newcards);
+                    result.insert(target_id, cards);
                     Ok(result)
                 }
                 Err(_) => Err(SwapError::InvalidTargetPlayer.into()),

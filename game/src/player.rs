@@ -135,6 +135,7 @@ pub struct RoundPlayer {
     character: Character,
     hand: Vec<Either<Asset, Liability>>,
     cards_drawn: Vec<usize>,
+    bonus_draw_cards: u8,
     assets_to_play: u8,
     playable_assets: PlayableAssets,
     liabilities_to_play: u8,
@@ -259,6 +260,7 @@ impl RoundPlayer {
                     for card in card_idxs.iter().rev() {
                         self.hand.remove(*card);
                     }
+                    self.bonus_draw_cards += card_idxs.len() as u8;
                     self.has_used_ability = true;
                     Ok(card_idxs.len())
                 } else {
@@ -441,7 +443,7 @@ impl RoundPlayer {
     }
 
     pub fn can_draw_cards(&self) -> bool {
-        self.total_cards_drawn < self.draws_n_cards()
+        self.total_cards_drawn < self.draws_n_cards() + self.bonus_draw_cards
     }
 
     pub fn draws_n_cards(&self) -> u8 {
@@ -520,6 +522,7 @@ impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
                     playable_assets,
                     liabilities_to_play: character.playable_liabilities(),
                     total_cards_drawn: 0,
+                    bonus_draw_cards: 0,
                     total_cards_given_back: 0,
                     has_used_ability: false,
                 })

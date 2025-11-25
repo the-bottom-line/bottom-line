@@ -440,14 +440,14 @@ pub fn swap_with_player(
                 internal.insert(
                     target_player_id,
                     vec![UniqueResponse::RegulatorSwapedYourCards {
-                        new_cards: _c.get(&target_player_id).unwrap().clone(),
+                        new_cards: _c.get(&target_player_id).unwrap().clone().to_vec(),
                     }],
                 );
             }
             Ok(Response(
                 InternalResponse(internal),
                 DirectResponse::YouSwapPlayer {
-                    new_cards: _c.get(&player_id).unwrap().clone(),
+                    new_cards: _c.get(&player_id).unwrap().clone().to_vec(),
                 },
             ))
         }

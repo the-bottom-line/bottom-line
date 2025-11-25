@@ -71,7 +71,20 @@ impl CreateRequest {
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
-    #[wasm_bindgen(js_name = redeemLiability)]
+    #[wasm_bindgen(js_name = swapWithDeck)]
+    pub fn swap_with_deck(card_idxs: Vec<usize>) -> Result<String, JsValue> {
+        serde_json::to_string(&responses::FrontendRequest::SwapWithDeck { card_idxs })
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = swapWithDeck)]
+    pub fn swap_with_player(target_id: u8) -> Result<String, JsValue> {
+        let target_player_id = PlayerId(target_id);
+        serde_json::to_string(&responses::FrontendRequest::SwapWithPlayer { target_player_id })
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = divestAsset)]
     pub fn divest_asset(target_id: u8, asset_idx: usize) -> Result<String, JsValue> {
         let target_player_id = PlayerId(target_id);
         serde_json::to_string(&responses::FrontendRequest::DivestAsset {
@@ -110,6 +123,12 @@ impl CreateRequest {
             responses::FrontendRequest::UseAbility => Self::use_ability(),
             responses::FrontendRequest::FireCharacter { .. } => {
                 Self::fire_character(JsValue::null())
+            }
+            responses::FrontendRequest::SwapWithDeck { card_idxs } => {
+                Self::swap_with_deck(card_idxs)
+            }
+            responses::FrontendRequest::SwapWithPlayer { target_player_id } => {
+                Self::swap_with_player(target_player_id.0)
             }
             responses::FrontendRequest::DivestAsset {
                 target_player_id,

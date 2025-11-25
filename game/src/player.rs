@@ -613,6 +613,33 @@ impl ResultsPlayer {
             })
             .sum()
     }
+
+    pub fn score(&self, final_market: &Market) -> f64 {
+        let gold = self.total_gold() as f64;
+        let silver = self.total_silver() as f64;
+
+        let trade_credit = self.trade_credit() as f64;
+        let bank_loan = self.bank_loan() as f64;
+        let bonds = self.bonds() as f64;
+        let debt = trade_credit + bank_loan + bonds;
+
+        let beta = silver / gold;
+
+        // TODO: end of game bonuses
+        let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / gold;
+
+        let wacc = final_market.rfr as f64 + drp + beta * final_market.mrp as f64;
+
+        let red = self.color_value(Color::Red, final_market);
+        let green = self.color_value(Color::Green, final_market);
+        let yellow = self.color_value(Color::Yellow, final_market);
+        let purple = self.color_value(Color::Purple, final_market);
+        let blue = self.color_value(Color::Blue, final_market);
+
+        let fcf = red + green + yellow + purple + blue;
+
+        (fcf / (10.0 * wacc)) + (debt / 3.0) + self.cash() as f64
+    }
 }
 
 impl From<RoundPlayer> for ResultsPlayer {

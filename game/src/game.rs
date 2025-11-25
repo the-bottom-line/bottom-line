@@ -1,7 +1,7 @@
 use either::Either;
 use serde::{Deserialize, Serialize};
 
-use std::{any::Any, collections::HashSet, path::Path, sync::Arc, vec};
+use std::{collections::HashSet, path::Path, sync::Arc, vec};
 
 use crate::{cards::GameData, errors::*, player::*, utility::serde_asset_liability};
 
@@ -805,13 +805,6 @@ impl Round {
         }
     }
 
-    fn player_as_mut(&mut self, id: PlayerId) -> Result<&mut RoundPlayer, GameError> {
-        match self.players.player_mut(id) {
-            Ok(player) => Ok(player),
-            Err(e) => Err(e),
-        }
-    }
-
     pub fn player_get_fireble_characters(&mut self) -> Vec<Character> {
         Character::CHARACTERS
             .into_iter()
@@ -825,11 +818,14 @@ impl Round {
     }
 
     pub fn player_get_regulator_swap_players(&mut self) -> Vec<RegulatorSwapPlayer> {
-        self.players().iter().map(|p| RegulatorSwapPlayer {
-            player_id: p.id(),
-            asset_count: p.hand().iter().filter(|c| c.is_right() ).count(),
-            liability_count: p.hand().iter().filter(|c| c.is_left() ).count()
-        }).collect()
+        self.players()
+            .iter()
+            .map(|p| RegulatorSwapPlayer {
+                player_id: p.id(),
+                asset_count: p.hand().iter().filter(|c| c.is_right()).count(),
+                liability_count: p.hand().iter().filter(|c| c.is_left()).count(),
+            })
+            .collect()
     }
 
     pub fn player_play_card(

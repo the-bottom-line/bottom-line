@@ -1,4 +1,4 @@
-use game::{errors::GameError, game::GameState, player::Character};
+use game::{errors::GameError, game::GameState};
 use responses::*;
 use tokio::sync::broadcast;
 

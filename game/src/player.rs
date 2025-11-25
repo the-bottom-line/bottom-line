@@ -237,13 +237,13 @@ impl RoundPlayer {
                     self.has_used_ability = true;
                     Ok(character)
                 } else {
-                    Err(FireCharacterError::InvalidCharacter.into())
+                    Err(FireCharacterError::InvalidCharacter)
                 }
             } else {
-                Err(FireCharacterError::AlreadyFiredThisTurn.into())
+                Err(FireCharacterError::AlreadyFiredThisTurn)
             }
         } else {
-            Err(FireCharacterError::InvalidPlayerCharacter.into())
+            Err(FireCharacterError::InvalidPlayerCharacter)
         }
     }
 
@@ -282,13 +282,13 @@ impl RoundPlayer {
                         Err(DivestAssetError::InvalidCardIdx)
                     }
                 } else {
-                    Err(DivestAssetError::InvalidCharacter.into())
+                    Err(DivestAssetError::InvalidCharacter)
                 }
             } else {
-                Err(DivestAssetError::AlreadyDivestedThisTurn.into())
+                Err(DivestAssetError::AlreadyDivestedThisTurn)
             }
         } else {
-            Err(DivestAssetError::InvalidPlayerCharacter.into())
+            Err(DivestAssetError::InvalidPlayerCharacter)
         }
     }
 

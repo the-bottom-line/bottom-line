@@ -53,7 +53,7 @@ pub enum DirectResponse {
     YouFiredCharacter {
         character: Character,
     },
-    YouRegulatorOptions{
+    YouRegulatorOptions {
         options: Vec<RegulatorSwapPlayer>,
         character: Character,
         perk: String,

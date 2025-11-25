@@ -1,5 +1,5 @@
 use either::Either;
-use serde::{Deserialize, Serialize, de::value::Error};
+use serde::{Deserialize, Serialize};
 
 use std::sync::Arc;
 
@@ -233,10 +233,7 @@ impl RoundPlayer {
     ) -> Result<Character, FireCharacterError> {
         if self.character == Character::Shareholder {
             if !self.has_used_ability {
-                if character != Character::Banker
-                    && character != Character::Regulator
-                    && character != Character::Shareholder
-                {
+                if character.can_be_fired() {
                     self.has_used_ability = true;
                     Ok(character)
                 } else {
@@ -250,8 +247,12 @@ impl RoundPlayer {
         }
     }
 
-    pub fn remove_asset(&mut self, asset_idx: usize) -> Result<Asset, Error> {
-        Ok(self.assets.remove(asset_idx))
+    pub fn remove_asset(&mut self, asset_idx: usize) -> Result<Asset, DivestAssetError> {
+        if self.assets.get(asset_idx).is_some() {
+            Ok(self.assets.remove(asset_idx))
+        } else {
+            Err(DivestAssetError::InvalidCardIdx)
+        }
     }
 
     pub fn divest_asset(
@@ -262,7 +263,7 @@ impl RoundPlayer {
     ) -> Result<u8, DivestAssetError> {
         if self.character == Character::Stakeholder {
             if !self.has_used_ability {
-                if player.character != Character::CSO {
+                if player.character.can_be_forced_to_divest() {
                     if asset_idx < player.assets.len() {
                         let asset = &player.assets[asset_idx];
                         if asset.color != Color::Red && asset.color != Color::Green {
@@ -599,8 +600,15 @@ impl Asset {
         self.gold_value as i8 + self.silver_value as i8 * mul
     }
 
+    /// Calculates what it costs to divest this asset based on the current market
     pub fn divest_cost(&self, market: &Market) -> u8 {
         let mv = self.market_value(market);
+
+        // match mv {
+        //     ..=1 => 0,
+        //     n => n as u8 - 1
+        // }
+        // mv.max(1) as u8 - 1
         if mv <= 1 { 0 } else { (mv - 1) as u8 }
     }
 }
@@ -922,6 +930,17 @@ impl Character {
 
     pub fn can_redeem_liabilities(&self) -> bool {
         matches!(self, Self::CFO)
+    }
+
+    pub fn can_be_fired(&self) -> bool {
+        matches!(
+            self,
+            Self::CEO | Self::CSO | Self::CFO | Self::HeadRnD | Self::Stakeholder
+        )
+    }
+
+    pub fn can_be_forced_to_divest(&self) -> bool {
+        !matches!(self, Self::CFO)
     }
 }
 

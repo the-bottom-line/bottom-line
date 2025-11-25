@@ -13,14 +13,32 @@ pub enum Connect {
 #[serde(tag = "action", content = "data")]
 pub enum FrontendRequest {
     StartGame,
-    SelectCharacter { character: Character },
-    DrawCard { card_type: CardType },
-    PutBackCard { card_idx: usize },
-    BuyAsset { card_idx: usize },
-    IssueLiability { card_idx: usize },
-    RedeemLiability { liability_idx: usize },
+    SelectCharacter {
+        character: Character,
+    },
+    DrawCard {
+        card_type: CardType,
+    },
+    PutBackCard {
+        card_idx: usize,
+    },
+    BuyAsset {
+        card_idx: usize,
+    },
+    IssueLiability {
+        card_idx: usize,
+    },
+    RedeemLiability {
+        liability_idx: usize,
+    },
     UseAbility,
-    FireCharacter { character: Character },
+    FireCharacter {
+        character: Character,
+    },
+    DivestAsset {
+        target_player_id: PlayerId,
+        card_idx: usize,
+    },
     EndTurn,
 }
 
@@ -32,14 +50,18 @@ pub enum DirectResponse {
     YouSelectedCharacter {
         character: Character,
     },
-    YouAreFiring {
-        characters: Vec<Character>,
-    },
     YouFiredCharacter {
         character: Character,
     },
+    YouRegulatorOptions{
+        options: Vec<RegulatorSwapPlayer>,
+        character: Character,
+        perk: String,
+    },
     YouAreDivesting {
         options: Vec<DivestPlayer>,
+        character: Character,
+        perk: String,
     },
     YouDrewCard {
         #[serde(with = "serde_asset_liability::value")]
@@ -64,9 +86,16 @@ pub enum DirectResponse {
     },
     YouAreFiringSomeone {
         characters: Vec<Character>,
+        character: Character,
+        perk: String,
+    },
+    YouDivestedAnAsset {
+        gold_cost: u8,
     },
     YouAreTerminatingSomeone {
         characters: Vec<Character>,
+        character: Character,
+        perk: String,
     },
     YouRedeemedLiability {
         liability_idx: usize,
@@ -142,6 +171,12 @@ pub enum UniqueResponse {
     FiredCharacter {
         player_id: PlayerId,
         character: Character,
+    },
+    AssetDivested {
+        player_id: PlayerId,
+        target_id: PlayerId,
+        card_idx: usize,
+        paid_gold: u8,
     },
     TurnEnded {
         player_id: PlayerId,

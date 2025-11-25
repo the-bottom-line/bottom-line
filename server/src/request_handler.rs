@@ -70,20 +70,25 @@ pub fn use_ability(state: &mut GameState, player_id: PlayerId) -> Result<Respons
             InternalResponse(std::collections::HashMap::new()),
             DirectResponse::YouAreFiringSomeone {
                 characters: round.player_get_fireble_characters(),
+                 character: Character::Shareholder,
+                perk: "You can fire a character \n- A fired character skips their turs ".to_string(),
             },
         )),
         Character::Banker if round.current_player().id() == player.id() => Ok(Response(
             InternalResponse(std::collections::HashMap::new()),
             DirectResponse::YouAreTerminatingSomeone {
                 characters: round.player_get_fireble_characters(),
+                 character: Character::Banker,
+                perk: "You can force a player to give you cash based on the amount of different color assets they have +1".to_string(),
             },
         )),
         Character::Regulator if round.current_player().id() == player.id() => Ok(Response(
             InternalResponse(std::collections::HashMap::new()),
-            DirectResponse::YouCharacterAbility {
+            DirectResponse::YouRegulatorOptions { 
+                options: round.player_get_regulator_swap_players(),
                 character: Character::Regulator,
-                perk: "text".to_string(),
-            },
+                perk: "You can swap your hand with another player or swap any number of cards with the deck".to_string(),
+             } 
         )),
         Character::CEO if round.current_player().id() == player.id() => Ok(Response(
             InternalResponse(std::collections::HashMap::new()),
@@ -117,7 +122,9 @@ pub fn use_ability(state: &mut GameState, player_id: PlayerId) -> Result<Respons
             InternalResponse(std::collections::HashMap::new()),
             //TODO send other players divest message
             DirectResponse::YouAreDivesting {
-                options: round.get_divest_assets(player_id)?
+                options: round.get_divest_assets(player_id)?,
+                character: Character::Stakeholder,
+                perk: "you can force a player to divest from an asset by spending the assets market value -1".to_string(),
             },
         )),
         _ => Err(GameError::InvalidPlayerIndex(0)),
@@ -371,6 +378,41 @@ pub fn fire_character(
             Ok(Response(
                 InternalResponse(internal),
                 DirectResponse::YouFiredCharacter { character },
+            ))
+        }
+        Err(e) => Err(e),
+    }
+}
+
+pub fn divest_asset(
+    state: &mut GameState,
+    player_id: PlayerId,
+    target_player_id: PlayerId,
+    asset_idx: usize,
+) -> Result<Response, GameError> {
+    let round = state.round_mut()?;
+
+    match round.player_divest_asset(player_id, target_player_id, asset_idx) {
+        Ok(_c) => {
+            let internal = round
+                .players()
+                .iter()
+                .filter(|p| p.id() != player_id)
+                .map(|p| {
+                    (
+                        p.id(),
+                        vec![UniqueResponse::AssetDivested {
+                            player_id,
+                            target_id: target_player_id,
+                            card_idx: asset_idx,
+                            paid_gold: _c,
+                        }],
+                    )
+                })
+                .collect();
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouDivestedAnAsset { gold_cost: _c },
             ))
         }
         Err(e) => Err(e),

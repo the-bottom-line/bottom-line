@@ -1,5 +1,5 @@
 use either::Either;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::value::Error};
 
 use std::sync::Arc;
 
@@ -139,7 +139,7 @@ pub struct RoundPlayer {
     liabilities_to_play: u8,
     total_cards_drawn: u8,
     total_cards_given_back: u8,
-    has_fired_this_round: bool,
+    has_used_ability: bool,
 }
 
 impl RoundPlayer {
@@ -232,12 +232,12 @@ impl RoundPlayer {
         character: Character,
     ) -> Result<Character, FireCharacterError> {
         if self.character == Character::Shareholder {
-            if !self.has_fired_this_round {
+            if !self.has_used_ability {
                 if character != Character::Banker
                     && character != Character::Regulator
                     && character != Character::Shareholder
                 {
-                    self.has_fired_this_round = true;
+                    self.has_used_ability = true;
                     Ok(character)
                 } else {
                     Err(FireCharacterError::InvalidCharacter.into())
@@ -247,6 +247,47 @@ impl RoundPlayer {
             }
         } else {
             Err(FireCharacterError::InvalidPlayerCharacter.into())
+        }
+    }
+
+    pub fn remove_asset(&mut self, asset_idx: usize) -> Result<Asset, Error> {
+        Ok(self.assets.remove(asset_idx))
+    }
+
+    pub fn divest_asset(
+        &mut self,
+        player: &RoundPlayer,
+        asset_idx: usize,
+        market: &Market,
+    ) -> Result<u8, DivestAssetError> {
+        if self.character == Character::Stakeholder {
+            if !self.has_used_ability {
+                if player.character != Character::CSO {
+                    if asset_idx < player.assets.len() {
+                        let asset = &player.assets[asset_idx];
+                        if asset.color != Color::Red && asset.color != Color::Green {
+                            let cost = asset.divest_cost(market);
+                            if cost <= self.cash {
+                                self.has_used_ability = true;
+                                self.cash -= cost;
+                                Ok(cost)
+                            } else {
+                                Err(DivestAssetError::NotEnoughCash)
+                            }
+                        } else {
+                            Err(DivestAssetError::CantDivestAssetType)
+                        }
+                    } else {
+                        Err(DivestAssetError::InvalidCardIdx)
+                    }
+                } else {
+                    Err(DivestAssetError::InvalidCharacter.into())
+                }
+            } else {
+                Err(DivestAssetError::AlreadyDivestedThisTurn.into())
+            }
+        } else {
+            Err(DivestAssetError::InvalidPlayerCharacter.into())
         }
     }
 
@@ -427,7 +468,7 @@ impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
                     liabilities_to_play: character.playable_liabilities(),
                     total_cards_drawn: 0,
                     total_cards_given_back: 0,
-                    has_fired_this_round: false,
+                    has_used_ability: false,
                 })
             }
             None => Err(GameError::PlayerMissingCharacter),
@@ -766,6 +807,13 @@ impl Color {
         Self::Yellow,
         Self::Blue,
     ];
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RegulatorSwapPlayer {
+    pub player_id: PlayerId,
+    pub asset_count: usize,
+    pub liability_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

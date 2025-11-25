@@ -811,13 +811,6 @@ impl Round {
         }
     }
 
-    fn player_as_mut(&mut self, id: PlayerId) -> Result<&mut RoundPlayer, GameError> {
-        match self.players.player_mut(id) {
-            Ok(player) => Ok(player),
-            Err(e) => Err(e),
-        }
-    }
-
     pub fn player_get_fireble_characters(&mut self) -> Vec<Character> {
         Character::CHARACTERS
             .into_iter()
@@ -977,20 +970,29 @@ impl Round {
         target_id: PlayerId,
         asset_idx: usize,
     ) -> Result<u8, GameError> {
-        let ps_index = self.players().iter().position(|p| p.id() == id);
-        let pt_index = self.players().iter().position(|p| p.id() == target_id);
-        if let Some(psi) = ps_index
-            && let Some(pti) = pt_index
-            && pt_index != ps_index
+        // I've done a lot of work to ensure player id == player index. This should be
+        // unnecessary, but I'll leave the check enabled for debug builds.
+        #[cfg(debug_assertions)]
         {
-            match self.players.0.get_disjoint_mut([psi, pti]) {
-                Ok(players) => {
-                    let cost = players[0].divest_asset(
-                        &players[1].clone(),
-                        asset_idx,
-                        &self.current_market,
-                    )?;
-                    players[1].remove_asset(asset_idx)?;
+            let ps_index = self.players().iter().position(|p| p.id() == id);
+            let pt_index = self.players().iter().position(|p| p.id() == target_id);
+            if let Some(psi) = ps_index
+                && let Some(pti) = pt_index
+            {
+                debug_assert_eq!(psi as u8, id.0);
+                debug_assert_eq!(pti as u8, target_id.0);
+            }
+        }
+
+        if id != target_id {
+            match self
+                .players
+                .0
+                .get_disjoint_mut([usize::from(id), usize::from(target_id)])
+            {
+                Ok([stakeholder, target]) => {
+                    let cost = stakeholder.divest_asset(target, asset_idx, &self.current_market)?;
+                    target.remove_asset(asset_idx)?;
                     Ok(cost)
                 }
                 Err(_) => Err(DivestAssetError::InvalidCharacter.into()),
@@ -1006,9 +1008,8 @@ impl Round {
             Ok(self
                 .players()
                 .iter()
-                .filter(|p| {
-                    p.character() != Character::CSO && p.character() != Character::Stakeholder
-                })
+                .filter(|p| p.id() != id) // Not yourself
+                .filter(|p| p.character() != Character::CSO) // Not CSO
                 .map(|p| DivestPlayer {
                     player_id: p.id(),
                     assets: p

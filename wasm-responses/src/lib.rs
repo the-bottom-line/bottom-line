@@ -1,4 +1,4 @@
-use game::player::{CardType, Character};
+use game::player::{CardType, Character, PlayerId};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -71,6 +71,16 @@ impl CreateRequest {
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
+    #[wasm_bindgen(js_name = redeemLiability)]
+    pub fn divest_asset(target_id: u8, asset_idx: usize) -> Result<String, JsValue> {
+        let target_player_id = PlayerId(target_id);
+        serde_json::to_string(&responses::FrontendRequest::DivestAsset {
+            target_player_id,
+            card_idx: asset_idx,
+        })
+        .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
     #[wasm_bindgen(js_name = endTurn)]
     pub fn end_turn() -> Result<String, JsValue> {
         serde_json::to_string(&responses::FrontendRequest::EndTurn)
@@ -101,6 +111,10 @@ impl CreateRequest {
             responses::FrontendRequest::FireCharacter { .. } => {
                 Self::fire_character(JsValue::null())
             }
+            responses::FrontendRequest::DivestAsset {
+                target_player_id,
+                card_idx,
+            } => Self::divest_asset(target_player_id.0, card_idx),
             responses::FrontendRequest::EndTurn => Self::end_turn(),
         };
     }

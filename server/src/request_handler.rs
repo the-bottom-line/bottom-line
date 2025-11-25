@@ -84,11 +84,11 @@ pub fn use_ability(state: &mut GameState, player_id: PlayerId) -> Result<Respons
         )),
         Character::Regulator if round.current_player().id() == player.id() => Ok(Response(
             InternalResponse(std::collections::HashMap::new()),
-            DirectResponse::YouRegulatorOptions { 
+            DirectResponse::YouRegulatorOptions {
                 options: round.player_get_regulator_swap_players(),
                 character: Character::Regulator,
                 perk: "You can swap your hand with another player or swap any number of cards with the deck".to_string(),
-             } 
+             }
         )),
         Character::CEO if round.current_player().id() == player.id() => Ok(Response(
             InternalResponse(std::collections::HashMap::new()),

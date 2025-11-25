@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use either::Either;
 use game::{errors::GameError, player::*, utility::serde_asset_liability};
 use serde::{Deserialize, Serialize};
@@ -205,7 +207,9 @@ pub enum UniqueResponse {
     TurnEnded {
         player_id: PlayerId,
     },
-    GameEnded,
+    GameEnded {
+        scores: HashMap<PlayerId, f64>,
+    },
 }
 
 #[derive(Debug, Error, Serialize, Deserialize)]

@@ -532,7 +532,31 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
                 DirectResponse::YouEndedTurn,
             ))
         }
-        GameState::Results(_) => Err(GameError::NotAvailableInResultsState),
+        GameState::Results(results) => {
+            let scores = results
+                .players()
+                .iter()
+                .map(|p| (p.id(), p.score(results.final_market())))
+                .collect::<HashMap<_, _>>();
+
+            let internal = results
+                .players()
+                .iter()
+                .map(|p| {
+                    (
+                        p.id(),
+                        vec![UniqueResponse::GameEnded {
+                            scores: scores.clone(),
+                        }],
+                    )
+                })
+                .collect();
+
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouEndedTurn,
+            ))
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-use either::Either::{self, Left, Right};
+use either::Either;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -261,13 +261,13 @@ impl RoundPlayer {
                     self.has_used_ability = true;
                     Ok(card_idxs.len())
                 } else {
-                    Err(SwapError::InvalidCardIdxs.into())
+                    Err(SwapError::InvalidCardIdxs)
                 }
             } else {
-                Err(SwapError::AlreadySwapedThisTurn.into())
+                Err(SwapError::AlreadySwapedThisTurn)
             }
         } else {
-            Err(SwapError::AlreadySwapedThisTurn.into())
+            Err(SwapError::AlreadySwapedThisTurn)
         }
     }
 
@@ -281,10 +281,10 @@ impl RoundPlayer {
                 let old_hand = self.swap_hand(player.hand);
                 Ok(old_hand)
             } else {
-                Err(SwapError::AlreadySwapedThisTurn.into())
+                Err(SwapError::AlreadySwapedThisTurn)
             }
         } else {
-            Err(SwapError::AlreadySwapedThisTurn.into())
+            Err(SwapError::AlreadySwapedThisTurn)
         }
     }
 

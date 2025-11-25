@@ -2,7 +2,6 @@ use either::Either;
 use serde::{Deserialize, Serialize};
 
 use std::{
-    any::Any,
     collections::{HashMap, HashSet},
     path::Path,
     sync::Arc,

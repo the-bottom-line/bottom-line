@@ -813,7 +813,7 @@ impl Round {
         Character::CHARACTERS
             .into_iter()
             .filter(|c| {
-                *c as u8 > 2
+                c.can_be_fired()
                     && !self.fired_characters.contains(c)
                     && !self.open_characters.contains(c)
             })

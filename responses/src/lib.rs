@@ -185,6 +185,7 @@ pub enum UniqueResponse {
         character: Character,
     },
     RegulatorSwapedYourCards {
+        #[serde(with = "serde_asset_liability::vec")]
         new_cards: Vec<Either<Asset, Liability>>,
     },
     SwapedWithPlayer {

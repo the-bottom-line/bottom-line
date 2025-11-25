@@ -68,6 +68,7 @@ pub enum DirectResponse {
         cards_to_draw: usize,
     },
     YouSwapPlayer {
+        #[serde(with = "serde_asset_liability::vec")]
         new_cards: Vec<Either<Asset, Liability>>,
     },
     YouAreDivesting {

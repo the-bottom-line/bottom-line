@@ -710,6 +710,10 @@ impl SelectingCharacters {
         (start..limit).chain(0..start).map(Into::into).collect()
     }
 
+    pub fn current_market(&self) -> &Market {
+        &self.current_market
+    }
+
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
         self.players()
             .iter()

@@ -41,6 +41,7 @@ pub fn start_game(state: &mut GameState) -> Result<Response, GameError> {
                         hand: p.hand().to_vec(),
                         cash: p.cash(),
                         player_info: selecting.player_info(p.id()),
+                        initial_market: selecting.current_market().clone(),
                     },
                     UniqueResponse::SelectingCharacters {
                         chairman_id: selecting.chairman_id(),
@@ -219,6 +220,7 @@ pub fn play_card(
                         vec![UniqueResponse::BoughtAsset {
                             player_id,
                             asset: asset.clone(),
+                            market_change: played_card.market.clone(),
                         }],
                     )
                 })
@@ -226,7 +228,10 @@ pub fn play_card(
 
             Ok(Response(
                 InternalResponse(internal),
-                DirectResponse::YouBoughtAsset { asset },
+                DirectResponse::YouBoughtAsset {
+                    asset,
+                    market_change: played_card.market,
+                },
             ))
         }
         Either::Right(liability) => {

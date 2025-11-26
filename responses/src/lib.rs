@@ -1,7 +1,12 @@
 use std::collections::HashMap;
 
 use either::Either;
-use game::{errors::GameError, player::*, utility::serde_asset_liability};
+use game::{
+    errors::GameError,
+    game::{Market, MarketChange},
+    player::*,
+    utility::serde_asset_liability,
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -95,6 +100,7 @@ pub enum DirectResponse {
     },
     YouBoughtAsset {
         asset: Asset,
+        market_change: Option<MarketChange>,
     },
     YouIssuedLiability {
         liability: Liability,
@@ -137,6 +143,7 @@ pub enum UniqueResponse {
         #[serde(with = "serde_asset_liability::vec")]
         hand: Vec<Either<Asset, Liability>>,
         player_info: Vec<PlayerInfo>,
+        initial_market: Market,
     },
     SelectingCharacters {
         chairman_id: PlayerId,
@@ -173,6 +180,7 @@ pub enum UniqueResponse {
     BoughtAsset {
         player_id: PlayerId,
         asset: Asset,
+        market_change: Option<MarketChange>,
     },
     IssuedLiability {
         player_id: PlayerId,

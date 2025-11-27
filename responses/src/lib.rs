@@ -1,5 +1,12 @@
+use std::collections::HashMap;
+
 use either::Either;
-use game::{errors::GameError, player::*, utility::serde_asset_liability};
+use game::{
+    errors::GameError,
+    game::{Market, MarketChange},
+    player::*,
+    utility::serde_asset_liability,
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -13,13 +20,38 @@ pub enum Connect {
 #[serde(tag = "action", content = "data")]
 pub enum FrontendRequest {
     StartGame,
-    SelectCharacter { character: Character },
-    DrawCard { card_type: CardType },
-    PutBackCard { card_idx: usize },
-    BuyAsset { card_idx: usize },
-    IssueLiability { card_idx: usize },
-    RedeemLiability { liability_idx: usize },
-    FireCharacter { character: Character },
+    SelectCharacter {
+        character: Character,
+    },
+    DrawCard {
+        card_type: CardType,
+    },
+    PutBackCard {
+        card_idx: usize,
+    },
+    BuyAsset {
+        card_idx: usize,
+    },
+    IssueLiability {
+        card_idx: usize,
+    },
+    RedeemLiability {
+        liability_idx: usize,
+    },
+    UseAbility,
+    FireCharacter {
+        character: Character,
+    },
+    SwapWithDeck {
+        card_idxs: Vec<usize>,
+    },
+    SwapWithPlayer {
+        target_player_id: PlayerId,
+    },
+    DivestAsset {
+        target_player_id: PlayerId,
+        card_idx: usize,
+    },
     EndTurn,
 }
 
@@ -34,6 +66,23 @@ pub enum DirectResponse {
     YouFiredCharacter {
         character: Character,
     },
+    YouRegulatorOptions {
+        options: Vec<RegulatorSwapPlayer>,
+        character: Character,
+        perk: String,
+    },
+    YouSwapDeck {
+        cards_to_draw: usize,
+    },
+    YouSwapPlayer {
+        #[serde(with = "serde_asset_liability::vec")]
+        new_cards: Vec<Either<Asset, Liability>>,
+    },
+    YouAreDivesting {
+        options: Vec<DivestPlayer>,
+        character: Character,
+        perk: String,
+    },
     YouDrewCard {
         #[serde(with = "serde_asset_liability::value")]
         card: Either<Asset, Liability>,
@@ -45,11 +94,29 @@ pub enum DirectResponse {
         can_draw_cards: bool,
         can_give_back_cards: bool,
     },
+    YouCharacterAbility {
+        character: Character,
+        perk: String,
+    },
     YouBoughtAsset {
         asset: Asset,
+        market_change: Option<MarketChange>,
     },
     YouIssuedLiability {
         liability: Liability,
+    },
+    YouAreFiringSomeone {
+        characters: Vec<Character>,
+        character: Character,
+        perk: String,
+    },
+    YouDivestedAnAsset {
+        gold_cost: u8,
+    },
+    YouAreTerminatingSomeone {
+        characters: Vec<Character>,
+        character: Character,
+        perk: String,
     },
     YouRedeemedLiability {
         liability_idx: usize,
@@ -76,6 +143,7 @@ pub enum UniqueResponse {
         #[serde(with = "serde_asset_liability::vec")]
         hand: Vec<Either<Asset, Liability>>,
         player_info: Vec<PlayerInfo>,
+        initial_market: Market,
     },
     SelectingCharacters {
         chairman_id: PlayerId,
@@ -112,6 +180,7 @@ pub enum UniqueResponse {
     BoughtAsset {
         player_id: PlayerId,
         asset: Asset,
+        market_change: Option<MarketChange>,
     },
     IssuedLiability {
         player_id: PlayerId,
@@ -121,14 +190,34 @@ pub enum UniqueResponse {
         player_id: PlayerId,
         liability_idx: usize,
     },
+    ShareholderIsFiring {},
     FiredCharacter {
         player_id: PlayerId,
         character: Character,
     },
+    RegulatorSwapedYourCards {
+        #[serde(with = "serde_asset_liability::vec")]
+        new_cards: Vec<Either<Asset, Liability>>,
+    },
+    SwapedWithPlayer {
+        regulator_id: PlayerId,
+        target_id: PlayerId,
+    },
+    SwapedWithDeck {
+        card_count: usize,
+    },
+    AssetDivested {
+        player_id: PlayerId,
+        target_id: PlayerId,
+        card_idx: usize,
+        paid_gold: u8,
+    },
     TurnEnded {
         player_id: PlayerId,
     },
-    GameEnded,
+    GameEnded {
+        scores: HashMap<PlayerId, f64>,
+    },
 }
 
 #[derive(Debug, Error, Serialize, Deserialize)]

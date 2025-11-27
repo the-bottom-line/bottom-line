@@ -1,11 +1,17 @@
 use either::Either;
 use serde::{Deserialize, Serialize};
 
-use std::{collections::HashSet, path::Path, sync::Arc, vec};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+    sync::Arc,
+    vec,
+};
 
 use crate::{cards::GameData, errors::*, player::*, utility::serde_asset_liability};
 
 pub const STARTING_GOLD: u8 = 1;
+pub const ASSETS_FOR_END_OF_GAME: usize = 6;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
@@ -242,12 +248,7 @@ pub struct PlayerPlayedCard {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TurnEnded {
     pub next_player: Option<PlayerId>,
-}
-
-impl TurnEnded {
-    pub fn new(next_player: Option<PlayerId>) -> Self {
-        Self { next_player }
-    }
+    pub game_ended: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -399,7 +400,10 @@ impl GameState {
             Either::Left(te) => Ok(te),
             Either::Right(state) => {
                 *self = state;
-                Ok(TurnEnded::new(None))
+                Ok(TurnEnded {
+                    next_player: None,
+                    game_ended: true,
+                })
             }
         }
     }
@@ -706,6 +710,10 @@ impl SelectingCharacters {
         (start..limit).chain(0..start).map(Into::into).collect()
     }
 
+    pub fn current_market(&self) -> &Market {
+        &self.current_market
+    }
+
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
         self.players()
             .iter()
@@ -805,18 +813,42 @@ impl Round {
         }
     }
 
+    pub fn player_get_fireble_characters(&mut self) -> Vec<Character> {
+        Character::CHARACTERS
+            .into_iter()
+            .filter(|c| {
+                c.can_be_fired()
+                    && !self.fired_characters.contains(c)
+                    && !self.open_characters.contains(c)
+            })
+            .clone()
+            .collect()
+    }
+
+    pub fn player_get_regulator_swap_players(&mut self) -> Vec<RegulatorSwapPlayer> {
+        self.players()
+            .iter()
+            .filter(|p| p.character() != Character::Regulator)
+            .map(|p| RegulatorSwapPlayer {
+                player_id: p.id(),
+                asset_count: p.hand().iter().filter(|c| c.is_left()).count(),
+                liability_count: p.hand().iter().filter(|c| c.is_right()).count(),
+            })
+            .collect()
+    }
+
     pub fn player_play_card(
         &mut self,
         id: PlayerId,
         card_idx: usize,
     ) -> Result<PlayerPlayedCard, GameError> {
+        let old_max_bought_assets = self.max_bought_assets();
         let player = self.player_as_current_mut(id)?;
-        let assets_len = player.assets().len();
 
         match player.play_card(card_idx)? {
             Either::Left(asset) => {
-                let market = match self.check_new_market(assets_len) {
-                    true => Some(self.new_market()),
+                let market = match self.should_refresh_market(old_max_bought_assets) {
+                    true => Some(self.refresh_market()),
                     false => None,
                 };
                 let used_card = Either::Left(asset.clone());
@@ -896,6 +928,114 @@ impl Round {
         Ok(character)
     }
 
+    pub fn player_swap_with_deck(
+        &mut self,
+        id: PlayerId,
+        card_idx: Vec<usize>,
+    ) -> Result<usize, GameError> {
+        // cant use player_as_current_mut here because of multiple mutable borrows of self. hmm.
+        let player = match self.players.player_mut(id) {
+            Ok(player) if player.id() == self.current_player => player,
+            Ok(_) => return Err(GameError::NotPlayersTurn),
+            Err(e) => return Err(e),
+        };
+
+        let drawcount = player.swap_with_deck(card_idx, &mut self.assets, &mut self.liabilities)?;
+        Ok(drawcount)
+    }
+
+    pub fn player_swap_with_player(
+        &mut self,
+        id: PlayerId,
+        target_id: PlayerId,
+    ) -> Result<HashMap<PlayerId, Vec<Either<Asset, Liability>>>, GameError> {
+        let ps_index = self.players().iter().position(|p| p.id() == id);
+        let pt_index = self.players().iter().position(|p| p.id() == target_id);
+        if let Some(psi) = ps_index
+            && let Some(pti) = pt_index
+            && pt_index != ps_index
+        {
+            match self.players.0.get_disjoint_mut([psi, pti]) {
+                Ok(players) => {
+                    let cards = players[0].swap_with_player(players[1].clone())?;
+                    let newcards = players[1].swap_hand(cards.clone());
+                    let mut result: HashMap<PlayerId, Vec<Either<Asset, Liability>>> =
+                        Default::default();
+                    result.insert(id, newcards);
+                    result.insert(target_id, cards);
+                    Ok(result)
+                }
+                Err(_) => Err(SwapError::InvalidTargetPlayer.into()),
+            }
+        } else {
+            Err(SwapError::InvalidTargetPlayer.into())
+        }
+    }
+
+    pub fn player_divest_asset(
+        &mut self,
+        id: PlayerId,
+        target_id: PlayerId,
+        asset_idx: usize,
+    ) -> Result<u8, GameError> {
+        // I've done a lot of work to ensure player id == player index. This should be
+        // unnecessary, but I'll leave the check enabled for debug builds.
+        #[cfg(debug_assertions)]
+        {
+            let ps_index = self.players().iter().position(|p| p.id() == id);
+            let pt_index = self.players().iter().position(|p| p.id() == target_id);
+            if let Some(psi) = ps_index
+                && let Some(pti) = pt_index
+            {
+                debug_assert_eq!(psi as u8, id.0);
+                debug_assert_eq!(pti as u8, target_id.0);
+            }
+        }
+
+        if id != target_id {
+            match self
+                .players
+                .0
+                .get_disjoint_mut([usize::from(id), usize::from(target_id)])
+            {
+                Ok([stakeholder, target]) => {
+                    let cost = stakeholder.divest_asset(target, asset_idx, &self.current_market)?;
+                    target.remove_asset(asset_idx)?;
+                    Ok(cost)
+                }
+                Err(_) => Err(DivestAssetError::InvalidCharacter.into()),
+            }
+        } else {
+            Err(DivestAssetError::InvalidCharacter.into())
+        }
+    }
+
+    pub fn get_divest_assets(&mut self, id: PlayerId) -> Result<Vec<DivestPlayer>, GameError> {
+        let player = self.player_as_current_mut(id)?;
+        if player.character() == Character::Stakeholder {
+            Ok(self
+                .players()
+                .iter()
+                .filter(|p| p.id() != id) // Not yourself
+                .filter(|p| p.character() != Character::CSO) // Not CSO
+                .map(|p| DivestPlayer {
+                    player_id: p.id(),
+                    assets: p
+                        .assets()
+                        .iter()
+                        .map(|a| DivestAsset {
+                            asset: a.clone(),
+                            divest_cost: a.divest_cost(&self.current_market),
+                            is_divestable: a.color != Color::Red && a.color != Color::Green,
+                        })
+                        .collect(),
+                })
+                .collect())
+        } else {
+            Err(GetDivestAssetsError::InvalidPlayerCharacter.into())
+        }
+    }
+
     pub fn skipped_characters(&self) -> Vec<Character> {
         let current_character = self.current_player().character();
         let mut skipped = Character::CHARACTERS
@@ -917,10 +1057,18 @@ impl Round {
         if !player.should_give_back_cards() {
             if let Some(id) = self.next_player().map(|p| p.id()) {
                 let player = self.players.player_mut(id)?;
+
                 player.start_turn(&self.current_market);
+
                 self.current_player = player.id();
-                Ok(Either::Left(TurnEnded::new(Some(self.current_player))))
-            } else {
+
+                let turn_ended = TurnEnded {
+                    next_player: Some(self.current_player),
+                    game_ended: false,
+                };
+
+                Ok(Either::Left(turn_ended))
+            } else if !self.is_last_round() {
                 let maybe_ceo = self.player_from_character(Character::CEO);
                 let chairman_id = match maybe_ceo.map(|p| p.id()) {
                     Some(id) => id,
@@ -949,25 +1097,44 @@ impl Round {
                 });
 
                 Ok(Either::Right(state))
+            } else {
+                let final_market = std::mem::take(&mut self.current_market);
+                let final_events = std::mem::take(&mut self.current_events);
+                let players = std::mem::take(&mut self.players);
+
+                let players = Players(players.0.into_iter().map(Into::into).collect());
+
+                let state = GameState::Results(Results {
+                    players,
+                    final_market,
+                    final_events,
+                });
+
+                Ok(Either::Right(state))
             }
         } else {
             Err(GameError::PlayerShouldGiveBackCard)
         }
     }
 
-    fn check_new_market(&self, player_assets: usize) -> bool {
-        let max_asset_count = self
-            .players()
+    fn max_bought_assets(&self) -> usize {
+        self.players()
             .iter()
             .map(|player| player.assets().len())
             .max()
-            .unwrap_or_default();
-
-        max_asset_count > player_assets
+            .unwrap_or_default()
     }
 
-    /// Starts a new market. Automatically triggers if any player gets the first, second, third, fourth, fifth, seventh or eight asset. Loops through the deck and fetches events as they come.
-    fn new_market(&mut self) -> MarketChange {
+    fn should_refresh_market(&self, old_max_bought_assets: usize) -> bool {
+        let max_bought_assets = self.max_bought_assets();
+
+        max_bought_assets > old_max_bought_assets && max_bought_assets != ASSETS_FOR_END_OF_GAME
+    }
+
+    /// Starts a new market. Automatically triggers if any player gets the first, second, third,
+    /// fourth, fifth, seventh or eight asset. Loops through the deck and fetches events as they
+    /// come.
+    fn refresh_market(&mut self) -> MarketChange {
         let mut events = vec![];
 
         loop {
@@ -983,6 +1150,10 @@ impl Round {
             }
         }
     }
+
+    fn is_last_round(&self) -> bool {
+        self.max_bought_assets() >= ASSETS_FOR_END_OF_GAME
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -990,7 +1161,7 @@ pub struct Results {
     players: Players<ResultsPlayer>,
     final_market: Market,
     // TODO: implement events
-    _final_events: Vec<Event>,
+    final_events: Vec<Event>,
 }
 
 impl Results {
@@ -1009,43 +1180,20 @@ impl Results {
         self.players.players()
     }
 
-    pub fn score(&self, id: PlayerId) -> Result<f64, GameError> {
-        let player = self.player(id)?;
-
-        let gold = player.total_gold() as f64;
-        let silver = player.total_silver() as f64;
-
-        let trade_credit = player.trade_credit() as f64;
-        let bank_loan = player.bank_loan() as f64;
-        let bonds = player.bonds() as f64;
-        let debt = trade_credit + bank_loan + bonds;
-
-        let beta = silver / gold;
-
-        // TODO: end of game bonuses
-        let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / gold;
-
-        let wacc = self.final_market.rfr as f64 + drp + beta * self.final_market.mrp as f64;
-
-        let red = player.color_value(Color::Red, &self.final_market);
-        let green = player.color_value(Color::Green, &self.final_market);
-        let yellow = player.color_value(Color::Yellow, &self.final_market);
-        let purple = player.color_value(Color::Purple, &self.final_market);
-        let blue = player.color_value(Color::Blue, &self.final_market);
-
-        let fcf = red + green + yellow + purple + blue;
-
-        let score = (fcf / (10.0 * wacc)) + (debt / 3.0) + player.cash() as f64;
-
-        Ok(score)
-    }
-
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
         self.players()
             .iter()
             .filter(|p| p.id() != id)
             .map(Into::into)
             .collect()
+    }
+
+    pub fn final_market(&self) -> &Market {
+        &self.final_market
+    }
+
+    pub fn final_events(&self) -> &[Event] {
+        &self.final_events
     }
 }
 

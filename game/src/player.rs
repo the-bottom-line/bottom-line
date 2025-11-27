@@ -1,4 +1,5 @@
 use either::Either;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use std::sync::Arc;
@@ -134,12 +135,13 @@ pub struct RoundPlayer {
     character: Character,
     hand: Vec<Either<Asset, Liability>>,
     cards_drawn: Vec<usize>,
+    bonus_draw_cards: u8,
     assets_to_play: u8,
     playable_assets: PlayableAssets,
     liabilities_to_play: u8,
     total_cards_drawn: u8,
     total_cards_given_back: u8,
-    has_fired_this_round: bool,
+    has_used_ability: bool,
 }
 
 impl RoundPlayer {
@@ -227,23 +229,131 @@ impl RoundPlayer {
         }
     }
 
-    pub fn fire_character(&mut self, character: Character) -> Result<Character, FireCharacterError> {
+    pub fn fire_character(
+        &mut self,
+        character: Character,
+    ) -> Result<Character, FireCharacterError> {
         if self.character == Character::Shareholder {
-            if !self.has_fired_this_round {
-                if character != Character::Banker
-                    && character != Character::Regulator
-                    && character != Character::Shareholder
-                {
-                    self.has_fired_this_round = true;
+            if !self.has_used_ability {
+                if character.can_be_fired() {
+                    self.has_used_ability = true;
                     Ok(character)
                 } else {
-                    Err(FireCharacterError::InvalidCharacter.into())
+                    Err(FireCharacterError::InvalidCharacter)
                 }
             } else {
-                Err(FireCharacterError::AlreadyFiredThisTurn.into())
+                Err(FireCharacterError::AlreadyFiredThisTurn)
             }
         } else {
-            Err(FireCharacterError::InvalidPlayerCharacter.into())
+            Err(FireCharacterError::InvalidPlayerCharacter)
+        }
+    }
+
+    pub fn swap_with_deck(
+        &mut self,
+        mut card_idxs: Vec<usize>,
+        asset_deck: &mut Deck<Asset>,
+        liability_deck: &mut Deck<Liability>,
+    ) -> Result<usize, SwapError> {
+        if card_idxs.is_empty() {
+            return Ok(0);
+        }
+
+        if self.character == Character::Regulator {
+            if !self.has_used_ability {
+                card_idxs.sort();
+                if card_idxs.last().copied().unwrap_or_default() <= self.hand.len()
+                    && card_idxs.iter().all_unique()
+                {
+                    let removed_card_len = card_idxs.len();
+
+                    for card in card_idxs.into_iter().rev() {
+                        match self.hand.remove(card) {
+                            Either::Left(a) => asset_deck.put_back(a),
+                            Either::Right(l) => liability_deck.put_back(l),
+                        }
+                    }
+                    self.has_used_ability = true;
+                    self.bonus_draw_cards += removed_card_len as u8;
+                    Ok(removed_card_len)
+                } else {
+                    Err(SwapError::InvalidCardIdxs)
+                }
+            } else {
+                Err(SwapError::AlreadySwapedThisTurn)
+            }
+        } else {
+            Err(SwapError::AlreadySwapedThisTurn)
+        }
+    }
+
+    pub fn swap_with_player(
+        &mut self,
+        player: RoundPlayer,
+    ) -> Result<Vec<Either<Asset, Liability>>, SwapError> {
+        if self.character == Character::Regulator {
+            if !self.has_used_ability {
+                self.has_used_ability = true;
+                let old_hand = self.swap_hand(player.hand);
+                Ok(old_hand)
+            } else {
+                Err(SwapError::AlreadySwapedThisTurn)
+            }
+        } else {
+            Err(SwapError::AlreadySwapedThisTurn)
+        }
+    }
+
+    pub fn swap_hand(
+        &mut self,
+        new_hand: Vec<Either<Asset, Liability>>,
+    ) -> Vec<Either<Asset, Liability>> {
+        let oldhand = self.hand.clone();
+        self.hand = new_hand;
+        oldhand
+    }
+    pub fn remove_asset(&mut self, asset_idx: usize) -> Result<Asset, DivestAssetError> {
+        if self.assets.get(asset_idx).is_some() {
+            Ok(self.assets.remove(asset_idx))
+        } else {
+            Err(DivestAssetError::InvalidCardIdx)
+        }
+    }
+
+    pub fn divest_asset(
+        &mut self,
+        player: &RoundPlayer,
+        asset_idx: usize,
+        market: &Market,
+    ) -> Result<u8, DivestAssetError> {
+        if self.character == Character::Stakeholder {
+            if !self.has_used_ability {
+                if player.character.can_be_forced_to_divest() {
+                    if asset_idx < player.assets.len() {
+                        let asset = &player.assets[asset_idx];
+                        if asset.color != Color::Red && asset.color != Color::Green {
+                            let cost = asset.divest_cost(market);
+                            if cost <= self.cash {
+                                self.has_used_ability = true;
+                                self.cash -= cost;
+                                Ok(cost)
+                            } else {
+                                Err(DivestAssetError::NotEnoughCash)
+                            }
+                        } else {
+                            Err(DivestAssetError::CantDivestAssetType)
+                        }
+                    } else {
+                        Err(DivestAssetError::InvalidCardIdx)
+                    }
+                } else {
+                    Err(DivestAssetError::InvalidCharacter)
+                }
+            } else {
+                Err(DivestAssetError::AlreadyDivestedThisTurn)
+            }
+        } else {
+            Err(DivestAssetError::InvalidPlayerCharacter)
         }
     }
 
@@ -336,15 +446,18 @@ impl RoundPlayer {
     }
 
     pub fn should_give_back_cards(&self) -> bool {
-        // For every 3 cards drawn one needs to give one back
-        match (self.total_cards_drawn / 3).checked_sub(self.total_cards_given_back) {
+        // For every 3 cards drawn one needs to give one back. Subtract any bonus drawing cards a
+        // player may draw.
+        match (self.total_cards_drawn.saturating_sub(self.bonus_draw_cards) / 3)
+            .checked_sub(self.total_cards_given_back)
+        {
             Some(v) => v > 0,
             None => false,
         }
     }
 
     pub fn can_draw_cards(&self) -> bool {
-        self.total_cards_drawn < self.draws_n_cards()
+        self.total_cards_drawn < self.draws_n_cards() + self.bonus_draw_cards
     }
 
     pub fn draws_n_cards(&self) -> u8 {
@@ -423,8 +536,9 @@ impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
                     playable_assets,
                     liabilities_to_play: character.playable_liabilities(),
                     total_cards_drawn: 0,
+                    bonus_draw_cards: 0,
                     total_cards_given_back: 0,
-                    has_fired_this_round: false,
+                    has_used_ability: false,
                 })
             }
             None => Err(GameError::PlayerMissingCharacter),
@@ -505,8 +619,8 @@ impl ResultsPlayer {
 
         let mul = match market_condition {
             MarketCondition::Plus => 1.0,
-            MarketCondition::Minus => 0.0,
-            MarketCondition::Zero => -1.0,
+            MarketCondition::Minus => -1.0,
+            MarketCondition::Zero => 0.0,
         };
 
         self.assets
@@ -517,6 +631,33 @@ impl ResultsPlayer {
                     .then_some(a.gold_value as f64 + (a.silver_value as f64) * mul)
             })
             .sum()
+    }
+
+    pub fn score(&self, final_market: &Market) -> f64 {
+        let gold = self.total_gold() as f64;
+        let silver = self.total_silver() as f64;
+
+        let trade_credit = self.trade_credit() as f64;
+        let bank_loan = self.bank_loan() as f64;
+        let bonds = self.bonds() as f64;
+        let debt = trade_credit + bank_loan + bonds;
+
+        let beta = silver / gold;
+
+        // TODO: end of game bonuses
+        let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / gold;
+
+        let wacc = final_market.rfr as f64 + drp + beta * final_market.mrp as f64;
+
+        let red = self.color_value(Color::Red, final_market);
+        let green = self.color_value(Color::Green, final_market);
+        let yellow = self.color_value(Color::Yellow, final_market);
+        let purple = self.color_value(Color::Purple, final_market);
+        let blue = self.color_value(Color::Blue, final_market);
+
+        let fcf = red + green + yellow + purple + blue;
+
+        (fcf / (10.0 * wacc)) + (debt / 3.0) + self.cash() as f64
     }
 }
 
@@ -542,6 +683,30 @@ pub struct Asset {
     pub ability: Option<AssetPowerup>,
     pub image_front_url: String,
     pub image_back_url: Arc<String>,
+}
+
+impl Asset {
+    ///returns the current value of the asset acording to market condition
+    pub fn market_value(&self, market: &Market) -> i8 {
+        let mul: i8 = match market.color_condition(self.color) {
+            MarketCondition::Plus => 1,
+            MarketCondition::Minus => -1,
+            MarketCondition::Zero => 0,
+        };
+        self.gold_value as i8 + self.silver_value as i8 * mul
+    }
+
+    /// Calculates what it costs to divest this asset based on the current market
+    pub fn divest_cost(&self, market: &Market) -> u8 {
+        let mv = self.market_value(market);
+
+        // match mv {
+        //     ..=1 => 0,
+        //     n => n as u8 - 1
+        // }
+        // mv.max(1) as u8 - 1
+        if mv <= 1 { 0 } else { (mv - 1) as u8 }
+    }
 }
 
 impl std::fmt::Display for Asset {
@@ -748,6 +913,26 @@ impl Color {
     ];
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RegulatorSwapPlayer {
+    pub player_id: PlayerId,
+    pub asset_count: usize,
+    pub liability_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DivestPlayer {
+    pub player_id: PlayerId,
+    pub assets: Vec<DivestAsset>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DivestAsset {
+    pub asset: Asset,
+    pub divest_cost: u8,
+    pub is_divestable: bool,
+}
+
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Character {
     Shareholder,
@@ -841,6 +1026,17 @@ impl Character {
 
     pub fn can_redeem_liabilities(&self) -> bool {
         matches!(self, Self::CFO)
+    }
+
+    pub fn can_be_fired(&self) -> bool {
+        matches!(
+            self,
+            Self::CEO | Self::CSO | Self::CFO | Self::HeadRnD | Self::Stakeholder
+        )
+    }
+
+    pub fn can_be_forced_to_divest(&self) -> bool {
+        !matches!(self, Self::CFO)
     }
 }
 
@@ -1124,19 +1320,31 @@ mod tests {
         let mut player = RoundPlayer::try_from(selecting_player).unwrap();
 
         //test firing unfireable characters
-        assert_matches!(player.fire_character(Character::Shareholder),Err(FireCharacterError::InvalidCharacter));
-        assert_matches!(player.fire_character(Character::Banker),Err(FireCharacterError::InvalidCharacter));
-        assert_matches!(player.fire_character(Character::Regulator),Err(FireCharacterError::InvalidCharacter));
+        assert_matches!(
+            player.fire_character(Character::Shareholder),
+            Err(FireCharacterError::InvalidCharacter)
+        );
+        assert_matches!(
+            player.fire_character(Character::Banker),
+            Err(FireCharacterError::InvalidCharacter)
+        );
+        assert_matches!(
+            player.fire_character(Character::Regulator),
+            Err(FireCharacterError::InvalidCharacter)
+        );
 
         //test regular fire functionality
         assert_matches!(player.fire_character(Character::CEO), Ok(Character::CEO));
 
         //test already fired this round
-        assert_matches!(player.fire_character(Character::CEO), Err(FireCharacterError::AlreadyFiredThisTurn));
-        assert_matches!(player.fire_character(Character::Stakeholder), Err(FireCharacterError::AlreadyFiredThisTurn));
-
-
-
+        assert_matches!(
+            player.fire_character(Character::CEO),
+            Err(FireCharacterError::AlreadyFiredThisTurn)
+        );
+        assert_matches!(
+            player.fire_character(Character::Stakeholder),
+            Err(FireCharacterError::AlreadyFiredThisTurn)
+        );
     }
 
     #[test]
@@ -1157,8 +1365,11 @@ mod tests {
 
             let mut player = RoundPlayer::try_from(selecting_player).unwrap();
 
-        //test firing unfireable characters
-        assert_matches!(player.fire_character(Character::CEO),Err(FireCharacterError::InvalidPlayerCharacter));
+            //test firing unfireable characters
+            assert_matches!(
+                player.fire_character(Character::CEO),
+                Err(FireCharacterError::InvalidPlayerCharacter)
+            );
         }
     }
 

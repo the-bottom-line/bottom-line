@@ -27,30 +27,30 @@ pub enum FrontendRequest {
         card_type: CardType,
     },
     PutBackCard {
-        card_idx: usize,
+        card_id: CardId,
     },
     BuyAsset {
-        card_idx: usize,
+        card_id: CardId,
     },
     IssueLiability {
-        card_idx: usize,
+        card_id: CardId,
     },
     RedeemLiability {
-        liability_idx: usize,
+        liability_id: CardId,
     },
     UseAbility,
     FireCharacter {
         character: Character,
     },
     SwapWithDeck {
-        card_idxs: Vec<usize>,
+        card_ids: Vec<CardId>,
     },
     SwapWithPlayer {
         target_player_id: PlayerId,
     },
     DivestAsset {
         target_player_id: PlayerId,
-        card_idx: usize,
+        card_id: CardId,
     },
     EndTurn,
 }
@@ -90,7 +90,7 @@ pub enum DirectResponse {
         can_give_back_cards: bool,
     },
     YouPutBackCard {
-        card_idx: usize,
+        card_id: CardId,
         can_draw_cards: bool,
         can_give_back_cards: bool,
     },
@@ -119,7 +119,7 @@ pub enum DirectResponse {
         perk: String,
     },
     YouRedeemedLiability {
-        liability_idx: usize,
+        liability_id: CardId,
     },
     YouEndedTurn,
 }
@@ -188,7 +188,7 @@ pub enum UniqueResponse {
     },
     RedeemedLiability {
         player_id: PlayerId,
-        liability_idx: usize,
+        liability_id: CardId,
     },
     ShareholderIsFiring {},
     FiredCharacter {
@@ -209,7 +209,7 @@ pub enum UniqueResponse {
     AssetDivested {
         player_id: PlayerId,
         target_id: PlayerId,
-        card_idx: usize,
+        card_id: CardId,
         paid_gold: u8,
     },
     TurnEnded {

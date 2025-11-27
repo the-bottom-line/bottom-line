@@ -840,12 +840,12 @@ impl Round {
     pub fn player_play_card(
         &mut self,
         id: PlayerId,
-        card_idx: usize,
+        card_id: CardId,
     ) -> Result<PlayerPlayedCard, GameError> {
         let old_max_bought_assets = self.max_bought_assets();
         let player = self.player_as_current_mut(id)?;
 
-        match player.play_card(card_idx)? {
+        match player.play_card(card_id)? {
             Either::Left(asset) => {
                 let market = match self.should_refresh_market(old_max_bought_assets) {
                     true => Some(self.refresh_market()),
@@ -865,11 +865,11 @@ impl Round {
     pub fn player_redeem_liability(
         &mut self,
         id: PlayerId,
-        liability_idx: usize,
+        liability_id: CardId,
     ) -> Result<(), GameError> {
         let player = self.player_as_current_mut(id)?;
 
-        let liability = player.redeem_liability(liability_idx)?;
+        let liability = player.redeem_liability(liability_id)?;
         self.liabilities.put_back(liability);
 
         Ok(())
@@ -901,11 +901,11 @@ impl Round {
     pub fn player_give_back_card(
         &mut self,
         id: PlayerId,
-        card_idx: usize,
+        card_id: CardId,
     ) -> Result<CardType, GameError> {
         let player = self.player_as_current_mut(id)?;
 
-        match player.give_back_card(card_idx)? {
+        match player.give_back_card(card_id)? {
             Either::Left(asset) => {
                 self.assets.put_back(asset);
                 Ok(CardType::Asset)
@@ -931,7 +931,7 @@ impl Round {
     pub fn player_swap_with_deck(
         &mut self,
         id: PlayerId,
-        card_idx: Vec<usize>,
+        card_ids: Vec<CardId>,
     ) -> Result<usize, GameError> {
         // cant use player_as_current_mut here because of multiple mutable borrows of self. hmm.
         let player = match self.players.player_mut(id) {
@@ -940,7 +940,7 @@ impl Round {
             Err(e) => return Err(e),
         };
 
-        let drawcount = player.swap_with_deck(card_idx, &mut self.assets, &mut self.liabilities)?;
+        let drawcount = player.swap_with_deck(card_ids, &mut self.assets, &mut self.liabilities)?;
         Ok(drawcount)
     }
 
@@ -957,12 +957,14 @@ impl Round {
         {
             match self.players.0.get_disjoint_mut([psi, pti]) {
                 Ok(players) => {
+                    // TODO: make into single swap function
                     let cards = players[0].swap_with_player(players[1].clone())?;
-                    let newcards = players[1].swap_hand(cards.clone());
+                    let new_cards = players[1].swap_hand(cards.clone());
+
                     let mut result: HashMap<PlayerId, Vec<Either<Asset, Liability>>> =
                         Default::default();
-                    result.insert(id, newcards);
-                    result.insert(target_id, cards);
+                    result.insert(id, new_cards.0);
+                    result.insert(target_id, cards.0);
                     Ok(result)
                 }
                 Err(_) => Err(SwapError::InvalidTargetPlayer.into()),
@@ -976,7 +978,7 @@ impl Round {
         &mut self,
         id: PlayerId,
         target_id: PlayerId,
-        asset_idx: usize,
+        asset_id: CardId,
     ) -> Result<u8, GameError> {
         // I've done a lot of work to ensure player id == player index. This should be
         // unnecessary, but I'll leave the check enabled for debug builds.
@@ -999,8 +1001,8 @@ impl Round {
                 .get_disjoint_mut([usize::from(id), usize::from(target_id)])
             {
                 Ok([stakeholder, target]) => {
-                    let cost = stakeholder.divest_asset(target, asset_idx, &self.current_market)?;
-                    target.remove_asset(asset_idx)?;
+                    let cost = stakeholder.divest_asset(target, asset_id, &self.current_market)?;
+                    target.remove_asset(asset_id)?;
                     Ok(cost)
                 }
                 Err(_) => Err(DivestAssetError::InvalidCharacter.into()),
@@ -1154,6 +1156,12 @@ impl Round {
     fn is_last_round(&self) -> bool {
         self.max_bought_assets() >= ASSETS_FOR_END_OF_GAME
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct SwapHandWithPlayer {
+    regulator_hand: Vec<Either<Asset, Liability>>,
+    target_hand: Vec<Either<Asset, Liability>>,
 }
 
 #[derive(Debug, Clone)]
@@ -1356,7 +1364,7 @@ mod tests {
                 .value;
             let cash_before = player.cash();
 
-            assert_ok!(round.player_play_card(current_player, hand_len - 1));
+            assert_ok!(round.player_play_card(current_player, CardId(0)));
             assert_eq!(
                 cash_before + liability_value,
                 round.player(current_player).unwrap().cash()
@@ -1377,7 +1385,7 @@ mod tests {
                 .gold_value;
             let cash_before = player.cash();
 
-            assert_ok!(round.player_play_card(current_player, hand_len - 1));
+            assert_ok!(round.player_play_card(current_player, CardId(0)));
             assert_eq!(
                 cash_before - liability_value,
                 round.player(current_player).unwrap().cash()
@@ -1405,11 +1413,11 @@ mod tests {
 
             let hand_len = player.hand().len();
             assert_matches!(
-                round.player_play_card(current_player, hand_len - 1),
+                round.player_play_card(current_player, CardId(0)),
                 Err(GameError::PlayCard(PlayCardError::ExceedsMaximumAssets))
             );
             assert_matches!(
-                round.player_play_card(current_player, hand_len - 2),
+                round.player_play_card(current_player, CardId(0)),
                 // Assumes a starter hand has 2 assets and then 2 liabilities
                 Err(GameError::PlayCard(
                     PlayCardError::ExceedsMaximumLiabilities
@@ -1424,7 +1432,7 @@ mod tests {
         let round = game.round_mut().expect("not in round state");
 
         assert_matches!(
-            round.player_play_card(u8::MAX.into(), 0),
+            round.player_play_card(u8::MAX.into(), CardId(0)),
             Err(GameError::InvalidPlayerIndex(_))
         )
     }
@@ -1438,7 +1446,7 @@ mod tests {
         let next_player = round.next_player().expect("couldn't get next player");
 
         assert_matches!(
-            round.player_play_card(next_player.id(), 0),
+            round.player_play_card(next_player.id(), CardId(0)),
             Err(GameError::NotPlayersTurn)
         )
     }
@@ -1464,8 +1472,8 @@ mod tests {
         round.player_mut(current_player).unwrap()._set_cash(50);
 
         let hand_len = round.player(current_player).unwrap().hand().len();
-        assert_ok!(round.player_play_card(current_player, hand_len - 1));
-        assert_ok!(round.player_play_card(current_player, 0));
+        assert_ok!(round.player_play_card(current_player, CardId(0)));
+        assert_ok!(round.player_play_card(current_player, CardId(0)));
 
         assert_ok!(game.end_player_turn(current_player));
     }
@@ -1537,7 +1545,7 @@ mod tests {
 
         let round = game.round_mut().expect("not in round state");
         let hand_len = round.player(player_id).unwrap().hand().len();
-        assert_ok!(round.player_give_back_card(player_id, hand_len - 1));
+        assert_ok!(round.player_give_back_card(player_id, CardId(0)));
 
         assert_ok!(game.end_player_turn(player_id));
     }

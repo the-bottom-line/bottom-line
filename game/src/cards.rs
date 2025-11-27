@@ -117,6 +117,7 @@ impl From<Deck<AssetCard>> for Deck<Asset> {
                 let image_back_url = image_back_url.clone();
 
                 (0..c.copies).map(move |_| Asset {
+                    id: CardId(0),
                     title: c.title.clone(),
                     gold_value: c.gold_value,
                     silver_value: c.silver_value,
@@ -146,6 +147,7 @@ impl From<Deck<LiabilityCard>> for Deck<Liability> {
                 let image_back_url = image_back_url.clone();
 
                 (0..c.copies).map(move |_| Liability {
+                    id: CardId(0),
                     value: c.gold_value,
                     rfr_type: c.liability_type,
                     image_front_url: c.card_image_url.clone(),
@@ -204,9 +206,23 @@ impl From<Deck<MarketEventCard>> for Deck<Either<Market, Event>> {
 
 impl From<LoadedCards> for GameData {
     fn from(cards: LoadedCards) -> Self {
+        let mut assets: Deck<Asset> = cards.deck_list.asset_deck.into();
+        let mut liabilities: Deck<Liability> = cards.deck_list.liability_deck.into();
+
+        assets
+            .deck
+            .iter_mut()
+            .map(Either::Left)
+            .chain(liabilities.deck.iter_mut().map(Either::Right))
+            .enumerate()
+            .for_each(|(id, card)| match card {
+                Either::Left(asset) => asset.id = CardId(id),
+                Either::Right(liability) => liability.id = CardId(id),
+            });
+
         GameData {
-            assets: cards.deck_list.asset_deck.into(),
-            liabilities: cards.deck_list.liability_deck.into(),
+            assets,
+            liabilities,
             market_deck: cards.deck_list.market_events_deck.into(),
         }
     }

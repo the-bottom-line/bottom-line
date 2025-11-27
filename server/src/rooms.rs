@@ -54,21 +54,21 @@ impl RoomState {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
                 draw_card(state, card_type, player_id)
             }
-            FrontendRequest::PutBackCard { card_idx } => {
+            FrontendRequest::PutBackCard { card_id } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
-                put_back_card(state, card_idx, player_id)
+                put_back_card(state, card_id, player_id)
             }
-            FrontendRequest::BuyAsset { card_idx } => {
+            FrontendRequest::BuyAsset { card_id } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
-                play_card(state, card_idx, player_id)
+                play_card(state, card_id, player_id)
             }
-            FrontendRequest::IssueLiability { card_idx } => {
+            FrontendRequest::IssueLiability { card_id } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
-                play_card(state, card_idx, player_id)
+                play_card(state, card_id, player_id)
             }
-            FrontendRequest::RedeemLiability { liability_idx } => {
+            FrontendRequest::RedeemLiability { liability_id } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
-                redeem_liability(state, liability_idx, player_id)
+                redeem_liability(state, liability_id, player_id)
             }
             FrontendRequest::UseAbility => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
@@ -78,9 +78,9 @@ impl RoomState {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
                 fire_character(state, player_id, character)
             }
-            FrontendRequest::SwapWithDeck { card_idxs } => {
+            FrontendRequest::SwapWithDeck { card_ids } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
-                swap_with_deck(state, player_id, card_idxs)
+                swap_with_deck(state, player_id, card_ids)
             }
             FrontendRequest::SwapWithPlayer { target_player_id } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
@@ -88,10 +88,10 @@ impl RoomState {
             }
             FrontendRequest::DivestAsset {
                 target_player_id,
-                card_idx,
+                card_id,
             } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
-                divest_asset(state, player_id, target_player_id, card_idx)
+                divest_asset(state, player_id, target_player_id, card_id)
             }
             FrontendRequest::EndTurn => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();

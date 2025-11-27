@@ -41,7 +41,7 @@ pub struct SelectingCharactersPlayer {
     assets: Vec<Asset>,
     liabilities: Vec<Liability>,
     character: Option<Character>,
-    hand: Vec<Either<Asset, Liability>>,
+    hand: Hand,
 }
 
 impl SelectingCharactersPlayer {
@@ -70,7 +70,7 @@ impl SelectingCharactersPlayer {
     }
 
     pub fn hand(&self) -> &[Either<Asset, Liability>] {
-        &self.hand
+        &self.hand.0
     }
 
     pub(crate) fn new(
@@ -85,6 +85,7 @@ impl SelectingCharactersPlayer {
             .map(Either::Left)
             .chain(liabilities.into_iter().map(Either::Right))
             .collect();
+        let hand = Hand(hand);
 
         SelectingCharactersPlayer {
             id,
@@ -133,8 +134,8 @@ pub struct RoundPlayer {
     assets: Vec<Asset>,
     liabilities: Vec<Liability>,
     character: Character,
-    hand: Vec<Either<Asset, Liability>>,
-    cards_drawn: Vec<usize>,
+    hand: Hand,
+    cards_drawn: Vec<CardId>,
     bonus_draw_cards: u8,
     assets_to_play: u8,
     playable_assets: PlayableAssets,
@@ -175,15 +176,15 @@ impl RoundPlayer {
     }
 
     pub fn hand(&self) -> &[Either<Asset, Liability>] {
-        &self.hand
+        &self.hand.0
     }
 
-    fn update_cards_drawn(&mut self, card_idx: usize) {
+    fn update_cards_drawn(&mut self, card_id: CardId) {
         self.cards_drawn = self
             .cards_drawn
             .iter()
             .copied()
-            .filter(|&i| i != card_idx)
+            .filter(|&id| id != card_id)
             .collect();
     }
 
@@ -199,15 +200,19 @@ impl RoundPlayer {
 
     pub(crate) fn redeem_liability(
         &mut self,
-        liability_idx: usize,
+        liability_id: CardId,
     ) -> Result<Liability, RedeemLiabilityError> {
         if self.character.can_redeem_liabilities() {
             if self.can_play_liability() {
-                if let Some(liability) = self.liabilities.get(liability_idx) {
+                if let Some((pos, liability)) = self
+                    .liabilities
+                    .iter()
+                    .find_position(|l| l.id == liability_id)
+                {
                     if liability.value <= self.cash {
                         self.liabilities_to_play -= 1;
                         self.cash -= liability.value;
-                        Ok(self.liabilities.remove(liability_idx))
+                        Ok(self.liabilities.remove(pos))
                     } else {
                         Err(RedeemLiabilityError::NotEnoughCash {
                             cash: self.cash,
@@ -215,9 +220,7 @@ impl RoundPlayer {
                         })
                     }
                 } else {
-                    Err(RedeemLiabilityError::InvalidLiabilityIndex(
-                        liability_idx as u8,
-                    ))
+                    Err(RedeemLiabilityError::InvalidLiabilityId(liability_id))
                 }
             } else {
                 Err(RedeemLiabilityError::ExceedsMaximumLiabilities)
@@ -251,33 +254,32 @@ impl RoundPlayer {
 
     pub fn swap_with_deck(
         &mut self,
-        mut card_idxs: Vec<usize>,
+        card_ids: Vec<CardId>,
         asset_deck: &mut Deck<Asset>,
         liability_deck: &mut Deck<Liability>,
     ) -> Result<usize, SwapError> {
-        if card_idxs.is_empty() {
+        if card_ids.is_empty() {
             return Ok(0);
         }
 
         if self.character == Character::Regulator {
             if !self.has_used_ability {
-                card_idxs.sort();
-                if card_idxs.last().copied().unwrap_or_default() <= self.hand.len()
-                    && card_idxs.iter().all_unique()
-                {
-                    let removed_card_len = card_idxs.len();
+                if card_ids.iter().all_unique() {
+                    let removed_card_len = card_ids.len();
 
-                    for card in card_idxs.into_iter().rev() {
+                    // TODO: invalid card ids if invalid id in list?
+                    for card in card_ids.into_iter().rev() {
                         match self.hand.remove(card) {
-                            Either::Left(a) => asset_deck.put_back(a),
-                            Either::Right(l) => liability_deck.put_back(l),
+                            Some(Either::Left(a)) => asset_deck.put_back(a),
+                            Some(Either::Right(l)) => liability_deck.put_back(l),
+                            None => {}
                         }
                     }
                     self.has_used_ability = true;
                     self.bonus_draw_cards += removed_card_len as u8;
                     Ok(removed_card_len)
                 } else {
-                    Err(SwapError::InvalidCardIdxs)
+                    Err(SwapError::InvalidCardIds)
                 }
             } else {
                 Err(SwapError::AlreadySwapedThisTurn)
@@ -287,10 +289,7 @@ impl RoundPlayer {
         }
     }
 
-    pub fn swap_with_player(
-        &mut self,
-        player: RoundPlayer,
-    ) -> Result<Vec<Either<Asset, Liability>>, SwapError> {
+    pub fn swap_with_player(&mut self, player: RoundPlayer) -> Result<Hand, SwapError> {
         if self.character == Character::Regulator {
             if !self.has_used_ability {
                 self.has_used_ability = true;
@@ -304,33 +303,30 @@ impl RoundPlayer {
         }
     }
 
-    pub fn swap_hand(
-        &mut self,
-        new_hand: Vec<Either<Asset, Liability>>,
-    ) -> Vec<Either<Asset, Liability>> {
-        let oldhand = self.hand.clone();
+    pub fn swap_hand(&mut self, new_hand: Hand) -> Hand {
+        let old_hand = self.hand.clone();
         self.hand = new_hand;
-        oldhand
+        old_hand
     }
-    pub fn remove_asset(&mut self, asset_idx: usize) -> Result<Asset, DivestAssetError> {
-        if self.assets.get(asset_idx).is_some() {
-            Ok(self.assets.remove(asset_idx))
-        } else {
-            Err(DivestAssetError::InvalidCardIdx)
+
+    pub fn remove_asset(&mut self, asset_id: CardId) -> Result<Asset, DivestAssetError> {
+        match self.assets.iter().position(|asset| asset.id == asset_id) {
+            Some(pos) => Ok(self.assets.remove(pos)),
+            None => Err(DivestAssetError::InvalidCardId),
         }
     }
 
     pub fn divest_asset(
         &mut self,
         player: &RoundPlayer,
-        asset_idx: usize,
+        asset_id: CardId,
         market: &Market,
     ) -> Result<u8, DivestAssetError> {
         if self.character == Character::Stakeholder {
             if !self.has_used_ability {
                 if player.character.can_be_forced_to_divest() {
-                    if asset_idx < player.assets.len() {
-                        let asset = &player.assets[asset_idx];
+                    if let Some(asset_pos) = player.assets.iter().position(|a| a.id == asset_id) {
+                        let asset = &player.assets[asset_pos];
                         if asset.color != Color::Red && asset.color != Color::Green {
                             let cost = asset.divest_cost(market);
                             if cost <= self.cash {
@@ -344,7 +340,7 @@ impl RoundPlayer {
                             Err(DivestAssetError::CantDivestAssetType)
                         }
                     } else {
-                        Err(DivestAssetError::InvalidCardIdx)
+                        Err(DivestAssetError::InvalidCardId)
                     }
                 } else {
                     Err(DivestAssetError::InvalidCharacter)
@@ -361,18 +357,18 @@ impl RoundPlayer {
     /// if
     pub(crate) fn play_card(
         &mut self,
-        card_idx: usize,
+        card_id: CardId,
     ) -> Result<Either<Asset, Liability>, PlayCardError> {
         use PlayCardError::*;
 
-        if let Some(card) = self.hand.get(card_idx) {
+        if let Some(card) = self.hand.get(card_id) {
             match card {
                 Either::Left(a) if self.can_play_asset(a.color) && self.cash >= a.gold_value => {
-                    let asset = self.hand.remove(card_idx).left().unwrap();
+                    let asset = self.hand.remove(card_id).unwrap().left().unwrap();
                     self.cash -= asset.gold_value;
                     self.assets_to_play -= self.playable_assets.color_cost(asset.color);
                     self.assets.push(asset.clone());
-                    self.update_cards_drawn(card_idx);
+                    self.update_cards_drawn(card_id);
                     Ok(Either::Left(asset))
                 }
                 Either::Left(a) if !self.can_play_asset(a.color) => Err(ExceedsMaximumAssets),
@@ -381,24 +377,24 @@ impl RoundPlayer {
                     cost: a.gold_value,
                 }),
                 Either::Right(_) if self.can_play_liability() => {
-                    let liability = self.hand.remove(card_idx).right().unwrap();
+                    let liability = self.hand.remove(card_id).unwrap().right().unwrap();
                     self.cash += liability.value;
                     self.liabilities_to_play -= 1;
                     self.liabilities.push(liability.clone());
-                    self.update_cards_drawn(card_idx);
+                    self.update_cards_drawn(card_id);
                     Ok(Either::Right(liability))
                 }
                 Either::Right(_) if !self.can_play_liability() => Err(ExceedsMaximumLiabilities),
                 _ => unreachable!(),
             }
         } else {
-            Err(InvalidCardIndex(card_idx as u8))
+            Err(InvalidCardId(card_id))
         }
     }
 
     fn draw_card(&mut self, card: Either<Asset, Liability>) {
         self.total_cards_drawn += 1;
-        self.cards_drawn.push(self.hand.len());
+        self.cards_drawn.push(card.card_id());
         self.hand.push(card);
     }
 
@@ -429,16 +425,20 @@ impl RoundPlayer {
 
     pub(crate) fn give_back_card(
         &mut self,
-        card_idx: usize,
+        card_id: CardId,
     ) -> Result<Either<Asset, Liability>, GiveBackCardError> {
         if self.should_give_back_cards() {
-            match self.hand.get(card_idx) {
-                Some(_) => {
+            match self.hand.remove(card_id) {
+                Some(card) => {
+                    // TODO: fix this debug assert maybe
+                    debug_assert!(card.card_id() == card_id);
+
                     self.total_cards_given_back += 1;
-                    self.update_cards_drawn(card_idx);
-                    Ok(self.hand.remove(card_idx))
+                    self.update_cards_drawn(card_id);
+
+                    Ok(card)
                 }
-                None => Err(GiveBackCardError::InvalidCardIndex(card_idx as u8)),
+                None => Err(GiveBackCardError::InvalidCardId(card_id)),
             }
         } else {
             Err(GiveBackCardError::Unnecessary)
@@ -553,7 +553,7 @@ pub struct ResultsPlayer {
     cash: u8,
     assets: Vec<Asset>,
     liabilities: Vec<Liability>,
-    hand: Vec<Either<Asset, Liability>>,
+    hand: Hand,
 }
 
 impl ResultsPlayer {
@@ -578,7 +578,7 @@ impl ResultsPlayer {
     }
 
     pub fn hand(&self) -> &[Either<Asset, Liability>] {
-        &self.hand
+        &self.hand.0
     }
 
     pub fn total_gold(&self) -> u8 {
@@ -676,6 +676,7 @@ impl From<RoundPlayer> for ResultsPlayer {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Asset {
+    pub id: CardId,
     pub title: String,
     pub gold_value: u8,
     pub silver_value: u8,
@@ -750,6 +751,7 @@ impl std::fmt::Display for AssetPowerup {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Liability {
+    pub id: CardId,
     pub value: u8,
     pub rfr_type: LiabilityType,
     pub image_front_url: String,
@@ -787,6 +789,17 @@ pub enum LiabilityType {
     Bonds,
 }
 
+#[derive(
+    Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord,
+)]
+pub struct CardId(pub usize);
+
+impl From<CardId> for usize {
+    fn from(value: CardId) -> Self {
+        value.0 as usize
+    }
+}
+
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum CardType {
     Asset,
@@ -803,6 +816,69 @@ where
 {
     fn info(&self) -> PlayerInfo {
         PlayerInfo::from(self)
+    }
+}
+
+trait GetCardId {
+    fn card_id(&self) -> CardId;
+}
+
+impl GetCardId for Either<Asset, Liability> {
+    fn card_id(&self) -> CardId {
+        match self {
+            Either::Left(asset) => asset.id,
+            Either::Right(liability) => liability.id,
+        }
+    }
+}
+
+/// TODO: make private maybe
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct Hand(pub(crate) Vec<Either<Asset, Liability>>);
+
+impl Hand {
+    pub fn new(hand: Vec<Either<Asset, Liability>>) -> Self {
+        Self(hand)
+    }
+
+    pub fn get(&self, card_id: CardId) -> Option<Either<&Asset, &Liability>> {
+        self.0
+            .iter()
+            .find(|card| card.card_id() == card_id)
+            .map(|e| e.as_ref())
+    }
+
+    pub fn last(&self) -> Option<Either<&Asset, &Liability>> {
+        self.0.last().map(|e| e.as_ref())
+    }
+
+    pub fn position(&self, card_id: CardId) -> Option<usize> {
+        self.0.iter().position(|card| card.card_id() == card_id)
+    }
+
+    pub fn push(&mut self, card: Either<Asset, Liability>) {
+        self.0.push(card);
+    }
+
+    pub fn remove(&mut self, card_id: CardId) -> Option<Either<Asset, Liability>> {
+        match self.position(card_id) {
+            Some(pos) => Some(self.0.remove(pos)),
+            None => None,
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl From<Vec<Either<Asset, Liability>>> for Hand {
+    fn from(cards: Vec<Either<Asset, Liability>>) -> Self {
+        Hand(cards)
     }
 }
 
@@ -857,7 +933,7 @@ impl From<&SelectingCharactersPlayer> for PlayerInfo {
         Self {
             name: player.name.clone(),
             id: player.id,
-            hand: Self::hand(&player.hand),
+            hand: Self::hand(player.hand()),
             assets: player.assets.clone(),
             liabilities: player.liabilities.clone(),
             cash: player.cash,
@@ -871,7 +947,7 @@ impl From<&RoundPlayer> for PlayerInfo {
         Self {
             name: player.name.clone(),
             id: player.id,
-            hand: Self::hand(&player.hand),
+            hand: Self::hand(player.hand()),
             assets: player.assets.clone(),
             liabilities: player.liabilities.clone(),
             cash: player.cash,
@@ -885,7 +961,7 @@ impl From<&ResultsPlayer> for PlayerInfo {
         Self {
             name: player.name.clone(),
             id: player.id,
-            hand: Self::hand(&player.hand),
+            hand: Self::hand(player.hand()),
             assets: player.assets.clone(),
             liabilities: player.liabilities.clone(),
             cash: player.cash,
@@ -1109,6 +1185,7 @@ mod tests {
 
     fn asset(color: Color) -> Asset {
         Asset {
+            id: CardId(0),
             color,
             title: "Asset".to_owned(),
             gold_value: 1,
@@ -1121,6 +1198,7 @@ mod tests {
 
     fn liability(value: u8) -> Liability {
         Liability {
+            id: CardId(0),
             value,
             rfr_type: LiabilityType::BankLoan,
             image_front_url: Default::default(),
@@ -1128,12 +1206,12 @@ mod tests {
         }
     }
 
-    fn hand_asset(color: Color) -> Vec<Either<Asset, Liability>> {
-        vec![Either::Left(asset(color))]
+    fn hand_asset(color: Color) -> Hand {
+        Hand(vec![Either::Left(asset(color))])
     }
 
-    fn hand_liability(value: u8) -> Vec<Either<Asset, Liability>> {
-        vec![Either::Right(liability(value))]
+    fn hand_liability(value: u8) -> Hand {
+        Hand(vec![Either::Right(liability(value))])
     }
 
     #[test]
@@ -1188,8 +1266,10 @@ mod tests {
                         CardType::Asset => {
                             let mut assets = Deck::new(vec![asset(Color::Red)]);
                             let asset = assert_ok!(player.draw_asset(&mut assets)).clone();
-                            let cmp = player.hand[*player.cards_drawn.last().unwrap()]
-                                .as_ref()
+                            let cmp = player
+                                .hand
+                                .get(*player.cards_drawn.last().unwrap())
+                                .unwrap()
                                 .left()
                                 .unwrap();
                             assert_eq!(&asset, cmp);
@@ -1198,8 +1278,10 @@ mod tests {
                             let mut liabilities = Deck::new(vec![liability(liability_value)]);
                             let liability =
                                 assert_ok!(player.draw_liability(&mut liabilities)).clone();
-                            let cmp = player.hand[*player.cards_drawn.last().unwrap()]
-                                .as_ref()
+                            let cmp = player
+                                .hand
+                                .get(*player.cards_drawn.last().unwrap())
+                                .unwrap()
                                 .right()
                                 .unwrap();
                             assert_eq!(&liability, cmp);
@@ -1261,8 +1343,10 @@ mod tests {
                             CardType::Asset => {
                                 let mut assets = Deck::new(vec![asset(Color::Red)]);
                                 let asset = assert_ok!(player.draw_asset(&mut assets)).clone();
-                                let cmp = player.hand[*player.cards_drawn.last().unwrap()]
-                                    .as_ref()
+                                let cmp = player
+                                    .hand
+                                    .get(*player.cards_drawn.last().unwrap())
+                                    .unwrap()
                                     .left()
                                     .unwrap();
                                 assert_eq!(&asset, cmp);
@@ -1271,8 +1355,10 @@ mod tests {
                                 let mut liabilities = Deck::new(vec![liability(liability_value)]);
                                 let liability =
                                     assert_ok!(player.draw_liability(&mut liabilities)).clone();
-                                let cmp = player.hand[*player.cards_drawn.last().unwrap()]
-                                    .as_ref()
+                                let cmp = player
+                                    .hand
+                                    .get(*player.cards_drawn.last().unwrap())
+                                    .unwrap()
                                     .right()
                                     .unwrap();
                                 assert_eq!(&liability, cmp);
@@ -1400,22 +1486,22 @@ mod tests {
         assert_eq!(player.total_cards_given_back, 0);
         assert_eq!(CHARACTER.draws_n_cards(), player.hand.len() as u8);
 
-        assert_err!(player.give_back_card(123));
+        assert_err!(player.give_back_card(CardId(123)));
         assert_eq!(player.total_cards_given_back, 0);
         assert_eq!(CHARACTER.draws_n_cards(), player.hand.len() as u8);
 
-        assert_ok!(player.give_back_card(0));
+        assert_ok!(player.give_back_card(CardId(0)));
         assert_eq!(player.total_cards_given_back, 1);
         assert_eq!(CHARACTER.draws_n_cards() - 1, player.hand.len() as u8);
 
         assert!(player.should_give_back_cards());
 
-        assert_ok!(player.give_back_card(0));
+        assert_ok!(player.give_back_card(CardId(0)));
         assert_eq!(player.total_cards_given_back, 2);
         assert_eq!(CHARACTER.draws_n_cards() - 2, player.hand.len() as u8);
 
         assert!(!player.should_give_back_cards());
-        assert_err!(player.give_back_card(0));
+        assert_err!(player.give_back_card(CardId(0)));
         assert_eq!(player.total_cards_given_back, 2);
         assert_eq!(CHARACTER.draws_n_cards() - 2, player.hand.len() as u8);
     }
@@ -1449,16 +1535,16 @@ mod tests {
             assert_eq!(player.total_cards_given_back, 0);
             assert_eq!(character.draws_n_cards(), player.hand.len() as u8);
 
-            assert_err!(player.give_back_card(123));
+            assert_err!(player.give_back_card(CardId(123)));
             assert_eq!(player.total_cards_given_back, 0);
             assert_eq!(character.draws_n_cards(), player.hand.len() as u8);
 
-            assert_ok!(player.give_back_card(0));
+            assert_ok!(player.give_back_card(CardId(0)));
             assert_eq!(player.total_cards_given_back, 1);
             assert_eq!(character.draws_n_cards() - 1, player.hand.len() as u8);
 
             assert!(!player.should_give_back_cards());
-            assert_err!(player.give_back_card(0));
+            assert_err!(player.give_back_card(CardId(0)));
             assert_eq!(player.total_cards_given_back, 1);
             assert_eq!(character.draws_n_cards() - 1, player.hand.len() as u8);
         }
@@ -1601,7 +1687,7 @@ mod tests {
                 liabilities: Default::default(),
                 cash: STARTING_CASH,
                 character: Some(character),
-                hand: vec![],
+                hand: Default::default(),
             };
             let round_player = RoundPlayer::try_from(selecting_player).unwrap();
 
@@ -1614,7 +1700,7 @@ mod tests {
                     let cash = player.cash;
 
                     player.hand = hand_asset(c1);
-                    assert_ok!(player.play_card(0));
+                    assert_ok!(player.play_card(CardId(0)));
 
                     assert_eq!(player.cash, cash - 1);
                     assert_eq!(player.hand.len(), 0);
@@ -1624,7 +1710,7 @@ mod tests {
 
                     player.hand = hand_asset(c2);
                     assert_matches!(
-                        player.play_card(0),
+                        player.play_card(CardId(0)),
                         Err(PlayCardError::ExceedsMaximumAssets)
                     );
                     assert_eq!(player.cash, cash - 1);
@@ -1645,7 +1731,7 @@ mod tests {
             liabilities: Default::default(),
             cash: 100,
             character: Some(Character::CEO),
-            hand: vec![],
+            hand: Default::default(),
         };
         let round_player = RoundPlayer::try_from(selecting_player).unwrap();
 
@@ -1658,7 +1744,7 @@ mod tests {
 
                 for (i, c) in colors.into_iter().enumerate() {
                     player.hand = hand_asset(c);
-                    assert_ok!(player.play_card(0), "bought assets: {i}");
+                    assert_ok!(player.play_card(CardId(0)), "bought assets: {i}");
                     assert_eq!(player.assets.len(), i + 1);
                     assert_eq!(player.cash, STARTING_CASH - 1 - i as u8);
                 }
@@ -1667,7 +1753,7 @@ mod tests {
 
                 player.hand = hand_asset(extra);
                 assert_matches!(
-                    player.play_card(0),
+                    player.play_card(CardId(0)),
                     Err(PlayCardError::ExceedsMaximumAssets)
                 );
                 assert_eq!(player.assets.len(), 3);
@@ -1686,7 +1772,7 @@ mod tests {
             liabilities: Default::default(),
             cash: 100,
             character: Some(Character::CSO),
-            hand: vec![],
+            hand: Default::default(),
         };
         let round_player = RoundPlayer::try_from(selecting_player).unwrap();
 
@@ -1699,14 +1785,14 @@ mod tests {
 
                 for (i, c) in colors.into_iter().enumerate() {
                     player.hand = hand_asset(c);
-                    assert_ok!(player.play_card(0));
+                    assert_ok!(player.play_card(CardId(0)));
                     assert_eq!(player.assets.len(), i + 1);
                     assert_eq!(player.cash, STARTING_CASH - 1 - i as u8);
                 }
 
                 player.hand = hand_asset(extra);
                 assert_matches!(
-                    player.play_card(0),
+                    player.play_card(CardId(0)),
                     Err(PlayCardError::ExceedsMaximumAssets)
                 );
                 assert_eq!(player.assets.len(), 2);
@@ -1721,13 +1807,13 @@ mod tests {
             .for_each(|(c1, c2)| {
                 let mut player = round_player.clone();
                 player.hand = hand_asset(c1);
-                assert_ok!(player.play_card(0));
+                assert_ok!(player.play_card(CardId(0)));
                 assert_eq!(player.assets.len(), 1);
                 assert_eq!(player.cash, STARTING_CASH - 1);
 
                 player.hand = hand_asset(c2);
                 assert_matches!(
-                    player.play_card(0),
+                    player.play_card(CardId(0)),
                     Err(PlayCardError::ExceedsMaximumAssets)
                 );
                 assert_eq!(player.assets.len(), 1);
@@ -1760,11 +1846,11 @@ mod tests {
                     ],
                     cash: 100,
                     character: Some(Character::CFO),
-                    hand: vec![
+                    hand: Hand(vec![
                         Either::Right(liability(LIABILITY_VALUE)),
                         Either::Right(liability(LIABILITY_VALUE)),
                         Either::Right(liability(LIABILITY_VALUE)),
-                    ],
+                    ]),
                 };
                 let mut player = RoundPlayer::try_from(selecting_player).unwrap();
 
@@ -1774,14 +1860,15 @@ mod tests {
                     let liabilities_len = player.liabilities.len();
                     match ir {
                         IR::Issue => {
-                            let liability = assert_ok!(player.play_card(0)).right().unwrap();
+                            let liability =
+                                assert_ok!(player.play_card(CardId(0))).right().unwrap();
                             assert_eq!(liability.value, LIABILITY_VALUE);
                             assert_eq!(player.cash, player_cash + LIABILITY_VALUE);
                             assert_eq!(player.hand.len(), hand_len - 1);
                             assert_eq!(player.liabilities.len(), liabilities_len + 1);
                         }
                         IR::Redeem => {
-                            let liability = assert_ok!(player.redeem_liability(0));
+                            let liability = assert_ok!(player.redeem_liability(CardId(0)));
                             assert_eq!(liability.value, LIABILITY_VALUE);
                             assert_eq!(player.cash, player_cash - LIABILITY_VALUE);
                             assert_eq!(player.liabilities.len(), liabilities_len - 1);
@@ -1792,16 +1879,16 @@ mod tests {
                 match extra {
                     IR::Issue => {
                         let player_cash = player.cash;
-                        player.hand = vec![];
+                        player.hand = Hand::default();
                         assert_matches!(
-                            player.play_card(0),
-                            Err(PlayCardError::InvalidCardIndex(_))
+                            player.play_card(CardId(0)),
+                            Err(PlayCardError::InvalidCardId(_))
                         );
                         assert_eq!(player.cash, player_cash);
 
                         player.hand = hand_liability(LIABILITY_VALUE);
                         assert_matches!(
-                            player.play_card(0),
+                            player.play_card(CardId(0)),
                             Err(PlayCardError::ExceedsMaximumLiabilities)
                         );
                         assert_eq!(player.cash, player_cash);
@@ -1809,7 +1896,7 @@ mod tests {
                     IR::Redeem => {
                         player.liabilities = vec![liability(LIABILITY_VALUE)];
                         assert_matches!(
-                            player.redeem_liability(0),
+                            player.redeem_liability(CardId(0)),
                             Err(RedeemLiabilityError::ExceedsMaximumLiabilities)
                         );
                     }
@@ -1840,7 +1927,7 @@ mod tests {
             let hand_len = player.hand.len();
             let liabilities_len = player.liabilities.len();
 
-            let liability = assert_ok!(player.play_card(0)).right().unwrap();
+            let liability = assert_ok!(player.play_card(CardId(0))).right().unwrap();
 
             assert_eq!(liability.value, LIABILITY_VALUE);
             assert_eq!(player.cash, player_cash + LIABILITY_VALUE);
@@ -1849,18 +1936,21 @@ mod tests {
 
             let player_cash = player.cash;
 
-            assert_matches!(player.play_card(0), Err(PlayCardError::InvalidCardIndex(_)));
+            assert_matches!(
+                player.play_card(CardId(0)),
+                Err(PlayCardError::InvalidCardId(_))
+            );
             assert_eq!(player.cash, player_cash);
 
             player.hand = hand_liability(LIABILITY_VALUE);
             assert_matches!(
-                player.play_card(0),
+                player.play_card(CardId(0)),
                 Err(PlayCardError::ExceedsMaximumLiabilities)
             );
             assert_eq!(player.cash, player_cash);
 
             assert_matches!(
-                player.redeem_liability(0),
+                player.redeem_liability(CardId(0)),
                 Err(RedeemLiabilityError::NotAllowedToRedeemLiability(_))
             );
             assert_eq!(player.cash, player_cash);

@@ -1,4 +1,4 @@
-use game::player::{CardType, Character, PlayerId};
+use game::player::{CardId, CardType, Character, PlayerId};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -35,26 +35,30 @@ impl CreateRequest {
     }
 
     #[wasm_bindgen(js_name = putBackCard)]
-    pub fn put_back_card(card_idx: usize) -> Result<String, JsValue> {
-        serde_json::to_string(&responses::FrontendRequest::PutBackCard { card_idx })
+    pub fn put_back_card(card_id: usize) -> Result<String, JsValue> {
+        let card_id = CardId(card_id);
+        serde_json::to_string(&responses::FrontendRequest::PutBackCard { card_id })
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     #[wasm_bindgen(js_name = buyAsset)]
-    pub fn buy_asset(card_idx: usize) -> Result<String, JsValue> {
-        serde_json::to_string(&responses::FrontendRequest::BuyAsset { card_idx })
+    pub fn buy_asset(card_id: usize) -> Result<String, JsValue> {
+        let card_id = CardId(card_id);
+        serde_json::to_string(&responses::FrontendRequest::BuyAsset { card_id })
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     #[wasm_bindgen(js_name = issueLiability)]
-    pub fn issue_liability(card_idx: usize) -> Result<String, JsValue> {
-        serde_json::to_string(&responses::FrontendRequest::IssueLiability { card_idx })
+    pub fn issue_liability(card_id: usize) -> Result<String, JsValue> {
+        let card_id = CardId(card_id);
+        serde_json::to_string(&responses::FrontendRequest::IssueLiability { card_id })
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     #[wasm_bindgen(js_name = redeemLiability)]
-    pub fn redeem_liability(liability_idx: usize) -> Result<String, JsValue> {
-        serde_json::to_string(&responses::FrontendRequest::RedeemLiability { liability_idx })
+    pub fn redeem_liability(liability_id: usize) -> Result<String, JsValue> {
+        let liability_id = CardId(liability_id);
+        serde_json::to_string(&responses::FrontendRequest::RedeemLiability { liability_id })
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
@@ -72,8 +76,9 @@ impl CreateRequest {
     }
 
     #[wasm_bindgen(js_name = swapWithDeck)]
-    pub fn swap_with_deck(card_idxs: Vec<usize>) -> Result<String, JsValue> {
-        serde_json::to_string(&responses::FrontendRequest::SwapWithDeck { card_idxs })
+    pub fn swap_with_deck(card_ids: Vec<usize>) -> Result<String, JsValue> {
+        let card_ids = card_ids.into_iter().map(CardId).collect();
+        serde_json::to_string(&responses::FrontendRequest::SwapWithDeck { card_ids })
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
@@ -85,11 +90,12 @@ impl CreateRequest {
     }
 
     #[wasm_bindgen(js_name = divestAsset)]
-    pub fn divest_asset(target_id: u8, asset_idx: usize) -> Result<String, JsValue> {
+    pub fn divest_asset(target_id: u8, asset_id: usize) -> Result<String, JsValue> {
         let target_player_id = PlayerId(target_id);
+        let asset_id = CardId(asset_id);
         serde_json::to_string(&responses::FrontendRequest::DivestAsset {
             target_player_id,
-            card_idx: asset_idx,
+            card_id: asset_id,
         })
         .map_err(|e| JsValue::from_str(&e.to_string()))
     }
@@ -112,28 +118,29 @@ impl CreateRequest {
                 Self::select_character(JsValue::null())
             }
             responses::FrontendRequest::DrawCard { .. } => Self::draw_card(JsValue::null()),
-            responses::FrontendRequest::PutBackCard { card_idx } => Self::put_back_card(card_idx),
-            responses::FrontendRequest::BuyAsset { card_idx } => Self::buy_asset(card_idx),
-            responses::FrontendRequest::IssueLiability { card_idx } => {
-                Self::issue_liability(card_idx)
+            responses::FrontendRequest::PutBackCard { card_id } => Self::put_back_card(card_id.0),
+            responses::FrontendRequest::BuyAsset { card_id } => Self::buy_asset(card_id.0),
+            responses::FrontendRequest::IssueLiability { card_id } => {
+                Self::issue_liability(card_id.0)
             }
-            responses::FrontendRequest::RedeemLiability { liability_idx } => {
-                Self::redeem_liability(liability_idx)
+            responses::FrontendRequest::RedeemLiability { liability_id } => {
+                Self::redeem_liability(liability_id.0)
             }
             responses::FrontendRequest::UseAbility => Self::use_ability(),
             responses::FrontendRequest::FireCharacter { .. } => {
                 Self::fire_character(JsValue::null())
             }
-            responses::FrontendRequest::SwapWithDeck { card_idxs } => {
-                Self::swap_with_deck(card_idxs)
+            responses::FrontendRequest::SwapWithDeck { card_ids } => {
+                let card_ids = card_ids.into_iter().map(|id| id.0).collect();
+                Self::swap_with_deck(card_ids)
             }
             responses::FrontendRequest::SwapWithPlayer { target_player_id } => {
                 Self::swap_with_player(target_player_id.0)
             }
             responses::FrontendRequest::DivestAsset {
                 target_player_id,
-                card_idx,
-            } => Self::divest_asset(target_player_id.0, card_idx),
+                card_id,
+            } => Self::divest_asset(target_player_id.0, card_id.0),
             responses::FrontendRequest::EndTurn => Self::end_turn(),
         };
     }

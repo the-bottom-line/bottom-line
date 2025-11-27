@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::player::Character;
+use crate::player::{CardId, Character};
 
 /// The main error struct of the game logic
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
@@ -64,8 +64,8 @@ pub enum LobbyError {
 
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
 pub enum PlayCardError {
-    #[error("Card index {0} is invalid")]
-    InvalidCardIndex(u8),
+    #[error("Card index {} is invalid", (.0).0)]
+    InvalidCardId(CardId),
     #[error("Already played the maximum allowed number of assets")]
     ExceedsMaximumAssets,
     #[error("Already played the maximum allowed number of liabilities")]
@@ -80,16 +80,16 @@ pub enum RedeemLiabilityError {
     NotAllowedToRedeemLiability(Character),
     #[error("Already played the maximum allowed number of liabilities")]
     ExceedsMaximumLiabilities,
-    #[error("Invalid liability index {0}")]
-    InvalidLiabilityIndex(u8),
+    #[error("Invalid liability index {}", (.0).0)]
+    InvalidLiabilityId(CardId),
     #[error("{cash} gold is not enough to redeem liability with value {cost}")]
     NotEnoughCash { cash: u8, cost: u8 },
 }
 
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
 pub enum GiveBackCardError {
-    #[error("Card index {0} is invalid")]
-    InvalidCardIndex(u8),
+    #[error("Card index {} is invalid", (.0).0)]
+    InvalidCardId(CardId),
     #[error("Player does not have to give back card")]
     Unnecessary,
 }
@@ -111,7 +111,7 @@ pub enum SwapError {
     #[error("Only the regulator can swap their hand")]
     InvalidPlayerCharacter,
     #[error("invalid card indexes")]
-    InvalidCardIdxs,
+    InvalidCardIds,
     #[error("cant swap with this player")]
     InvalidTargetPlayer,
 }
@@ -129,7 +129,7 @@ pub enum DivestAssetError {
     #[error("You don't have enough cach to divest this asset")]
     NotEnoughCash,
     #[error("invalid card idex")]
-    InvalidCardIdx,
+    InvalidCardId,
 }
 
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]

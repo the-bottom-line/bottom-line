@@ -286,6 +286,13 @@ impl<P> Players<P> {
     pub fn players_mut(&mut self) -> &mut [P] {
         &mut self.0
     }
+
+    pub fn get_disjoint_mut<const N: usize>(
+        &mut self,
+        indices: [usize; N],
+    ) -> Result<[&mut P; N], std::slice::GetDisjointMutError> {
+        self.0.get_disjoint_mut(indices)
+    }
 }
 
 impl<P> Default for Players<P> {
@@ -995,7 +1002,6 @@ impl Round {
         if id != target_id {
             match self
                 .players
-                .0
                 .get_disjoint_mut([usize::from(id), usize::from(target_id)])
             {
                 Ok([stakeholder, target]) => {

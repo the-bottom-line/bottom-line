@@ -304,6 +304,23 @@ impl RoundPlayer {
         }
     }
 
+    pub fn regulator_swap_with_player(
+        &mut self,
+        target: &mut RoundPlayer,
+    ) -> Result<(), SwapError> {
+        if self.character == Character::Regulator {
+            if !self.has_used_ability {
+                self.has_used_ability = true;
+                self.hand.swap_with_slice(&mut target.hand);
+                Ok(())
+            } else {
+                Err(SwapError::AlreadySwapedThisTurn)
+            }
+        } else {
+            Err(SwapError::AlreadySwapedThisTurn)
+        }
+    }
+
     pub fn swap_hand(
         &mut self,
         new_hand: Vec<Either<Asset, Liability>>,

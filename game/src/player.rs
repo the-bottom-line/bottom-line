@@ -508,7 +508,7 @@ impl RoundPlayer {
         let asset_bonus = self.asset_bonus();
         let market_condition_bonus = self.market_condition_bonus(current_market);
 
-        (start + asset_bonus + market_condition_bonus) as u8
+        (start + asset_bonus * (market_condition_bonus + 1)) as u8
     }
 
     pub(crate) fn start_turn(&mut self, current_market: &Market) {

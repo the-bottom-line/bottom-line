@@ -58,8 +58,10 @@ pub enum GameError {
 pub enum LobbyError {
     #[error("Username {0} already taken")]
     UsernameAlreadyTaken(String),
-    #[error("Username is invalid")]
-    InvalidUsername,
+    #[error("Username {0} is invalid")]
+    InvalidUsername(String),
+    #[error("Username {0} is not in lobby")]
+    UsernameNotInLobby(String),
 }
 
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]

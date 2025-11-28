@@ -4,11 +4,13 @@ use game::{game::GameState, player::PlayerId};
 
 fn get_gamestate(player_count: usize) -> GameState {
     let mut game = GameState::new();
-    let lobby = game.lobby_mut().expect("game not in round state");
+    // let lobby = game.lobby_mut().expect("game not in round state");
 
     (0..(player_count as u8))
         .map(|i| (i, format!("Player {i}")))
-        .for_each(|(i, name)| assert_matches!(lobby.join(name), Ok(p) if p.id() == PlayerId(i)));
+        .for_each(
+            |(i, name)| assert_matches!(game.join(name), Ok((_, p)) if p.id() == PlayerId(i)),
+        );
 
     game.start_game("../assets/cards/boardgame.json").unwrap();
 
@@ -27,12 +29,9 @@ fn main() -> std::io::Result<()> {
 }
 
 fn player_info(bencher: Bencher, player_count: usize) {
-    let mut state = get_gamestate(player_count);
-    let selecting = state
-        .selecting_characters_mut()
-        .expect("not selecting characters");
+    let state = get_gamestate(player_count);
 
-    bencher.bench(|| selecting.player_info(1.into()))
+    bencher.bench(|| state.player_info(1.into()))
 }
 
 fn get_selectable_characters(bencher: Bencher, player_id: u8) {

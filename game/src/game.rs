@@ -316,7 +316,7 @@ impl GameState {
         }
     }
 
-    pub fn lobby_mut(&mut self) -> Result<&mut Lobby, GameError> {
+    fn lobby_mut(&mut self) -> Result<&mut Lobby, GameError> {
         match self {
             Self::Lobby(l) => Ok(l),
             _ => Err(GameError::NotLobbyState),
@@ -330,7 +330,7 @@ impl GameState {
         }
     }
 
-    pub fn selecting_characters_mut(&mut self) -> Result<&mut SelectingCharacters, GameError> {
+    fn _selecting_characters_mut(&mut self) -> Result<&mut SelectingCharacters, GameError> {
         match self {
             Self::SelectingCharacters(s) => Ok(s),
             _ => Err(GameError::NotSelectingCharactersState),
@@ -344,7 +344,7 @@ impl GameState {
         }
     }
 
-    pub fn round_mut(&mut self) -> Result<&mut Round, GameError> {
+    fn round_mut(&mut self) -> Result<&mut Round, GameError> {
         match self {
             Self::Round(r) => Ok(r),
             _ => Err(GameError::NotRoundState),
@@ -358,18 +358,38 @@ impl GameState {
         }
     }
 
-    pub fn results_mut(&mut self) -> Result<&mut Results, GameError> {
+    fn _results_mut(&mut self) -> Result<&mut Results, GameError> {
         match self {
             Self::Results(r) => Ok(r),
             _ => Err(GameError::NotResultsState),
         }
     }
 
-    pub fn start_game<P: AsRef<Path>>(&mut self, data_path: P) -> Result<(), GameError> {
+    pub fn join(&mut self, username: String) -> Result<(&Lobby, LobbyPlayer), GameError> {
+        let lobby = self.lobby_mut()?;
+        let player = lobby.join(username)?.clone();
+
+        Ok((lobby, player))
+    }
+
+    pub fn leave(&mut self, username: &str) -> Result<&Lobby, GameError> {
+        let lobby = self.lobby_mut()?;
+
+        match lobby.leave(username) {
+            true => Ok(lobby),
+            false => Err(LobbyError::UsernameNotInLobby(username.to_owned()).into()),
+        }
+    }
+
+    pub fn start_game<P: AsRef<Path>>(
+        &mut self,
+        data_path: P,
+    ) -> Result<&SelectingCharacters, GameError> {
         match self {
             Self::Lobby(lobby) => {
                 *self = lobby.start_game(data_path)?;
-                Ok(())
+                let selecting = self.selecting_characters()?;
+                Ok(selecting)
             }
             _ => Err(GameError::NotLobbyState),
         }
@@ -379,7 +399,7 @@ impl GameState {
         &mut self,
         id: PlayerId,
         character: Character,
-    ) -> Result<(), GameError> {
+    ) -> Result<Either<&SelectingCharacters, &Round>, GameError> {
         let selecting = match self {
             Self::SelectingCharacters(s) => s,
             _ => return Err(GameError::NotSelectingCharactersState),
@@ -387,26 +407,129 @@ impl GameState {
 
         if let Some(state) = selecting.player_select_character(id, character)? {
             *self = state;
-        };
-
-        Ok(())
+            let round = self.round()?;
+            Ok(Either::Right(round))
+        } else {
+            let selecting = self.selecting_characters()?;
+            Ok(Either::Left(selecting))
+        }
     }
 
-    pub fn end_player_turn(&mut self, id: PlayerId) -> Result<TurnEnded, GameError> {
-        let round = match self {
-            Self::Round(r) => r,
-            _ => return Err(GameError::NotRoundState),
-        };
+    pub fn player_play_card(
+        &mut self,
+        id: PlayerId,
+        card_idx: usize,
+    ) -> Result<(&Round, PlayerPlayedCard), GameError> {
+        let round = self.round_mut()?;
+
+        let played_card = round.player_play_card(id, card_idx)?;
+
+        Ok((round, played_card))
+    }
+
+    pub fn player_redeem_liability(
+        &mut self,
+        id: PlayerId,
+        liability_idx: usize,
+    ) -> Result<&Round, GameError> {
+        let round = self.round_mut()?;
+
+        round.player_redeem_liability(id, liability_idx)?;
+
+        Ok(round)
+    }
+
+    pub fn player_draw_card(
+        &mut self,
+        id: PlayerId,
+        card_type: CardType,
+    ) -> Result<(&Round, Either<Asset, Liability>), GameError> {
+        let round = self.round_mut()?;
+
+        let card = round.player_draw_card(id, card_type)?.cloned();
+
+        Ok((round, card))
+    }
+
+    pub fn player_give_back_card(
+        &mut self,
+        id: PlayerId,
+        card_idx: usize,
+    ) -> Result<(&Round, CardType), GameError> {
+        let round = self.round_mut()?;
+
+        let card_type = round.player_give_back_card(id, card_idx)?;
+
+        Ok((round, card_type))
+    }
+
+    pub fn player_fire_character(
+        &mut self,
+        id: PlayerId,
+        character: Character,
+    ) -> Result<&Round, GameError> {
+        let round = self.round_mut()?;
+
+        round.player_fire_character(id, character)?;
+
+        Ok(round)
+    }
+
+    pub fn player_swap_with_deck(
+        &mut self,
+        id: PlayerId,
+        card_idx: Vec<usize>,
+    ) -> Result<(&Round, usize), GameError> {
+        let round = self.round_mut()?;
+
+        let draw_count = round.player_swap_with_deck(id, card_idx)?;
+
+        Ok((round, draw_count))
+    }
+
+    pub fn player_swap_with_player(
+        &mut self,
+        id: PlayerId,
+        target_id: PlayerId,
+    ) -> Result<(&Round, HandsAfterSwap), GameError> {
+        let round = self.round_mut()?;
+
+        let hands = round.player_swap_with_player(id, target_id)?;
+
+        Ok((round, hands))
+    }
+
+    pub fn player_divest_asset(
+        &mut self,
+        id: PlayerId,
+        target_id: PlayerId,
+        asset_idx: usize,
+    ) -> Result<(&Round, u8), GameError> {
+        let round = self.round_mut()?;
+
+        let cost = round.player_divest_asset(id, target_id, asset_idx)?;
+
+        Ok((round, cost))
+    }
+
+    pub fn end_player_turn(&mut self, id: PlayerId) -> Result<(), GameError> {
+        let round = self.round_mut()?;
 
         match round.end_player_turn(id)? {
-            Either::Left(te) => Ok(te),
+            Either::Left(_) => Ok(()),
             Either::Right(state) => {
                 *self = state;
-                Ok(TurnEnded {
-                    next_player: None,
-                    game_ended: true,
-                })
+                Ok(())
             }
+        }
+    }
+
+    pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
+        match self {
+            Self::Lobby(lobby) => lobby.player_info(id),
+            Self::SelectingCharacters(selecting) => selecting.player_info(id),
+            Self::Round(round) => round.player_info(id),
+            Self::Results(results) => results.player_info(id),
         }
     }
 }
@@ -451,7 +574,7 @@ impl Lobby {
         self.players().iter().map(|p| p.name().to_owned()).collect()
     }
 
-    pub fn join(&mut self, username: String) -> Result<&LobbyPlayer, LobbyError> {
+    fn join(&mut self, username: String) -> Result<&LobbyPlayer, LobbyError> {
         match self.players().iter().find(|p| p.name() == username) {
             Some(_) => Err(LobbyError::UsernameAlreadyTaken(username)),
             None => {
@@ -465,7 +588,7 @@ impl Lobby {
         }
     }
 
-    pub fn leave(&mut self, username: &str) -> bool {
+    fn leave(&mut self, username: &str) -> bool {
         match self.players().iter().position(|p| p.name() == username) {
             Some(pos) => {
                 self.players.0.remove(pos);
@@ -744,10 +867,6 @@ impl Round {
         self.players.player(id)
     }
 
-    pub fn player_mut(&mut self, id: PlayerId) -> Result<&mut RoundPlayer, GameError> {
-        self.players.player_mut(id)
-    }
-
     pub fn player_from_character(&self, character: Character) -> Option<&RoundPlayer> {
         self.players().iter().find(|p| p.character() == character)
     }
@@ -768,17 +887,6 @@ impl Round {
         let current_character = self.current_player().character();
         self.players()
             .iter()
-            .filter(|p| {
-                p.character() > current_character && !self.fired_characters.contains(&p.character())
-            })
-            .min_by(|p1, p2| p1.character().cmp(&p2.character()))
-    }
-
-    pub fn next_player_mut(&mut self) -> Option<&mut RoundPlayer> {
-        let current_character = self.current_player().character();
-        self.players
-            .players_mut()
-            .iter_mut()
             .filter(|p| {
                 p.character() > current_character && !self.fired_characters.contains(&p.character())
             })
@@ -815,7 +923,15 @@ impl Round {
         }
     }
 
-    pub fn player_get_fireble_characters(&mut self) -> Vec<Character> {
+    fn player_as_current(&self, id: PlayerId) -> Result<&RoundPlayer, GameError> {
+        match self.players.player(id) {
+            Ok(player) if player.id() == self.current_player => Ok(player),
+            Ok(_) => Err(GameError::NotPlayersTurn),
+            Err(e) => Err(e),
+        }
+    }
+
+    pub fn player_get_fireble_characters(&self) -> Vec<Character> {
         Character::CHARACTERS
             .into_iter()
             .filter(|c| {
@@ -827,7 +943,7 @@ impl Round {
             .collect()
     }
 
-    pub fn player_get_regulator_swap_players(&mut self) -> Vec<RegulatorSwapPlayer> {
+    pub fn player_get_regulator_swap_players(&self) -> Vec<RegulatorSwapPlayer> {
         self.players()
             .iter()
             .filter(|p| p.character() != Character::Regulator)
@@ -839,7 +955,7 @@ impl Round {
             .collect()
     }
 
-    pub fn player_play_card(
+    fn player_play_card(
         &mut self,
         id: PlayerId,
         card_idx: usize,
@@ -864,7 +980,7 @@ impl Round {
         }
     }
 
-    pub fn player_redeem_liability(
+    fn player_redeem_liability(
         &mut self,
         id: PlayerId,
         liability_idx: usize,
@@ -877,7 +993,7 @@ impl Round {
         Ok(())
     }
 
-    pub fn player_draw_card(
+    fn player_draw_card(
         &mut self,
         id: PlayerId,
         card_type: CardType,
@@ -900,7 +1016,7 @@ impl Round {
         }
     }
 
-    pub fn player_give_back_card(
+    fn player_give_back_card(
         &mut self,
         id: PlayerId,
         card_idx: usize,
@@ -919,18 +1035,19 @@ impl Round {
         }
     }
 
-    pub fn player_fire_character(
+    fn player_fire_character(
         &mut self,
         id: PlayerId,
         character: Character,
-    ) -> Result<Character, GameError> {
+    ) -> Result<(), GameError> {
         let player = self.player_as_current_mut(id)?;
         let character = player.fire_character(character)?;
         self.fired_characters.push(character);
-        Ok(character)
+
+        Ok(())
     }
 
-    pub fn player_swap_with_deck(
+    fn player_swap_with_deck(
         &mut self,
         id: PlayerId,
         card_idx: Vec<usize>,
@@ -946,7 +1063,7 @@ impl Round {
         Ok(drawcount)
     }
 
-    pub fn player_swap_with_player(
+    fn player_swap_with_player(
         &mut self,
         id: PlayerId,
         target_id: PlayerId,
@@ -984,7 +1101,7 @@ impl Round {
         }
     }
 
-    pub fn player_divest_asset(
+    fn player_divest_asset(
         &mut self,
         id: PlayerId,
         target_id: PlayerId,
@@ -1021,8 +1138,8 @@ impl Round {
         }
     }
 
-    pub fn get_divest_assets(&mut self, id: PlayerId) -> Result<Vec<DivestPlayer>, GameError> {
-        let player = self.player_as_current_mut(id)?;
+    pub fn get_divest_assets(&self, id: PlayerId) -> Result<Vec<DivestPlayer>, GameError> {
+        let player = self.player_as_current(id)?;
         if player.character() == Character::Stakeholder {
             Ok(self
                 .players()
@@ -1219,6 +1336,12 @@ mod tests {
     use super::*;
     use claim::*;
     use itertools::Itertools;
+
+    impl Round {
+        fn player_mut(&mut self, id: PlayerId) -> Result<&mut RoundPlayer, GameError> {
+            self.players.player_mut(id)
+        }
+    }
 
     #[test]
     fn all_unique_ids() {

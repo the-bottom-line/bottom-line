@@ -64,7 +64,7 @@ pub fn start_game(state: &mut GameState) -> Result<Response, GameError> {
 }
 
 pub fn use_ability(state: &mut GameState, player_id: PlayerId) -> Result<Response, GameError> {
-    let round = state.round_mut()?;
+    let round = state.round()?;
     let player = round.player(player_id)?;
     match player.character() {
         Character::Shareholder if round.current_player().id() == player.id() => Ok(Response(
@@ -137,8 +137,7 @@ pub fn draw_card(
     card_type: CardType,
     player_id: PlayerId,
 ) -> Result<Response, GameError> {
-    let round = state.round_mut()?;
-    let card = round.player_draw_card(player_id, card_type)?.cloned();
+    let (round, card) = state.player_draw_card(player_id, card_type)?;
     let player = round.player(player_id)?;
 
     let internal = round
@@ -171,8 +170,7 @@ pub fn put_back_card(
     card_idx: usize,
     player_id: PlayerId,
 ) -> Result<Response, GameError> {
-    let round = state.round_mut()?;
-    let card_type = round.player_give_back_card(player_id, card_idx)?;
+    let (round, card_type) = state.player_give_back_card(player_id, card_idx)?;
     let player = round.player(player_id)?;
 
     let internal = round
@@ -205,8 +203,7 @@ pub fn play_card(
     card_idx: usize,
     player_id: PlayerId,
 ) -> Result<Response, GameError> {
-    let round = state.round_mut()?;
-    let played_card = round.player_play_card(player_id, card_idx)?;
+    let (round, played_card) = state.player_play_card(player_id, card_idx)?;
 
     match played_card.used_card {
         Either::Left(asset) => {
@@ -263,9 +260,7 @@ pub fn redeem_liability(
     liability_idx: usize,
     player_id: PlayerId,
 ) -> Result<Response, GameError> {
-    let round = state.round_mut()?;
-
-    round.player_redeem_liability(player_id, liability_idx)?;
+    let round = state.player_redeem_liability(player_id, liability_idx)?;
 
     let internal = round
         .players()
@@ -362,10 +357,8 @@ pub fn fire_character(
     player_id: PlayerId,
     character: Character,
 ) -> Result<Response, GameError> {
-    let round = state.round_mut()?;
-
-    match round.player_fire_character(player_id, character) {
-        Ok(_c) => {
+    match state.player_fire_character(player_id, character) {
+        Ok(round) => {
             let internal = round
                 .players()
                 .iter()
@@ -394,10 +387,8 @@ pub fn swap_with_deck(
     player_id: PlayerId,
     card_idsx: Vec<usize>,
 ) -> Result<Response, GameError> {
-    let round = state.round_mut()?;
-
-    match round.player_swap_with_deck(player_id, card_idsx) {
-        Ok(_c) => {
+    match state.player_swap_with_deck(player_id, card_idsx) {
+        Ok((round, cards_swapped)) => {
             let internal = round
                 .players()
                 .iter()
@@ -405,13 +396,17 @@ pub fn swap_with_deck(
                 .map(|p| {
                     (
                         p.id(),
-                        vec![UniqueResponse::SwapedWithDeck { card_count: _c }],
+                        vec![UniqueResponse::SwapedWithDeck {
+                            card_count: cards_swapped,
+                        }],
                     )
                 })
                 .collect();
             Ok(Response(
                 InternalResponse(internal),
-                DirectResponse::YouSwapDeck { cards_to_draw: _c },
+                DirectResponse::YouSwapDeck {
+                    cards_to_draw: cards_swapped,
+                },
             ))
         }
         Err(e) => Err(e),
@@ -423,9 +418,7 @@ pub fn swap_with_player(
     player_id: PlayerId,
     target_player_id: PlayerId,
 ) -> Result<Response, GameError> {
-    let round = state.round_mut()?;
-
-    let hands = round.player_swap_with_player(player_id, target_player_id)?;
+    let (round, hands) = state.player_swap_with_player(player_id, target_player_id)?;
 
     let internal = round
         .players()
@@ -462,10 +455,8 @@ pub fn divest_asset(
     target_player_id: PlayerId,
     asset_idx: usize,
 ) -> Result<Response, GameError> {
-    let round = state.round_mut()?;
-
-    match round.player_divest_asset(player_id, target_player_id, asset_idx) {
-        Ok(_c) => {
+    match state.player_divest_asset(player_id, target_player_id, asset_idx) {
+        Ok((round, cost)) => {
             let internal = round
                 .players()
                 .iter()
@@ -477,14 +468,14 @@ pub fn divest_asset(
                             player_id,
                             target_id: target_player_id,
                             card_idx: asset_idx,
-                            paid_gold: _c,
+                            paid_gold: cost,
                         }],
                     )
                 })
                 .collect();
             Ok(Response(
                 InternalResponse(internal),
-                DirectResponse::YouDivestedAnAsset { gold_cost: _c },
+                DirectResponse::YouDivestedAnAsset { gold_cost: cost },
             ))
         }
         Err(e) => Err(e),

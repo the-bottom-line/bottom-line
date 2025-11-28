@@ -1,4 +1,4 @@
-use game::{errors::GameError, game::GameState};
+use game::game::GameState;
 use responses::*;
 
 use crate::{request_handler::Response, rooms::RoomState};
@@ -102,17 +102,15 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                         .entry(connect_channel)
                         .or_insert_with(|| Arc::new(RoomState::new()));
 
-                    match &mut *room.game.lock().unwrap() {
-                        GameState::Lobby(lobby) => match lobby.join(connect_username.clone()) {
-                            Ok(player) => {
-                                debug_assert_eq!(player.name(), connect_username);
-                                username = player.name().to_owned();
-                                channel_idx = player.id().into();
-                                break;
-                            }
-                            Err(e) => DirectResponse::from(GameError::from(e)),
-                        },
-                        _ => DirectResponse::Error(ResponseError::GameAlreadyStarted),
+                    match room.game.lock().unwrap().join(connect_username.clone()) {
+                        Ok((_, player)) => {
+                            debug_assert_eq!(player.name(), connect_username);
+                            username = player.name().to_owned();
+                            channel_idx = usize::from(player.id());
+                            break;
+                        }
+                        // TODO: get rid of ResponseError and merge with GameError
+                        Err(_e) => DirectResponse::Error(ResponseError::GameAlreadyStarted),
                     }
                 };
 
@@ -244,11 +242,8 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
         _ = &mut player_send_task => player_send_task.abort(),
     };
 
-    // announce leave
-    if let Ok(lobby) = room.game.lock().unwrap().lobby_mut() {
-        // remove username on disconnect
-        lobby.leave(&username);
-
+    // announce leave and remove username on disconnect
+    if let Ok(lobby) = room.game.lock().unwrap().leave(&username) {
         // send updated list to everyone
         for i in 0..lobby.len() {
             let _ = room.player_tx[i].send(UniqueResponse::PlayersInLobby {

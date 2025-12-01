@@ -1,12 +1,7 @@
 use either::Either;
 use serde::{Deserialize, Serialize};
 
-use std::{
-    collections::{HashMap, HashSet},
-    path::Path,
-    sync::Arc,
-    vec,
-};
+use std::{collections::HashSet, path::Path, sync::Arc, vec};
 
 use crate::{cards::GameData, errors::*, player::*, utility::serde_asset_liability};
 
@@ -285,6 +280,13 @@ impl<P> Players<P> {
 
     pub fn players_mut(&mut self) -> &mut [P] {
         &mut self.0
+    }
+
+    pub fn get_disjoint_mut<const N: usize>(
+        &mut self,
+        indices: [usize; N],
+    ) -> Result<[&mut P; N], std::slice::GetDisjointMutError> {
+        self.0.get_disjoint_mut(indices)
     }
 }
 
@@ -948,22 +950,32 @@ impl Round {
         &mut self,
         id: PlayerId,
         target_id: PlayerId,
-    ) -> Result<HashMap<PlayerId, Vec<Either<Asset, Liability>>>, GameError> {
-        let ps_index = self.players().iter().position(|p| p.id() == id);
-        let pt_index = self.players().iter().position(|p| p.id() == target_id);
-        if let Some(psi) = ps_index
-            && let Some(pti) = pt_index
-            && pt_index != ps_index
+    ) -> Result<HandsAfterSwap, GameError> {
+        // Same debug assertions as below
+        #[cfg(debug_assertions)]
         {
-            match self.players.0.get_disjoint_mut([psi, pti]) {
-                Ok(players) => {
-                    let cards = players[0].swap_with_player(players[1].clone())?;
-                    let newcards = players[1].swap_hand(cards.clone());
-                    let mut result: HashMap<PlayerId, Vec<Either<Asset, Liability>>> =
-                        Default::default();
-                    result.insert(id, newcards);
-                    result.insert(target_id, cards);
-                    Ok(result)
+            let ps_index = self.players().iter().position(|p| p.id() == id);
+            let pt_index = self.players().iter().position(|p| p.id() == target_id);
+            if let Some(psi) = ps_index
+                && let Some(pti) = pt_index
+            {
+                debug_assert_eq!(psi as u8, id.0);
+                debug_assert_eq!(pti as u8, target_id.0);
+            }
+        }
+
+        if id != target_id {
+            match self
+                .players
+                .get_disjoint_mut([usize::from(id), usize::from(target_id)])
+            {
+                Ok([regulator, target]) => {
+                    regulator.regulator_swap_with_player(target)?;
+                    let hands = HandsAfterSwap {
+                        regulator_new_hand: regulator.hand().to_vec(),
+                        target_new_hand: target.hand().to_vec(),
+                    };
+                    Ok(hands)
                 }
                 Err(_) => Err(SwapError::InvalidTargetPlayer.into()),
             }
@@ -995,7 +1007,6 @@ impl Round {
         if id != target_id {
             match self
                 .players
-                .0
                 .get_disjoint_mut([usize::from(id), usize::from(target_id)])
             {
                 Ok([stakeholder, target]) => {
@@ -1154,6 +1165,12 @@ impl Round {
     fn is_last_round(&self) -> bool {
         self.max_bought_assets() >= ASSETS_FOR_END_OF_GAME
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct HandsAfterSwap {
+    pub regulator_new_hand: Vec<Either<Asset, Liability>>,
+    pub target_new_hand: Vec<Either<Asset, Liability>>,
 }
 
 #[derive(Debug, Clone)]

@@ -287,15 +287,15 @@ impl RoundPlayer {
         }
     }
 
-    pub fn swap_with_player(
+    pub fn regulator_swap_with_player(
         &mut self,
-        player: RoundPlayer,
-    ) -> Result<Vec<Either<Asset, Liability>>, SwapError> {
+        target: &mut RoundPlayer,
+    ) -> Result<(), SwapError> {
         if self.character == Character::Regulator {
             if !self.has_used_ability {
                 self.has_used_ability = true;
-                let old_hand = self.swap_hand(player.hand);
-                Ok(old_hand)
+                self.hand.swap_with_slice(&mut target.hand);
+                Ok(())
             } else {
                 Err(SwapError::AlreadySwapedThisTurn)
             }
@@ -304,14 +304,6 @@ impl RoundPlayer {
         }
     }
 
-    pub fn swap_hand(
-        &mut self,
-        new_hand: Vec<Either<Asset, Liability>>,
-    ) -> Vec<Either<Asset, Liability>> {
-        let oldhand = self.hand.clone();
-        self.hand = new_hand;
-        oldhand
-    }
     pub fn remove_asset(&mut self, asset_idx: usize) -> Result<Asset, DivestAssetError> {
         if self.assets.get(asset_idx).is_some() {
             Ok(self.assets.remove(asset_idx))

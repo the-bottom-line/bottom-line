@@ -294,7 +294,7 @@ impl RoundPlayer {
         if self.character == Character::Regulator {
             if !self.has_used_ability {
                 self.has_used_ability = true;
-                self.hand.swap_with_slice(&mut target.hand);
+                std::mem::swap(&mut self.hand, &mut target.hand);
                 Ok(())
             } else {
                 Err(SwapError::AlreadySwapedThisTurn)

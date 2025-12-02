@@ -470,7 +470,7 @@ impl RoundPlayer {
         }
     }
 
-    /// Makes this player give back a card from the cards they drew this round at index `card_idx`. 
+    /// Makes this player give back a card from the cards they drew this round at index `card_idx`.
     /// If succesful, the card that was given back is returned.
     pub(crate) fn give_back_card(
         &mut self,
@@ -1091,7 +1091,7 @@ pub enum Character {
     CFO,
     /// This character can buy up to two red or green assets.
     CSO,
-    /// This character is allowed to draw six cards, giving back two. 
+    /// This character is allowed to draw six cards, giving back two.
     HeadRnD,
     /// This character can force any player except for the [`CSO`](Characters::CSO) to divest one of
     /// their assets at market value minus one. This value cannot be negative and is paid for by
@@ -1223,11 +1223,11 @@ impl PlayableAssets {
     }
 
     /// The unit cost of buying an asset of a certain color.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
-    /// 
+    ///
     /// ```
     pub fn color_cost(&self, color: Color) -> u8 {
         let cost = match color {

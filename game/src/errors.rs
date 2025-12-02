@@ -133,7 +133,7 @@ pub enum PlayCardError {
         /// The amount of cash a player has
         cash: u8,
         /// The cost of the asset
-        cost: u8
+        cost: u8,
     },
 }
 
@@ -158,7 +158,7 @@ pub enum RedeemLiabilityError {
         /// The amount of cash a player has
         cash: u8,
         /// The cost of the asset
-        cost: u8
+        cost: u8,
     },
 }
 

@@ -32,7 +32,7 @@ pub struct Event {
 /// 1. Up: (+)
 /// 2. Zero: ( )
 /// 3. Minus: (-)
-/// 
+///
 /// NOTE: The default state is `Zero`, which is also the case when parsing with serde.
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub enum MarketCondition {
@@ -124,7 +124,7 @@ impl<T> Deck<T> {
     // TODO: think of way to make this not unwrap. Maybe keep a copy of the deck as backup to
     // reshuffle?
     /// Draws a new card from the deck
-    /// 
+    ///
     /// NOTE: This function panics if no more cards are in the deck. Playing 6 rounds with 7 players
     /// where each player draws one liability per turn comes out to 56 out of 60 cards, so decks
     /// are not supposed to run out in regular games.
@@ -184,7 +184,7 @@ pub struct ObtainingCharacters {
 }
 
 impl ObtainingCharacters {
-    /// Creates a new instance based on the player count and the chairman id. 
+    /// Creates a new instance based on the player count and the chairman id.
     pub fn new(player_count: usize, chairman_id: PlayerId) -> Result<Self, GameError> {
         let open_character_count = match player_count {
             4 => 2,
@@ -232,7 +232,7 @@ impl ObtainingCharacters {
     }
 
     /// Looks one step ahead and gets the next instance of `PickableCharacters`. This may error if
-    /// every player has selected a character 
+    /// every player has selected a character
     pub fn peek(&self) -> Result<PickableCharacters, SelectingCharactersError> {
         match self.draw_idx {
             0 => Ok(PickableCharacters {
@@ -320,9 +320,9 @@ pub struct Players<P>(Vec<P>);
 
 impl<P> Players<P> {
     /// Create a new `Players<P>` based on a `Vec<P>`
-    /// 
+    ///
     /// Examples
-    /// 
+    ///
     /// ```
     /// # use game::game::Players;
     /// let p: Players<u8> = Players::new(vec![1, 2, 3]);
@@ -331,9 +331,9 @@ impl<P> Players<P> {
     }
 
     /// Returns the number of players in the list, also referred to as its 'length'.
-    /// 
+    ///
     /// Examples
-    /// 
+    ///
     /// ```
     /// # use game::game::Players;
     /// let p = Players::new(vec![1, 2, 3]);
@@ -344,14 +344,14 @@ impl<P> Players<P> {
     }
 
     /// Returns true if the list contains no elements.
-    /// 
+    ///
     /// Examples
-    /// 
+    ///
     /// ```
     /// # use game::game::Players;
     /// let p: Players<u8> = Players::default();
     /// assert!(p.is_empty());
-    /// 
+    ///
     /// let p2 = Players::new(vec![1]);
     /// assert!(!p2.is_empty());
     /// ```
@@ -361,9 +361,9 @@ impl<P> Players<P> {
 
     /// Get a reference to a player based on a specific `PlayerId`. Note that the players are in
     /// order, so id 0 refers to the player at index 0 and so on.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::{game::Players, player::PlayerId};
     /// let players = Players::new(vec![1, 2, 3]);
@@ -380,14 +380,14 @@ impl<P> Players<P> {
 
     /// Get a mutable reference to a player based on a specific `PlayerId`. Note that the players
     /// are in order, so id 0 refers to the player at index 0 and so on.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::{game::Players, player::PlayerId};
     /// let mut players = Players::new(vec![1, 2, 3]);
     /// let id = PlayerId(2);
-    /// 
+    ///
     /// if let Ok(mut player) = players.player_mut(id) {
     ///     *player = 10;
     /// }
@@ -400,9 +400,9 @@ impl<P> Players<P> {
     }
 
     /// Gets a slice of all players in the list
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::game::Players;
     /// let players = Players::new(vec![1, 2, 3]);
@@ -412,9 +412,9 @@ impl<P> Players<P> {
     }
 
     /// Gets a mutable slice of all players in the list
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::game::Players;
     /// let mut players = Players::new(vec![1, 2, 3]);
@@ -427,9 +427,9 @@ impl<P> Players<P> {
 
     /// Wrapper around `slice::get_disjoint_mut()` which returns mutable references to many indices
     /// at once.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::game::Players;
     /// let mut players = Players::new(vec![1, 2, 3]);
@@ -476,9 +476,9 @@ pub enum GameState {
 
 impl GameState {
     /// Creates a new instance of the game. The game starts in lobby state.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::game::{GameState, Lobby};
     /// let game = GameState::new();
@@ -489,9 +489,9 @@ impl GameState {
     }
 
     /// Tries to get a `&`[`Lobby`] state. Returns an error if the game is not in a lobby state.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::game::{GameState, Lobby};
     /// let game = GameState::Lobby(Lobby::default());
@@ -505,9 +505,9 @@ impl GameState {
     }
 
     /// Tries to get a `&mut`[`Lobby`] state. Returns an error if the game is not in a lobby state.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::game::{GameState, Lobby};
     /// let mut game = GameState::Lobby(Lobby::default());
@@ -522,9 +522,9 @@ impl GameState {
 
     /// Tries to get a `&`[`SelectingCharacters`] state. Returns an error if the game is not in a
     /// selecting characters state.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::{errors::GameError, game::{GameState, Lobby}};
     /// let game = GameState::Lobby(Lobby::default());
@@ -539,9 +539,9 @@ impl GameState {
 
     /// Tries to get a `&mut`[`SelectingCharacters`] state. Returns an error if the game is not in a
     /// selecting characters state.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::{errors::GameError, game::{GameState, Lobby}};
     /// let mut game = GameState::Lobby(Lobby::default());
@@ -555,9 +555,9 @@ impl GameState {
     }
 
     /// Tries to get a `&`[`Round`] state. Returns an error if the game is not in a round state.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::{errors::GameError, game::{GameState, Lobby}};
     /// let game = GameState::Lobby(Lobby::default());
@@ -571,9 +571,9 @@ impl GameState {
     }
 
     /// Tries to get a `&mut`[`Round`] state. Returns an error if the game is not in a round state.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::{errors::GameError, game::{GameState, Lobby}};
     /// let mut game = GameState::Lobby(Lobby::default());
@@ -587,9 +587,9 @@ impl GameState {
     }
 
     /// Tries to get a `&`[`Results`] state. Returns an error if the game is not in a results state.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::{errors::GameError, game::{GameState, Lobby}};
     /// let game = GameState::Lobby(Lobby::default());
@@ -603,9 +603,9 @@ impl GameState {
 
     /// Tries to get a `&mut`[`Results`] state. Returns an error if the game is not in a results
     /// state.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::{errors::GameError, game::{GameState, Lobby}};
     /// let mut game = GameState::Lobby(Lobby::default());
@@ -686,9 +686,9 @@ pub struct Lobby {
 
 impl Lobby {
     /// Instantiates a new lobby. This will be an empty lobby with no players in it.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::game::Lobby;
     /// let lobby = Lobby::new();
@@ -699,15 +699,15 @@ impl Lobby {
     }
 
     /// Returns the number of players in the lobby, also referred to as its 'length'.
-    /// 
+    ///
     /// Examples
-    /// 
+    ///
     /// ```
     /// # use game::{errors::GameError, game::Lobby};
     /// # fn main() -> Result<(), GameError> {
     /// let mut lobby = Lobby::default();
     /// assert_eq!(lobby.len(), 0);
-    /// 
+    ///
     /// lobby.join("player 1".to_owned())?;
     /// assert_eq!(lobby.len(), 1);
     /// # Ok(())
@@ -718,15 +718,15 @@ impl Lobby {
     }
 
     /// Returns true if the lobby contains no players.
-    /// 
+    ///
     /// Examples
-    /// 
+    ///
     /// ```
     /// # use game::{errors::GameError, game::Lobby};
     /// # fn main() -> Result<(), GameError> {
     /// let mut lobby = Lobby::default();
     /// assert!(lobby.is_empty());
-    /// 
+    ///
     /// lobby.join("player 1".to_owned())?;
     /// assert!(!lobby.is_empty());
     /// # Ok(())
@@ -740,16 +740,16 @@ impl Lobby {
     /// Get a reference to a [`LobbyPlayer`] based on a specific `PlayerId`. Note that the players
     /// are in order, so id 0 refers to the player at index 0 and so on.
     /// See [`Players::player`] for further information
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::{errors::GameError, game::Lobby, player::PlayerId};
     /// # fn main() -> Result<(), GameError> {
     /// let mut lobby = Lobby::default();
     /// let id = PlayerId(0);
     /// assert_eq!(lobby.player(id), None);
-    /// 
+    ///
     /// lobby.join("player 1".to_owned())?;
     /// assert!(matches!(lobby.player(id), Some(_)));
     /// # Ok(())
@@ -760,16 +760,16 @@ impl Lobby {
     }
 
     /// Gets a slice of all players in the lobby
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::{errors::GameError, game::Lobby, player::{LobbyPlayer, PlayerId}};
     /// # fn main() -> Result<(), GameError> {
     /// let mut lobby = Lobby::default();
-    /// 
+    ///
     /// lobby.join("player 1".to_owned())?;
-    /// 
+    ///
     /// let player = LobbyPlayer::new(PlayerId(0), "player 1".to_owned());
     /// assert_eq!(lobby.players(), &[player]);
     /// # Ok(())
@@ -780,16 +780,16 @@ impl Lobby {
     }
 
     /// Gets a mutable slice of all players in the lobby
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::{errors::GameError, game::Lobby, player::{LobbyPlayer, PlayerId}};
     /// # fn main() -> Result<(), GameError> {
     /// let mut lobby = Lobby::default();
-    /// 
+    ///
     /// lobby.join("player 1".to_owned())?;
-    /// 
+    ///
     /// let player = LobbyPlayer::new(PlayerId(0), "player 1".to_owned());
     /// assert_eq!(lobby.players_mut(), &mut [player]);
     /// # Ok(())
@@ -801,16 +801,16 @@ impl Lobby {
 
     /// Gets a list of usernames in the lobby. Note that this list has to be built every time this
     /// function is called.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::{errors::GameError, game::Lobby, player::{LobbyPlayer, PlayerId}};
     /// # fn main() -> Result<(), GameError> {
     /// let mut lobby = Lobby::default();
     /// lobby.join("player 1".to_owned())?;
     /// lobby.join("player 2".to_owned())?;
-    /// 
+    ///
     /// assert_eq!(lobby.usernames(), vec!["player 1", "player 2"]);
     /// # Ok(())
     /// # }
@@ -821,16 +821,16 @@ impl Lobby {
 
     /// Allows a player to join the lobby based on a username. If the username is not yet taken, the
     /// player is added to the list of players and a reference to it will be returned.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::{errors::GameError, game::Lobby, player::{LobbyPlayer, PlayerId}};
     /// # fn main() -> Result<(), GameError> {
     /// let mut lobby = Lobby::default();
     /// lobby.join("player 1".to_owned())?;
     /// lobby.join("player 2".to_owned())?;
-    /// 
+    ///
     /// assert_eq!(lobby.usernames(), vec!["player 1", "player 2"]);
     /// # Ok(())
     /// # }
@@ -850,14 +850,14 @@ impl Lobby {
     }
 
     /// Allows a player to leave the lobby based on their username. If that username is in the list,
-    /// the player will be removed and `true` will be returned. If the player cannot be removed, 
+    /// the player will be removed and `true` will be returned. If the player cannot be removed,
     /// the function will return `false` instead.
-    /// 
+    ///
     /// NOTE: this function will reorder player ids if a player that is not at the end of the list
-    /// leaves the lobby 
-    /// 
+    /// leaves the lobby
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::{errors::GameError, game::Lobby, player::{LobbyPlayer, PlayerId}};
     /// # fn main() -> Result<(), GameError> {
@@ -865,7 +865,7 @@ impl Lobby {
     /// lobby.join("player 1".to_owned())?;
     /// lobby.join("player 2".to_owned())?;
     /// assert!(lobby.leave("player 1"));
-    /// 
+    ///
     /// assert_eq!(lobby.usernames(), vec!["player 2"]);
     /// # Ok(())
     /// # }
@@ -886,16 +886,16 @@ impl Lobby {
 
     /// Gets the [`PlayerInfo`] for each player, excluding the player
     /// that has the same id as `id`.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::{errors::GameError, game::Lobby, player::{LobbyPlayer, PlayerId, PlayerInfo}};
     /// # fn main() -> Result<(), GameError> {
     /// let mut lobby = Lobby::default();
     /// lobby.join("player 1".to_owned())?;
     /// lobby.join("player 2".to_owned())?;
-    /// 
+    ///
     /// let id = PlayerId(0);
     /// assert_eq!(lobby.player_info(id).len(), 1);
     /// # Ok(())
@@ -911,16 +911,16 @@ impl Lobby {
 
     /// Checks whether or not the game can start. The game can start if the room has between 4 and
     /// 7 players.
-    /// 
+    ///
     /// # Examples
     /// ```
     /// # use game::{errors::GameError, game::Lobby, player::{LobbyPlayer, PlayerId}};
     /// # fn main() -> Result<(), GameError> {
     /// let mut lobby = Lobby::default();
-    /// 
+    ///
     /// (0..3).for_each(|i| { lobby.join(format!("player {i}")); });
     /// assert!(!lobby.can_start());
-    /// 
+    ///
     /// lobby.join("player 3".to_owned())?;
     /// assert!(lobby.can_start());
     /// # Ok(())
@@ -1249,7 +1249,7 @@ impl Round {
 
     /// Get a reference to the [`RoundPlayer`] whose turn is up next. If the current player is the
     /// last player, returns `None` instead.
-    /// 
+    ///
     /// NOTE: this will exclude players who will be skipped this round for one reason or another.
     pub fn next_player(&self) -> Option<&RoundPlayer> {
         let current_character = self.current_player().character();
@@ -1263,7 +1263,7 @@ impl Round {
 
     /// Get a mutable reference to the [`RoundPlayer`] whose turn is up next. If the current player
     /// is the last player, returns `None` instead.
-    /// 
+    ///
     /// NOTE: this will exclude players who will be skipped this round for one reason or another.
     pub fn next_player_mut(&mut self) -> Option<&mut RoundPlayer> {
         let current_character = self.current_player().character();
@@ -1461,7 +1461,8 @@ impl Round {
             Err(e) => return Err(e),
         };
 
-        let drawcount = player.swap_with_deck(card_idxs, &mut self.assets, &mut self.liabilities)?;
+        let drawcount =
+            player.swap_with_deck(card_idxs, &mut self.assets, &mut self.liabilities)?;
         Ok(drawcount)
     }
 

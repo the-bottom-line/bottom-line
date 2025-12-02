@@ -3,7 +3,7 @@
 pub mod serde_asset_liability {
     //! Includes [`EitherAssetLiability`], which is a tagged wrapper around
     //! `Either<Asset, Liability>` to make the serialized json nicer to interact with.
-    
+
     use either::Either;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -63,10 +63,10 @@ pub mod serde_asset_liability {
     }
 
     pub mod vec {
-        //! Module intended to be used with `#[serde(with)]` containing an implementation of 
+        //! Module intended to be used with `#[serde(with)]` containing an implementation of
         //! `serialize` and `deserialize` which can be used to serialize
         //! `Vec<Either<Asset, Liability>>` to a nicer tagged representation.
-        
+
         use super::*;
 
         /// Serializes a `Vec<Either<Asset, Liability>>` into a nicer tagged representation

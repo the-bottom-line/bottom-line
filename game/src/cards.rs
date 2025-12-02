@@ -1,6 +1,6 @@
 //! This file contains all information to be able to load in `boardgame.json`, which is a json
 //! representation of the game assets of The Bottom Line.
-//! 
+//!
 //! Example:
 //! ```not_rust
 //! {
@@ -60,7 +60,7 @@
 //!   }
 //! }
 //! ```
-//! 
+//!
 
 use either::Either;
 use serde::{Deserialize, Serialize};

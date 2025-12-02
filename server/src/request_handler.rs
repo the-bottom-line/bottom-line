@@ -392,11 +392,11 @@ pub fn fire_character(
 pub fn swap_with_deck(
     state: &mut GameState,
     player_id: PlayerId,
-    card_idsx: Vec<usize>,
+    card_idxs: Vec<usize>,
 ) -> Result<Response, GameError> {
     let round = state.round_mut()?;
 
-    match round.player_swap_with_deck(player_id, card_idsx) {
+    match round.player_swap_with_deck(player_id, card_idxs) {
         Ok(_c) => {
             let internal = round
                 .players()

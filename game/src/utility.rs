@@ -1,4 +1,9 @@
+//! This file contains utility code used throughout the project.
+
 pub mod serde_asset_liability {
+    //! Includes [`EitherAssetLiability`], which is a tagged wrapper around
+    //! `Either<Asset, Liability>` to make the serialized json nicer to interact with.
+    
     use either::Either;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -6,7 +11,7 @@ pub mod serde_asset_liability {
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(tag = "card_type")]
-    pub enum EitherAssetLiability {
+    enum EitherAssetLiability {
         #[serde(rename = "asset")]
         Asset(Asset),
         #[serde(rename = "liability")]
@@ -32,8 +37,12 @@ pub mod serde_asset_liability {
     }
 
     pub mod value {
+        //! Serde module containing an implementation of `serialize` and `deserialize` which can be
+        //! used to serialize `Either<Asset, Liability>` to a nicer tagged representation.
+
         use super::*;
 
+        /// Serializes an `Either<Asset, Liability>` to a nicer tagged representation.
         pub fn serialize<S>(
             value: &Either<Asset, Liability>,
             serializer: S,
@@ -44,6 +53,7 @@ pub mod serde_asset_liability {
             EitherAssetLiability::from(value.clone()).serialize(serializer)
         }
 
+        /// Deserializes the nicer tagged representation back into `Either<Asset, Liability>`
         pub fn deserialize<'de, D>(deserializer: D) -> Result<Either<Asset, Liability>, D::Error>
         where
             D: Deserializer<'de>,
@@ -53,8 +63,13 @@ pub mod serde_asset_liability {
     }
 
     pub mod vec {
+        //! Module intended to be used with `#[serde(with)]` containing an implementation of 
+        //! `serialize` and `deserialize` which can be used to serialize
+        //! `Vec<Either<Asset, Liability>>` to a nicer tagged representation.
+        
         use super::*;
 
+        /// Serializes a `Vec<Either<Asset, Liability>>` into a nicer tagged representation
         pub fn serialize<S>(
             value: &[Either<Asset, Liability>],
             serializer: S,
@@ -71,6 +86,8 @@ pub mod serde_asset_liability {
             mapped.serialize(serializer)
         }
 
+        /// Deserializes the list of nicer tagged representations back into a
+        /// `Vec<Either<Asset, Liability>>`
         pub fn deserialize<'de, D>(
             deserializer: D,
         ) -> Result<Vec<Either<Asset, Liability>>, D::Error>

@@ -204,7 +204,8 @@ pub enum UniqueResponse {
         target_id: PlayerId,
     },
     SwapedWithDeck {
-        card_count: usize,
+        asset_count: usize,
+        liability_count: usize,
     },
     AssetDivested {
         player_id: PlayerId,

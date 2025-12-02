@@ -405,13 +405,18 @@ pub fn swap_with_deck(
                 .map(|p| {
                     (
                         p.id(),
-                        vec![UniqueResponse::SwapedWithDeck { card_count: _c }],
+                        vec![UniqueResponse::SwapedWithDeck {
+                            asset_count: _c[0],
+                            liability_count: _c[1],
+                        }],
                     )
                 })
                 .collect();
             Ok(Response(
                 InternalResponse(internal),
-                DirectResponse::YouSwapDeck { cards_to_draw: _c },
+                DirectResponse::YouSwapDeck {
+                    cards_to_draw: _c[0] + _c[1],
+                },
             ))
         }
         Err(e) => Err(e),

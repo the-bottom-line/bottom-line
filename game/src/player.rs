@@ -254,9 +254,9 @@ impl RoundPlayer {
         mut card_idxs: Vec<usize>,
         asset_deck: &mut Deck<Asset>,
         liability_deck: &mut Deck<Liability>,
-    ) -> Result<usize, SwapError> {
+    ) -> Result<Vec<usize>, SwapError> {
         if card_idxs.is_empty() {
-            return Ok(0);
+            return Ok(vec![0, 0]);
         }
 
         if self.character == Character::Regulator {
@@ -266,16 +266,23 @@ impl RoundPlayer {
                     && card_idxs.iter().all_unique()
                 {
                     let removed_card_len = card_idxs.len();
-
+                    let mut asset_count: usize = 0;
+                    let mut liability_count: usize = 0;
                     for card in card_idxs.into_iter().rev() {
                         match self.hand.remove(card) {
-                            Either::Left(a) => asset_deck.put_back(a),
-                            Either::Right(l) => liability_deck.put_back(l),
+                            Either::Left(a) => {
+                                asset_deck.put_back(a);
+                                asset_count += 1;
+                            }
+                            Either::Right(l) => {
+                                liability_deck.put_back(l);
+                                liability_count += 1;
+                            }
                         }
                     }
                     self.has_used_ability = true;
                     self.bonus_draw_cards += removed_card_len as u8;
-                    Ok(removed_card_len)
+                    Ok(vec![asset_count, liability_count])
                 } else {
                     Err(SwapError::InvalidCardIdxs)
                 }

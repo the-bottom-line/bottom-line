@@ -1,7 +1,12 @@
 use either::Either;
 use serde::{Deserialize, Serialize};
 
-use std::{collections::HashSet, path::Path, sync::Arc, vec};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+    sync::Arc,
+    vec,
+};
 
 use crate::{cards::GameData, errors::*, player::*, utility::serde_asset_liability};
 
@@ -934,7 +939,7 @@ impl Round {
         &mut self,
         id: PlayerId,
         card_idx: Vec<usize>,
-    ) -> Result<usize, GameError> {
+    ) -> Result<Vec<usize>, GameError> {
         // cant use player_as_current_mut here because of multiple mutable borrows of self. hmm.
         let player = match self.players.player_mut(id) {
             Ok(player) if player.id() == self.current_player => player,

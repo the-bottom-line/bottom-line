@@ -1,8 +1,8 @@
 //! This file contains utility code used throughout the project.
 
 pub mod serde_asset_liability {
-    //! Includes [`EitherAssetLiability`], which is a tagged wrapper around
-    //! `Either<Asset, Liability>` to make the serialized json nicer to interact with.
+    //! Includes a tagged wrapper around `Either<Asset, Liability>` to make the serialized json
+    //! nicer to interact with.
 
     use either::Either;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};

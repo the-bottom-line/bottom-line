@@ -328,7 +328,8 @@ impl RoundPlayer {
         }
     }
 
-    /// Tries to swap the hands of this player, if they are the [`Regulator`](Characters::Regulator), with the hands of the target player.
+    /// Tries to swap the hands of this player, if they are the
+    /// [`Regulator`](Character::Regulator), with the hands of the target player.
     pub fn regulator_swap_with_player(
         &mut self,
         target: &mut RoundPlayer,
@@ -1073,10 +1074,10 @@ pub struct DivestAsset {
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Character {
     /// This character can fire any other character during their turn, excluding the
-    /// [`Banker`](Characters::Banker) and the [`Regulator`](Characters::Regulator).
+    /// [`Banker`](Character::Banker) and the [`Regulator`](Character::Regulator).
     Shareholder,
     /// This character can terminate the credit of any other character except for the
-    /// [`Shareholder`](Characters::Shareholder) and the [`Regulator`](Characters::Regulator). This
+    /// [`Shareholder`](Character::Shareholder) and the [`Regulator`](Character::Regulator). This
     /// means that at the start of their turn they pay one gold to the banker plus one gold per
     /// unique color of assets they own.
     Banker,
@@ -1093,7 +1094,7 @@ pub enum Character {
     CSO,
     /// This character is allowed to draw six cards, giving back two.
     HeadRnD,
-    /// This character can force any player except for the [`CSO`](Characters::CSO) to divest one of
+    /// This character can force any player except for the [`CSO`](Character::CSO) to divest one of
     /// their assets at market value minus one. This value cannot be negative and is paid for by
     /// this character.
     Stakeholder,
@@ -1223,12 +1224,6 @@ impl PlayableAssets {
     }
 
     /// The unit cost of buying an asset of a certain color.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    ///
-    /// ```
     pub fn color_cost(&self, color: Color) -> u8 {
         let cost = match color {
             Color::Red => self.red_cost,

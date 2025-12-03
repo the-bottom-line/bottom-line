@@ -91,6 +91,10 @@ impl Market {
     }
 }
 
+fn default_backup_deck<T>() -> Box<[T]> {
+    Box::new([])
+}
+
 /// A wrapper struct around `Vec<T>` which allows for easy interaction with it as a deck of cards.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Deck<T> {
@@ -100,17 +104,70 @@ pub struct Deck<T> {
     /// The list of actual cards
     #[serde(rename = "card_list")]
     pub deck: Vec<T>,
+    /// A backup of the deck, which is set when the deck is created.
+    #[serde(skip, default = "default_backup_deck")]
+    backup_deck: Box<[T]>,
 }
 
-impl<T> Deck<T> {
+impl<T: Clone> Deck<T> {
     /// Creates a new `Deck<T>` based on a `Vec<T>`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::game::Deck;
+    /// let deck = Deck::new(vec![1, 2, 3]);
+    /// assert_eq!(deck.deck, [1, 2, 3]);
+    /// ```
     pub fn new(deck: Vec<T>) -> Self {
+        let backup_deck = deck.clone().into_boxed_slice();
         Self {
             deck,
+            backup_deck,
             image_back_url: String::new().into(),
         }
     }
 
+    /// Creates a new `Deck<T>` based on a `Vec<T>` and an url which should point to the back of
+    /// the deck's cards in the asset folder.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::game::Deck;
+    /// let url = "assets/cards/card_back.svg";
+    ///
+    /// let deck = Deck::new_with_url(vec![1, 2, 3], url);
+    /// assert_eq!(deck.deck, [1, 2, 3]);
+    /// assert_eq!(deck.image_back_url.as_str(), url);
+    /// ```
+    pub fn new_with_url(deck: Vec<T>, url: &str) -> Self {
+        let mut deck = Self::new(deck);
+        deck.image_back_url = Arc::new(url.to_owned());
+        deck
+    }
+
+    /// Draws a new card from the deck. If the deck ran out it is restored from the backup deck,
+    /// reshuffled and then a card is drawn from that new deck instead.
+    pub fn draw(&mut self) -> T {
+        match self.deck.pop() {
+            Some(card) => card,
+            None => {
+                self.deck = self.backup_deck.to_vec();
+
+                #[cfg(feature = "shuffle")]
+                self.shuffle();
+
+                // TODO: maybe fix for if the deck was empty when initialized, because in that case
+                // it still crashes. This isn't a concern for our game though and I prefer to not
+                // return `Option` here.
+                self.deck.pop().unwrap()
+            }
+        }
+    }
+}
+
+impl<T> Deck<T> {
     /// Returns the number of elements in the deck, also referred to as its 'length'.
     pub fn len(&self) -> usize {
         self.deck.len()
@@ -121,15 +178,9 @@ impl<T> Deck<T> {
         self.deck.is_empty()
     }
 
-    // TODO: think of way to make this not unwrap. Maybe keep a copy of the deck as backup to
-    // reshuffle?
-    /// Draws a new card from the deck
-    ///
-    /// NOTE: This function panics if no more cards are in the deck. Playing 6 rounds with 7 players
-    /// where each player draws one liability per turn comes out to 56 out of 60 cards, so decks
-    /// are not supposed to run out in regular games.
-    pub fn draw(&mut self) -> T {
-        self.deck.pop().unwrap()
+    /// Sets the card url of the back image of the cards in the deck.
+    pub fn set_image_back_url(&mut self, url: &str) {
+        self.image_back_url = Arc::new(url.to_owned());
     }
 
     /// Puts back a card on the bottom of the deck
@@ -151,6 +202,7 @@ impl<T> Default for Deck<T> {
     fn default() -> Self {
         Self {
             deck: Default::default(),
+            backup_deck: Default::default(),
             image_back_url: Default::default(),
         }
     }

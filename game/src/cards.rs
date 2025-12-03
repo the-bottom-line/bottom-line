@@ -242,10 +242,7 @@ impl From<Deck<AssetCard>> for Deck<Asset> {
             })
             .collect::<Vec<_>>();
 
-        Deck {
-            image_back_url,
-            deck,
-        }
+        Deck::new_with_url(deck, &image_back_url)
     }
 }
 
@@ -268,10 +265,7 @@ impl From<Deck<LiabilityCard>> for Deck<Liability> {
             })
             .collect::<Vec<_>>();
 
-        Deck {
-            image_back_url,
-            deck,
-        }
+        Deck::new_with_url(deck, &image_back_url)
     }
 }
 
@@ -309,10 +303,7 @@ impl From<Deck<MarketEventCard>> for Deck<Either<Market, Event>> {
             })
             .collect::<Vec<_>>();
 
-        Deck {
-            image_back_url,
-            deck,
-        }
+        Deck::new_with_url(deck, &image_back_url)
     }
 }
 

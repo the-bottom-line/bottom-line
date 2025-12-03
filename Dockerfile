@@ -1,27 +1,30 @@
-# Setup environment
-FROM rust AS builder
+# Stage 1: Prepare rust environment for plan and build stage
+FROM rust:latest AS chef
+RUN rustup target add x86_64-unknown-linux-musl
+RUN cargo install cargo-chef
 WORKDIR /app
 
-RUN rustup target add x86_64-unknown-linux-musl
+# Stage 2: Planning, let chef plan dependencies
+FROM chef AS planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
 
-# Build dependencies first to cache in the layer
-COPY Cargo.toml Cargo.lock ./
-RUN mkdir src && echo "fn main() {}" > src/main.rs
-RUN cargo build --release --target x86_64-unknown-linux-musl
-RUN rm -rf src
+# Stage 3: Build
+FROM chef AS builder
+
+# Build dependencies
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json --target x86_64-unknown-linux-musl
 
 # Rest of the owl
-COPY ./src ./src
-RUN cargo build --release --target x86_64-unknown-linux-musl
+COPY . .
+RUN rustup target add x86_64-unknown-linux-musl
+RUN cargo build --release --target x86_64-unknown-linux-musl --bin server
 
-# Runtime
-FROM alpine:3.20
+# Stage 4: Runtime
+FROM alpine:3.20 AS runtime
 WORKDIR /app
-
-COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/bottom-line .
-
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/server .
 EXPOSE 3000
-
-RUN chmod +x bottom-line
-
-CMD ["./bottom-line"]
+RUN chmod +x server
+CMD ["./server"]

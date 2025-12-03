@@ -105,9 +105,9 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     match &mut *room.game.lock().unwrap() {
                         GameState::Lobby(lobby) => match lobby.join(connect_username.clone()) {
                             Ok(player) => {
-                                debug_assert_eq!(player.name, connect_username);
-                                username = player.name.clone();
-                                channel_idx = player.id.into();
+                                debug_assert_eq!(player.name(), connect_username);
+                                username = player.name().to_owned();
+                                channel_idx = player.id().into();
                                 break;
                             }
                             Err(e) => DirectResponse::from(GameError::from(e)),
@@ -143,7 +143,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
         GameState::Lobby(lobby) => {
             let internal = UniqueResponse::PlayersInLobby {
                 changed_player: username.clone(),
-                usernames: lobby.usernames(),
+                usernames: lobby.usernames().iter().map(ToString::to_string).collect(),
             };
 
             tracing::debug!("Global Response: {:?}", internal);
@@ -253,7 +253,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
         for i in 0..lobby.len() {
             let _ = room.player_tx[i].send(UniqueResponse::PlayersInLobby {
                 changed_player: username.clone(),
-                usernames: lobby.usernames(),
+                usernames: lobby.usernames().iter().map(ToString::to_string).collect(),
             });
         }
     }

@@ -34,21 +34,22 @@ pub fn start_game(state: &mut GameState) -> Result<Response, GameError> {
         .iter()
         .map(|p| {
             (
-                p.id,
+                p.id(),
                 vec![
                     UniqueResponse::StartGame {
-                        id: p.id,
-                        hand: p.hand.clone(),
-                        cash: p.cash,
-                        player_info: selecting.player_info(p.id),
+                        id: p.id(),
+                        hand: p.hand().to_vec(),
+                        cash: p.cash(),
+                        player_info: selecting.player_info(p.id()),
+                        initial_market: selecting.current_market().clone(),
                     },
                     UniqueResponse::SelectingCharacters {
-                        chairman_id: selecting.chairman,
+                        chairman_id: selecting.chairman_id(),
                         selectable_characters: selecting
-                            .player_get_selectable_characters(p.id)
+                            .player_get_selectable_characters(p.id())
                             .ok(),
                         open_characters: selecting.open_characters().to_vec(),
-                        closed_character: selecting.player_get_closed_character(p.id).ok(),
+                        closed_character: selecting.player_get_closed_character(p.id()).ok(),
                         turn_order: selecting.turn_order(),
                     },
                 ],
@@ -60,6 +61,75 @@ pub fn start_game(state: &mut GameState) -> Result<Response, GameError> {
         InternalResponse(internal),
         DirectResponse::YouStartedGame,
     ))
+}
+
+pub fn use_ability(state: &mut GameState, player_id: PlayerId) -> Result<Response, GameError> {
+    let round = state.round_mut()?;
+    let player = round.player(player_id)?;
+    match player.character() {
+        Character::Shareholder if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouAreFiringSomeone {
+                characters: round.player_get_fireble_characters(),
+                 character: Character::Shareholder,
+                perk: "You can fire a character \n- A fired character skips their turs ".to_string(),
+            },
+        )),
+        Character::Banker if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouAreTerminatingSomeone {
+                characters: round.player_get_fireble_characters(),
+                 character: Character::Banker,
+                perk: "You can force a player to give you cash based on the amount of different color assets they have +1".to_string(),
+            },
+        )),
+        Character::Regulator if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouRegulatorOptions {
+                options: round.player_get_regulator_swap_players(),
+                character: Character::Regulator,
+                perk: "You can swap your hand with another player or swap any number of cards with the deck".to_string(),
+             }
+        )),
+        Character::CEO if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouCharacterAbility {
+                character: Character::CEO,
+                perk: "- You can buy up to 3 assets \n- Next turn you become chairman".to_string(),
+            },
+        )),
+        Character::CFO if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouCharacterAbility {
+                character: Character::CFO,
+                perk: "You can issue or redeem 3 liabilities".to_string(),
+            },
+        )),
+        Character::CSO if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouCharacterAbility {
+                character: Character::CSO,
+                perk: "You can buy up to 2 red or green assets".to_string(),
+            },
+        )),
+        Character::HeadRnD if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            DirectResponse::YouCharacterAbility {
+                character: Character::HeadRnD,
+                perk: "You can draw six cards and only have to put 2 back".to_string(),
+            },
+        )),
+        Character::Stakeholder if round.current_player().id() == player.id() => Ok(Response(
+            InternalResponse(std::collections::HashMap::new()),
+            //TODO send other players divest message
+            DirectResponse::YouAreDivesting {
+                options: round.get_divest_assets(player_id)?,
+                character: Character::Stakeholder,
+                perk: "you can force a player to divest from an asset by spending the assets market value -1".to_string(),
+            },
+        )),
+        _ => Err(GameError::InvalidPlayerIndex(0)),
+    }
 }
 
 pub fn draw_card(
@@ -74,10 +144,10 @@ pub fn draw_card(
     let internal = round
         .players()
         .iter()
-        .filter(|p| p.id != player_id)
+        .filter(|p| p.id() != player_id)
         .map(|p| {
             (
-                p.id,
+                p.id(),
                 vec![UniqueResponse::DrewCard {
                     player_id,
                     card_type,
@@ -108,10 +178,10 @@ pub fn put_back_card(
     let internal = round
         .players()
         .iter()
-        .filter(|p| p.id != player_id)
+        .filter(|p| p.id() != player_id)
         .map(|p| {
             (
-                p.id,
+                p.id(),
                 vec![UniqueResponse::PutBackCard {
                     player_id,
                     card_type,
@@ -143,13 +213,14 @@ pub fn play_card(
             let internal = round
                 .players()
                 .iter()
-                .filter(|p| p.id != player_id)
+                .filter(|p| p.id() != player_id)
                 .map(|p| {
                     (
-                        p.id,
+                        p.id(),
                         vec![UniqueResponse::BoughtAsset {
                             player_id,
                             asset: asset.clone(),
+                            market_change: played_card.market.clone(),
                         }],
                     )
                 })
@@ -157,17 +228,20 @@ pub fn play_card(
 
             Ok(Response(
                 InternalResponse(internal),
-                DirectResponse::YouBoughtAsset { asset },
+                DirectResponse::YouBoughtAsset {
+                    asset,
+                    market_change: played_card.market,
+                },
             ))
         }
         Either::Right(liability) => {
             let internal = round
                 .players()
                 .iter()
-                .filter(|p| p.id != player_id)
+                .filter(|p| p.id() != player_id)
                 .map(|p| {
                     (
-                        p.id,
+                        p.id(),
                         vec![UniqueResponse::IssuedLiability {
                             player_id,
                             liability: liability.clone(),
@@ -184,14 +258,47 @@ pub fn play_card(
     }
 }
 
+pub fn redeem_liability(
+    state: &mut GameState,
+    liability_idx: usize,
+    player_id: PlayerId,
+) -> Result<Response, GameError> {
+    let round = state.round_mut()?;
+
+    round.player_redeem_liability(player_id, liability_idx)?;
+
+    let internal = round
+        .players()
+        .iter()
+        .filter(|p| p.id() != player_id)
+        .map(|p| {
+            (
+                p.id(),
+                vec![UniqueResponse::RedeemedLiability {
+                    player_id,
+                    liability_idx,
+                }],
+            )
+        })
+        .collect();
+
+    Ok(Response(
+        InternalResponse(internal),
+        DirectResponse::YouRedeemedLiability { liability_idx },
+    ))
+}
+
 fn turn_starts(round: &Round) -> UniqueResponse {
     let current_player = round.current_player();
 
     UniqueResponse::TurnStarts {
-        player_turn: current_player.id,
-        player_turn_cash: current_player.turn_cash(),
-        player_character: current_player.character,
+        player_turn: current_player.id(),
+        player_turn_cash: current_player.turn_cash(round.current_market()),
+        player_character: current_player.character(),
         draws_n_cards: current_player.draws_n_cards(),
+        gives_back_n_cards: current_player.gives_back_n_cards(),
+        playable_assets: current_player.playable_assets(),
+        playable_liabilities: current_player.playable_liabilities(),
         skipped_characters: round.skipped_characters(),
     }
 }
@@ -211,14 +318,14 @@ pub fn select_character(
                         .iter()
                         .map(|p| {
                             (
-                                p.id,
+                                p.id(),
                                 vec![UniqueResponse::SelectedCharacter {
                                     currently_picking_id: Some(selecting.currently_selecting_id()),
                                     selectable_characters: selecting
-                                        .player_get_selectable_characters(p.id)
+                                        .player_get_selectable_characters(p.id())
                                         .ok(),
                                     closed_character: selecting
-                                        .player_get_closed_character(p.id)
+                                        .player_get_closed_character(p.id())
                                         .ok(),
                                 }],
                             )
@@ -235,7 +342,7 @@ pub fn select_character(
                     let internal = round
                         .players()
                         .iter()
-                        .map(|p| (p.id, vec![turn_starts(round)]))
+                        .map(|p| (p.id(), vec![turn_starts(round)]))
                         .collect();
 
                     Ok(Response(
@@ -245,6 +352,145 @@ pub fn select_character(
                 }
                 GameState::Results(_) => Err(GameError::NotAvailableInResultsState),
             }
+        }
+        Err(e) => Err(e),
+    }
+}
+
+pub fn fire_character(
+    state: &mut GameState,
+    player_id: PlayerId,
+    character: Character,
+) -> Result<Response, GameError> {
+    let round = state.round_mut()?;
+
+    match round.player_fire_character(player_id, character) {
+        Ok(_c) => {
+            let internal = round
+                .players()
+                .iter()
+                .filter(|p| p.id() != player_id)
+                .map(|p| {
+                    (
+                        p.id(),
+                        vec![UniqueResponse::FiredCharacter {
+                            player_id,
+                            character,
+                        }],
+                    )
+                })
+                .collect();
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouFiredCharacter { character },
+            ))
+        }
+        Err(e) => Err(e),
+    }
+}
+
+pub fn swap_with_deck(
+    state: &mut GameState,
+    player_id: PlayerId,
+    card_idxs: Vec<usize>,
+) -> Result<Response, GameError> {
+    let round = state.round_mut()?;
+
+    match round.player_swap_with_deck(player_id, card_idxs) {
+        Ok(_c) => {
+            let internal = round
+                .players()
+                .iter()
+                .filter(|p| p.id() != player_id)
+                .map(|p| {
+                    (
+                        p.id(),
+                        vec![UniqueResponse::SwapedWithDeck {
+                            asset_count: _c[0],
+                            liability_count: _c[1],
+                        }],
+                    )
+                })
+                .collect();
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouSwapDeck {
+                    cards_to_draw: _c[0] + _c[1],
+                },
+            ))
+        }
+        Err(e) => Err(e),
+    }
+}
+
+pub fn swap_with_player(
+    state: &mut GameState,
+    player_id: PlayerId,
+    target_player_id: PlayerId,
+) -> Result<Response, GameError> {
+    let round = state.round_mut()?;
+
+    let hands = round.player_swap_with_player(player_id, target_player_id)?;
+
+    let internal = round
+        .players()
+        .iter()
+        .filter(|p| ![player_id, target_player_id].contains(&p.id()))
+        .map(|p| {
+            (
+                p.id(),
+                vec![UniqueResponse::SwapedWithPlayer {
+                    regulator_id: player_id,
+                    target_id: target_player_id,
+                }],
+            )
+        })
+        .chain(std::iter::once((
+            target_player_id,
+            vec![UniqueResponse::RegulatorSwapedYourCards {
+                new_cards: hands.target_new_hand,
+            }],
+        )))
+        .collect();
+
+    Ok(Response(
+        InternalResponse(internal),
+        DirectResponse::YouSwapPlayer {
+            new_cards: hands.regulator_new_hand,
+        },
+    ))
+}
+
+pub fn divest_asset(
+    state: &mut GameState,
+    player_id: PlayerId,
+    target_player_id: PlayerId,
+    asset_idx: usize,
+) -> Result<Response, GameError> {
+    let round = state.round_mut()?;
+
+    match round.player_divest_asset(player_id, target_player_id, asset_idx) {
+        Ok(_c) => {
+            let internal = round
+                .players()
+                .iter()
+                .filter(|p| p.id() != player_id)
+                .map(|p| {
+                    (
+                        p.id(),
+                        vec![UniqueResponse::AssetDivested {
+                            player_id,
+                            target_id: target_player_id,
+                            card_idx: asset_idx,
+                            paid_gold: _c,
+                        }],
+                    )
+                })
+                .collect();
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouDivestedAnAsset { gold_cost: _c },
+            ))
         }
         Err(e) => Err(e),
     }
@@ -261,14 +507,14 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
                 .iter()
                 .map(|p| {
                     (
-                        p.id,
+                        p.id(),
                         vec![UniqueResponse::SelectingCharacters {
-                            chairman_id: selecting.chairman,
+                            chairman_id: selecting.chairman_id(),
                             selectable_characters: selecting
-                                .player_get_selectable_characters(p.id)
+                                .player_get_selectable_characters(p.id())
                                 .ok(),
                             open_characters: selecting.open_characters().to_vec(),
-                            closed_character: selecting.player_get_closed_character(p.id).ok(),
+                            closed_character: selecting.player_get_closed_character(p.id()).ok(),
                             turn_order: selecting.turn_order(),
                         }],
                     )
@@ -284,7 +530,7 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
             let internal = round
                 .players()
                 .iter()
-                .map(|p| (p.id, vec![turn_starts(round)]))
+                .map(|p| (p.id(), vec![turn_starts(round)]))
                 .collect();
 
             Ok(Response(
@@ -292,7 +538,31 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
                 DirectResponse::YouEndedTurn,
             ))
         }
-        GameState::Results(_) => Err(GameError::NotAvailableInResultsState),
+        GameState::Results(results) => {
+            let scores = results
+                .players()
+                .iter()
+                .map(|p| (p.id(), p.score(results.final_market())))
+                .collect::<HashMap<_, _>>();
+
+            let internal = results
+                .players()
+                .iter()
+                .map(|p| {
+                    (
+                        p.id(),
+                        vec![UniqueResponse::GameEnded {
+                            scores: scores.clone(),
+                        }],
+                    )
+                })
+                .collect();
+
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouEndedTurn,
+            ))
+        }
     }
 }
 

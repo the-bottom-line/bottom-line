@@ -574,8 +574,13 @@ impl RoundPlayer {
         let start = self.turn_start_cash();
         let asset_bonus = self.asset_bonus();
         let market_condition_bonus = self.market_condition_bonus(current_market);
+        
+        let banker_gold = match self.character {
+            Character::Banker => 2,
+            _ => 0,
+        };
 
-        (start + asset_bonus * (market_condition_bonus + 1)) as u8
+        (start + asset_bonus * (market_condition_bonus + 1)) as u8 + banker_gold
     }
 
     /// Starts this player's turn by givinig them their turn gold.

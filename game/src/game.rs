@@ -1,3 +1,5 @@
+//! This is where the game logic, excluding the player-specific logic, is located.
+
 use either::Either;
 use serde::{Deserialize, Serialize};
 
@@ -5,49 +7,79 @@ use std::{collections::HashSet, path::Path, sync::Arc, vec};
 
 use crate::{cards::GameData, errors::*, player::*, utility::serde_asset_liability};
 
+/// Cash each player starts with
 pub const STARTING_GOLD: u8 = 1;
+
+/// Amount of assets required to end the game
 pub const ASSETS_FOR_END_OF_GAME: usize = 6;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// The event card type
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Event {
+    /// The title of the event
     pub title: String,
+    /// A narration of the event which describes what happens
     pub description: String,
+    /// A set of colors that gain gold because of this event
     pub plus_gold: HashSet<Color>,
+    /// A set of colors that lose gold because of this event
     pub minus_gold: HashSet<Color>,
+    /// A character that skips their turn because of this event
     pub skip_turn: Option<Character>,
 }
 
-#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
+/// A representation of the market condition for a specific color. It can either be
+/// 1. Up: (+)
+/// 2. Zero: ( )
+/// 3. Minus: (-)
+///
+/// NOTE: The default state is `Zero`, which is also the case when parsing with serde.
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub enum MarketCondition {
+    /// The market for this color is up
     #[serde(rename = "up")]
     Plus,
+    /// The market for this color is down
     #[serde(rename = "down")]
     Minus,
+    /// The market for this color is neutral
     #[default]
     #[serde(other)]
     Zero,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+/// The market card type
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct Market {
+    /// The title of the market
     pub title: String,
+    /// The rfr value of the market
     pub rfr: u8,
+    /// The mrp value of the market
     pub mrp: u8,
+    /// The market condition for yellow
     #[serde(rename = "Yellow", default)]
     pub yellow: MarketCondition,
+    /// The market condition for blue
     #[serde(rename = "Blue", default)]
     pub blue: MarketCondition,
+    /// The market condition for green
     #[serde(rename = "Green", default)]
     pub green: MarketCondition,
+    /// The market condition for purple
     #[serde(rename = "Purple", default)]
     pub purple: MarketCondition,
+    /// The market condition for red
     #[serde(rename = "Red", default)]
     pub red: MarketCondition,
+    /// A url which points to the front of this market card in the assets folder
     pub image_front_url: String,
+    /// A url which points to the back of a market card in the assets folder
     pub image_back_url: Arc<String>,
 }
 
 impl Market {
+    /// Gets the market condition for a specific color
     pub fn color_condition(&self, color: Color) -> MarketCondition {
         match color {
             Color::Red => self.red,
@@ -59,43 +91,104 @@ impl Market {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Deck<T> {
-    #[serde(rename = "card_image_back_url")]
-    pub image_back_url: Arc<String>,
-    #[serde(rename = "card_list")]
-    pub deck: Vec<T>,
+fn default_backup_deck<T>() -> Box<[T]> {
+    Box::new([])
 }
 
-impl<T> Deck<T> {
+/// A wrapper struct around `Vec<T>` which allows for easy interaction with it as a deck of cards.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Deck<T> {
+    /// The back url of the particular deck
+    #[serde(rename = "card_image_back_url")]
+    pub image_back_url: Arc<String>,
+    /// The list of actual cards
+    #[serde(rename = "card_list")]
+    pub deck: Vec<T>,
+    /// A backup of the deck, which is set when the deck is created.
+    #[serde(skip, default = "default_backup_deck")]
+    backup_deck: Box<[T]>,
+}
+
+impl<T: Clone> Deck<T> {
+    /// Creates a new `Deck<T>` based on a `Vec<T>`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::game::Deck;
+    /// let deck = Deck::new(vec![1, 2, 3]);
+    /// assert_eq!(deck.deck, [1, 2, 3]);
+    /// ```
     pub fn new(deck: Vec<T>) -> Self {
+        let backup_deck = deck.clone().into_boxed_slice();
         Self {
             deck,
+            backup_deck,
             image_back_url: String::new().into(),
         }
     }
 
+    /// Creates a new `Deck<T>` based on a `Vec<T>` and an url which should point to the back of
+    /// the deck's cards in the asset folder.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::game::Deck;
+    /// let url = "assets/cards/card_back.svg";
+    ///
+    /// let deck = Deck::new_with_url(vec![1, 2, 3], url);
+    /// assert_eq!(deck.deck, [1, 2, 3]);
+    /// assert_eq!(deck.image_back_url.as_str(), url);
+    /// ```
+    pub fn new_with_url(deck: Vec<T>, url: &str) -> Self {
+        let mut deck = Self::new(deck);
+        deck.image_back_url = Arc::new(url.to_owned());
+        deck
+    }
+
+    /// Draws a new card from the deck. If the deck ran out it is restored from the backup deck,
+    /// reshuffled and then a card is drawn from that new deck instead.
+    pub fn draw(&mut self) -> T {
+        match self.deck.pop() {
+            Some(card) => card,
+            None => {
+                self.deck = self.backup_deck.to_vec();
+
+                #[cfg(feature = "shuffle")]
+                self.shuffle();
+
+                // TODO: maybe fix for if the deck was empty when initialized, because in that case
+                // it still crashes. This isn't a concern for our game though and I prefer to not
+                // return `Option` here.
+                self.deck.pop().unwrap()
+            }
+        }
+    }
+}
+
+impl<T> Deck<T> {
+    /// Returns the number of elements in the deck, also referred to as its 'length'.
     pub fn len(&self) -> usize {
         self.deck.len()
     }
 
+    /// Returns true if the deck contains no elements.
     pub fn is_empty(&self) -> bool {
         self.deck.is_empty()
     }
 
-    // TODO: think of way to make this not unwrap. Maybe keep a copy of the deck as backup to
-    // reshuffle?
-    /// Panics if no more cards are in the deck, for now. Decks don't run out in regular games.
-    /// NOTE: Playing 5 rounds with 7 players where each player draws one liability per turn comes
-    /// out to 49 out of 50 cards
-    pub fn draw(&mut self) -> T {
-        self.deck.pop().unwrap()
+    /// Sets the card url of the back image of the cards in the deck.
+    pub fn set_image_back_url(&mut self, url: &str) {
+        self.image_back_url = Arc::new(url.to_owned());
     }
 
+    /// Puts back a card on the bottom of the deck
     pub fn put_back(&mut self, card: T) {
         self.deck.insert(0, card);
     }
 
+    /// Randomly reshuffles the deck
     #[cfg(feature = "shuffle")]
     pub fn shuffle(&mut self) {
         use rand::seq::SliceRandom;
@@ -109,28 +202,41 @@ impl<T> Default for Deck<T> {
     fn default() -> Self {
         Self {
             deck: Default::default(),
+            backup_deck: Default::default(),
             image_back_url: Default::default(),
         }
     }
 }
 
+/// Contains information when picking cards. One gets a list of pickable characters as
+/// well as a possible closed character if the player requesting it is the chairman.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PickableCharacters {
+    /// List of pickable characters
     characters: Vec<Character>,
+    /// Possible closed character only shown to the chairman
     closed_character: Option<Character>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Used for keeping track of selectable characters in the selecting characters phase.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ObtainingCharacters {
+    /// The amount of players in the game
     player_count: usize,
+    /// The index of the next player who should draw
     draw_idx: usize,
+    /// The id of the chairman represented as `usize`
     chairman_id: usize,
+    /// A deck containing all available characters
     available_characters: Deck<Character>,
+    /// A list of open characters, the length of which depends on how many players are in the game
     open_characters: Vec<Character>,
+    /// The closed character
     closed_character: Character,
 }
 
 impl ObtainingCharacters {
+    /// Creates a new instance based on the player count and the chairman id.
     pub fn new(player_count: usize, chairman_id: PlayerId) -> Result<Self, GameError> {
         let open_character_count = match player_count {
             4 => 2,
@@ -177,6 +283,8 @@ impl ObtainingCharacters {
         })
     }
 
+    /// Looks one step ahead and gets the next instance of `PickableCharacters`. This may error if
+    /// every player has selected a character
     pub fn peek(&self) -> Result<PickableCharacters, SelectingCharactersError> {
         match self.draw_idx {
             0 => Ok(PickableCharacters {
@@ -201,6 +309,7 @@ impl ObtainingCharacters {
         }
     }
 
+    /// Attempts to select a character for a particular player.
     pub fn pick(&mut self, character: Character) -> Result<(), SelectingCharactersError> {
         match self.peek() {
             Ok(PickableCharacters { mut characters, .. }) => {
@@ -218,70 +327,170 @@ impl ObtainingCharacters {
         }
     }
 
+    /// Gets the index of the currently selecting player
     pub fn applies_to_player(&self) -> usize {
         (self.draw_idx + self.chairman_id) % self.player_count
     }
 
+    /// Gets a list of open characters
     pub fn open_characters(&self) -> &[Character] {
         &self.open_characters
     }
 }
 
+/// Data used when someone buys a new asset and a market change is triggered
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MarketChange {
+    /// A list of events encountered in search for a market card
     pub events: Vec<Event>,
+    /// The new market card
     pub new_market: Market,
 }
 
+/// Data used when someone plays a card
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerPlayedCard {
+    /// The market change data if the market actually changes
     pub market: Option<MarketChange>,
+    /// The card that was played
     #[serde(with = "serde_asset_liability::value")]
     pub used_card: Either<Asset, Liability>,
 }
 
+/// Data used when a turn ends
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TurnEnded {
+    /// The next player, if they exist
     pub next_player: Option<PlayerId>,
+    /// Whether or not the game has ended
     pub game_ended: bool,
 }
 
-#[derive(Debug, Clone)]
+/// Wrapper struct around `Vec<P>` to make interacting with them as players internally much easier.
+#[derive(Debug, Clone, PartialEq)]
 pub struct Players<P>(Vec<P>);
 
 impl<P> Players<P> {
+    /// Create a new `Players<P>` based on a `Vec<P>`
+    ///
+    /// Examples
+    ///
+    /// ```
+    /// # use game::game::Players;
+    /// let p: Players<u8> = Players::new(vec![1, 2, 3]);
     pub fn new(players: Vec<P>) -> Self {
         Self(players)
     }
 
+    /// Returns the number of players in the list, also referred to as its 'length'.
+    ///
+    /// Examples
+    ///
+    /// ```
+    /// # use game::game::Players;
+    /// let p = Players::new(vec![1, 2, 3]);
+    /// assert_eq!(p.len(), 3);
+    /// ```
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
+    /// Returns true if the list contains no elements.
+    ///
+    /// Examples
+    ///
+    /// ```
+    /// # use game::game::Players;
+    /// let p: Players<u8> = Players::default();
+    /// assert!(p.is_empty());
+    ///
+    /// let p2 = Players::new(vec![1]);
+    /// assert!(!p2.is_empty());
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
+    /// Get a reference to a player based on a specific `PlayerId`. Note that the players are in
+    /// order, so id 0 refers to the player at index 0 and so on.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{game::Players, player::PlayerId};
+    /// let players = Players::new(vec![1, 2, 3]);
+    /// let id = PlayerId(2);
+    ///
+    /// let player = players.player(id);
+    /// assert_eq!(player, Ok(&3));
+    /// ```
     pub fn player(&self, id: PlayerId) -> Result<&P, GameError> {
         self.0
             .get(usize::from(id))
             .ok_or(GameError::InvalidPlayerIndex(id.0))
     }
 
+    /// Get a mutable reference to a player based on a specific `PlayerId`. Note that the players
+    /// are in order, so id 0 refers to the player at index 0 and so on.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{game::Players, player::PlayerId};
+    /// let mut players = Players::new(vec![1, 2, 3]);
+    /// let id = PlayerId(2);
+    ///
+    /// if let Ok(mut player) = players.player_mut(id) {
+    ///     *player = 10;
+    /// }
+    /// assert_eq!(players, Players::new(vec![1, 2, 10]));
+    /// ```
     pub fn player_mut(&mut self, id: PlayerId) -> Result<&mut P, GameError> {
         self.0
             .get_mut(usize::from(id))
             .ok_or(GameError::InvalidPlayerIndex(id.0))
     }
 
+    /// Gets a slice of all players in the list
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::game::Players;
+    /// let players = Players::new(vec![1, 2, 3]);
+    /// assert_eq!(players.players(), &[1, 2, 3]);
     pub fn players(&self) -> &[P] {
         &self.0
     }
 
+    /// Gets a mutable slice of all players in the list
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::game::Players;
+    /// let mut players = Players::new(vec![1, 2, 3]);
+    /// let refs = players.players_mut();
+    /// refs[2] = 10;
+    /// assert_eq!(players.players_mut(), &[1, 2, 10]);
     pub fn players_mut(&mut self) -> &mut [P] {
         &mut self.0
     }
 
+    /// Wrapper around `slice::get_disjoint_mut()` which returns mutable references to many indices
+    /// at once.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::game::Players;
+    /// let mut players = Players::new(vec![1, 2, 3]);
+    /// if let Ok([a, b]) = players.get_disjoint_mut([1, 2]) {
+    ///     *a = 10;
+    ///     *b = 20;
+    /// }
+    /// assert_eq!(players, Players::new(vec![1, 10, 20]));
+    /// ```
     pub fn get_disjoint_mut<const N: usize>(
         &mut self,
         indices: [usize; N],
@@ -296,19 +505,50 @@ impl<P> Default for Players<P> {
     }
 }
 
-#[derive(Debug, Clone)]
+/// The core state representation of The Bottom Line.
+/// It has four internal states:
+/// 1. Lobby  ([`Lobby`])
+/// 2. Selecting Characters ([`SelectingCharacters`])
+/// 3. Round ([`Round`])
+/// 4. Results ([`Results`])
+#[derive(Debug, Clone, PartialEq)]
 pub enum GameState {
+    /// Lobby state of the game. In this state players can freely join and leave the game
     Lobby(Lobby),
+    /// Selecting characters state of the game. In this state each player can select a character,
+    /// after which the game starts
     SelectingCharacters(SelectingCharacters),
+    /// Round state of the game. In this state each player plays their turn, which includes drawing
+    /// cards, playing assets and liabilities and using their character ability
     Round(Round),
+    /// Results state of the game. In this state players can see how they did compared to everyone
+    /// else
     Results(Results),
 }
 
 impl GameState {
+    /// Creates a new instance of the game. The game starts in lobby state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::game::{GameState, Lobby};
+    /// let game = GameState::new();
+    /// assert_eq!(game, GameState::Lobby(Lobby::default()));
+    /// ```
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Tries to get a `&`[`Lobby`] state. Returns an error if the game is not in a lobby state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::game::{GameState, Lobby};
+    /// let game = GameState::Lobby(Lobby::default());
+    /// assert_eq!(game.lobby(), Ok(&Lobby::default()));
+    /// ```
     pub fn lobby(&self) -> Result<&Lobby, GameError> {
         match self {
             Self::Lobby(l) => Ok(l),
@@ -316,6 +556,15 @@ impl GameState {
         }
     }
 
+    /// Tries to get a `&mut`[`Lobby`] state. Returns an error if the game is not in a lobby state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::game::{GameState, Lobby};
+    /// let mut game = GameState::Lobby(Lobby::default());
+    /// assert_eq!(game.lobby_mut(), Ok(&mut Lobby::default()));
+    /// ```
     pub fn lobby_mut(&mut self) -> Result<&mut Lobby, GameError> {
         match self {
             Self::Lobby(l) => Ok(l),
@@ -323,6 +572,16 @@ impl GameState {
         }
     }
 
+    /// Tries to get a `&`[`SelectingCharacters`] state. Returns an error if the game is not in a
+    /// selecting characters state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::{GameState, Lobby}};
+    /// let game = GameState::Lobby(Lobby::default());
+    /// assert_eq!(game.selecting_characters(), Err(GameError::NotSelectingCharactersState));
+    /// ```
     pub fn selecting_characters(&self) -> Result<&SelectingCharacters, GameError> {
         match self {
             Self::SelectingCharacters(s) => Ok(s),
@@ -330,6 +589,16 @@ impl GameState {
         }
     }
 
+    /// Tries to get a `&mut`[`SelectingCharacters`] state. Returns an error if the game is not in a
+    /// selecting characters state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::{GameState, Lobby}};
+    /// let mut game = GameState::Lobby(Lobby::default());
+    /// assert_eq!(game.selecting_characters_mut(), Err(GameError::NotSelectingCharactersState));
+    /// ```
     pub fn selecting_characters_mut(&mut self) -> Result<&mut SelectingCharacters, GameError> {
         match self {
             Self::SelectingCharacters(s) => Ok(s),
@@ -337,6 +606,15 @@ impl GameState {
         }
     }
 
+    /// Tries to get a `&`[`Round`] state. Returns an error if the game is not in a round state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::{GameState, Lobby}};
+    /// let game = GameState::Lobby(Lobby::default());
+    /// assert_eq!(game.round(), Err(GameError::NotRoundState));
+    /// ```
     pub fn round(&self) -> Result<&Round, GameError> {
         match self {
             Self::Round(r) => Ok(r),
@@ -344,6 +622,15 @@ impl GameState {
         }
     }
 
+    /// Tries to get a `&mut`[`Round`] state. Returns an error if the game is not in a round state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::{GameState, Lobby}};
+    /// let mut game = GameState::Lobby(Lobby::default());
+    /// assert_eq!(game.round_mut(), Err(GameError::NotRoundState));
+    /// ```
     pub fn round_mut(&mut self) -> Result<&mut Round, GameError> {
         match self {
             Self::Round(r) => Ok(r),
@@ -351,6 +638,14 @@ impl GameState {
         }
     }
 
+    /// Tries to get a `&`[`Results`] state. Returns an error if the game is not in a results state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::{GameState, Lobby}};
+    /// let game = GameState::Lobby(Lobby::default());
+    /// assert_eq!(game.results(), Err(GameError::NotResultsState));
     pub fn results(&self) -> Result<&Results, GameError> {
         match self {
             Self::Results(r) => Ok(r),
@@ -358,6 +653,15 @@ impl GameState {
         }
     }
 
+    /// Tries to get a `&mut`[`Results`] state. Returns an error if the game is not in a results
+    /// state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::{GameState, Lobby}};
+    /// let mut game = GameState::Lobby(Lobby::default());
+    /// assert_eq!(game.results_mut(), Err(GameError::NotResultsState));
     pub fn results_mut(&mut self) -> Result<&mut Results, GameError> {
         match self {
             Self::Results(r) => Ok(r),
@@ -365,6 +669,10 @@ impl GameState {
         }
     }
 
+    /// Starts the game if enough players are in the lobby. If the lobby has between 4 and 7 players
+    /// inclusive, turns the state from a [`Lobby`] into a [`SelectingCharacters`]. Takes in a path
+    /// that should point to an instance of [`boardgame.json`](crate::cards), which holds the
+    /// information about what cards each deck should be filled with.
     pub fn start_game<P: AsRef<Path>>(&mut self, data_path: P) -> Result<(), GameError> {
         match self {
             Self::Lobby(lobby) => {
@@ -375,15 +683,15 @@ impl GameState {
         }
     }
 
+    /// Allows a player with `id` to select `character` if that character is available. If this was
+    /// the last player to select a character, the state will be transformed from
+    /// [`SelectingCharacters`] to [`Round`]
     pub fn player_select_character(
         &mut self,
         id: PlayerId,
         character: Character,
     ) -> Result<(), GameError> {
-        let selecting = match self {
-            Self::SelectingCharacters(s) => s,
-            _ => return Err(GameError::NotSelectingCharactersState),
-        };
+        let selecting = self.selecting_characters_mut()?;
 
         if let Some(state) = selecting.player_select_character(id, character)? {
             *self = state;
@@ -392,11 +700,13 @@ impl GameState {
         Ok(())
     }
 
+    /// Allows player with `id` to end their turn.
+    /// If it was the last player in a round, transforms the internal state from [`Round`] back to
+    /// [`SelectingCharacters`].
+    /// If it was the last turn of the game, transforms the internal state from [`Round`] into
+    /// [`Results`]
     pub fn end_player_turn(&mut self, id: PlayerId) -> Result<TurnEnded, GameError> {
-        let round = match self {
-            Self::Round(r) => r,
-            _ => return Err(GameError::NotRoundState),
-        };
+        let round = self.round_mut()?;
 
         match round.end_player_turn(id)? {
             Either::Left(te) => Ok(te),
@@ -417,40 +727,166 @@ impl Default for GameState {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+/// State containing all information related to the lobby stage of the game. In the lobby state,
+/// players are allowed to join and leave freely. When between 4 to 7 players are in the lobby,
+/// players are allowed to start a game.
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Lobby {
+    /// The players in the lobby
     players: Players<LobbyPlayer>,
 }
 
 impl Lobby {
+    /// Instantiates a new lobby. This will be an empty lobby with no players in it.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::game::Lobby;
+    /// let lobby = Lobby::new();
+    /// assert_eq!(lobby, Lobby::default());
+    /// ```
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Returns the number of players in the lobby, also referred to as its 'length'.
+    ///
+    /// Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::Lobby};
+    /// # fn main() -> Result<(), GameError> {
+    /// let mut lobby = Lobby::default();
+    /// assert_eq!(lobby.len(), 0);
+    ///
+    /// lobby.join("player 1".to_owned())?;
+    /// assert_eq!(lobby.len(), 1);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn len(&self) -> usize {
         self.players.len()
     }
 
+    /// Returns true if the lobby contains no players.
+    ///
+    /// Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::Lobby};
+    /// # fn main() -> Result<(), GameError> {
+    /// let mut lobby = Lobby::default();
+    /// assert!(lobby.is_empty());
+    ///
+    /// lobby.join("player 1".to_owned())?;
+    /// assert!(!lobby.is_empty());
+    /// # Ok(())
+    /// # }
+    /// # use game::game::Players;
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.players.is_empty()
     }
 
+    /// Get a reference to a [`LobbyPlayer`] based on a specific `PlayerId`. Note that the players
+    /// are in order, so id 0 refers to the player at index 0 and so on.
+    /// See [`Players::player`] for further information
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::Lobby, player::PlayerId};
+    /// # fn main() -> Result<(), GameError> {
+    /// let mut lobby = Lobby::default();
+    /// let id = PlayerId(0);
+    /// assert_eq!(lobby.player(id), None);
+    ///
+    /// lobby.join("player 1".to_owned())?;
+    /// assert!(matches!(lobby.player(id), Some(_)));
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn player(&self, id: PlayerId) -> Option<&LobbyPlayer> {
         self.players.player(id).ok()
     }
 
+    /// Gets a slice of all players in the lobby
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::Lobby, player::{LobbyPlayer, PlayerId}};
+    /// # fn main() -> Result<(), GameError> {
+    /// let mut lobby = Lobby::default();
+    ///
+    /// lobby.join("player 1".to_owned())?;
+    ///
+    /// let player = LobbyPlayer::new(PlayerId(0), "player 1".to_owned());
+    /// assert_eq!(lobby.players(), &[player]);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn players(&self) -> &[LobbyPlayer] {
         self.players.players()
     }
 
+    /// Gets a mutable slice of all players in the lobby
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::Lobby, player::{LobbyPlayer, PlayerId}};
+    /// # fn main() -> Result<(), GameError> {
+    /// let mut lobby = Lobby::default();
+    ///
+    /// lobby.join("player 1".to_owned())?;
+    ///
+    /// let player = LobbyPlayer::new(PlayerId(0), "player 1".to_owned());
+    /// assert_eq!(lobby.players_mut(), &mut [player]);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn players_mut(&mut self) -> &mut [LobbyPlayer] {
         self.players.players_mut()
     }
 
-    pub fn usernames(&self) -> Vec<String> {
-        self.players().iter().map(|p| p.name().to_owned()).collect()
+    /// Gets a list of usernames in the lobby. Note that this list has to be built every time this
+    /// function is called.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::Lobby, player::{LobbyPlayer, PlayerId}};
+    /// # fn main() -> Result<(), GameError> {
+    /// let mut lobby = Lobby::default();
+    /// lobby.join("player 1".to_owned())?;
+    /// lobby.join("player 2".to_owned())?;
+    ///
+    /// assert_eq!(lobby.usernames(), vec!["player 1", "player 2"]);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn usernames(&self) -> Vec<&str> {
+        self.players().iter().map(|p| p.name()).collect()
     }
 
+    /// Allows a player to join the lobby based on a username. If the username is not yet taken, the
+    /// player is added to the list of players and a reference to it will be returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::Lobby, player::{LobbyPlayer, PlayerId}};
+    /// # fn main() -> Result<(), GameError> {
+    /// let mut lobby = Lobby::default();
+    /// lobby.join("player 1".to_owned())?;
+    /// lobby.join("player 2".to_owned())?;
+    ///
+    /// assert_eq!(lobby.usernames(), vec!["player 1", "player 2"]);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn join(&mut self, username: String) -> Result<&LobbyPlayer, LobbyError> {
         match self.players().iter().find(|p| p.name() == username) {
             Some(_) => Err(LobbyError::UsernameAlreadyTaken(username)),
@@ -465,6 +901,27 @@ impl Lobby {
         }
     }
 
+    /// Allows a player to leave the lobby based on their username. If that username is in the list,
+    /// the player will be removed and `true` will be returned. If the player cannot be removed,
+    /// the function will return `false` instead.
+    ///
+    /// NOTE: this function will reorder player ids if a player that is not at the end of the list
+    /// leaves the lobby
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::Lobby, player::{LobbyPlayer, PlayerId}};
+    /// # fn main() -> Result<(), GameError> {
+    /// let mut lobby = Lobby::default();
+    /// lobby.join("player 1".to_owned())?;
+    /// lobby.join("player 2".to_owned())?;
+    /// assert!(lobby.leave("player 1"));
+    ///
+    /// assert_eq!(lobby.usernames(), vec!["player 2"]);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn leave(&mut self, username: &str) -> bool {
         match self.players().iter().position(|p| p.name() == username) {
             Some(pos) => {
@@ -479,6 +936,23 @@ impl Lobby {
         }
     }
 
+    /// Gets the [`PlayerInfo`] for each player, excluding the player
+    /// that has the same id as `id`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::Lobby, player::{LobbyPlayer, PlayerId, PlayerInfo}};
+    /// # fn main() -> Result<(), GameError> {
+    /// let mut lobby = Lobby::default();
+    /// lobby.join("player 1".to_owned())?;
+    /// lobby.join("player 2".to_owned())?;
+    ///
+    /// let id = PlayerId(0);
+    /// assert_eq!(lobby.player_info(id).len(), 1);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
         self.players()
             .iter()
@@ -487,10 +961,30 @@ impl Lobby {
             .collect()
     }
 
+    /// Checks whether or not the game can start. The game can start if the room has between 4 and
+    /// 7 players.
+    ///
+    /// # Examples
+    /// ```
+    /// # use game::{errors::GameError, game::Lobby, player::{LobbyPlayer, PlayerId}};
+    /// # fn main() -> Result<(), GameError> {
+    /// let mut lobby = Lobby::default();
+    ///
+    /// (0..3).for_each(|i| { lobby.join(format!("player {i}")); });
+    /// assert!(!lobby.can_start());
+    ///
+    /// lobby.join("player 3".to_owned())?;
+    /// assert!(lobby.can_start());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn can_start(&self) -> bool {
         (4..=7).contains(&self.players.len())
     }
 
+    /// Starts the game when between 4 to 7 players are in the lobby and potentially returns the new [`GameState`] if the game is started. Takes in `data_path`, which is meant to be a path
+    /// that should point to an instance of [`boardgame.json`](crate::cards), which holds the
+    /// information about what cards each deck should be filled with.
     fn start_game<P: AsRef<Path>>(&mut self, data_path: P) -> Result<GameState, GameError> {
         if self.can_start() {
             let data = GameData::new(data_path).expect("Path for game data is invalid");
@@ -532,6 +1026,8 @@ impl Lobby {
         }
     }
 
+    /// Initializes [`SelectingCharactersPlayer`](crate::player::SelectingCharactersPlayer) with
+    /// their appropriate starting gold and their initial hand.
     fn init_players(
         &mut self,
         assets: &mut Deck<Asset>,
@@ -558,7 +1054,7 @@ impl Lobby {
         Players(players)
     }
 
-    /// Grab market card if available and reshuffles the rest of the deck.
+    /// Grab market card if available. If no market cards are in the deck, `None` is returned.
     fn initial_market(markets: &mut Deck<Either<Market, Event>>) -> Option<Market> {
         match markets.deck.iter().position(|c| c.is_left()) {
             Some(pos) => markets.deck.swap_remove(pos).left(),
@@ -567,7 +1063,10 @@ impl Lobby {
     }
 }
 
-#[derive(Debug, Clone)]
+/// State containing all information related to the selecting characters state of the game. In the
+/// selecting characters stage, players select a character one by one until everyone has selected
+/// a character, after which a round starts.
+#[derive(Debug, Clone, PartialEq)]
 pub struct SelectingCharacters {
     players: Players<SelectingCharactersPlayer>,
     characters: ObtainingCharacters,
@@ -580,10 +1079,15 @@ pub struct SelectingCharacters {
 }
 
 impl SelectingCharacters {
+    /// Get a reference to a [`SelectingCharactersPlayer`] based on a specific `PlayerId`. Note
+    /// that the players are in order, so id 0 refers to the player at index 0 and so on.
+    /// See [`Players::player`] for further information
     pub fn player(&self, id: PlayerId) -> Result<&SelectingCharactersPlayer, GameError> {
         self.players.player(id)
     }
 
+    /// Get a reference to a [`SelectingCharactersPlayer`] based on a specific `name`. Note
+    /// that the players are in order, so id 0 refers to the player at index 0 and so on.
     pub fn player_by_name(&self, name: &str) -> Result<&SelectingCharactersPlayer, GameError> {
         self.players()
             .iter()
@@ -591,20 +1095,25 @@ impl SelectingCharacters {
             .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
     }
 
+    /// Gets a slice of all players in the lobby.
+    /// See [`Players::players`] for further information
     pub fn players(&self) -> &[SelectingCharactersPlayer] {
         self.players.players()
     }
 
+    /// Gets the id of the current chairman
     pub fn chairman_id(&self) -> PlayerId {
         self.chairman
     }
 
+    /// Gets the id of the player that's currently selecting a character
     pub fn currently_selecting_id(&self) -> PlayerId {
         (self.characters.applies_to_player() as u8).into()
     }
 
     /// Internally used function that checks whether a player with such an `id` exists, and whether
-    /// that player is actually the current player.
+    /// that player is the current player. If this is the case, a reference to the player is
+    /// returned.
     fn player_as_current(&self, id: PlayerId) -> Result<&SelectingCharactersPlayer, GameError> {
         let currently_selecting_id = self.currently_selecting_id();
         match self.players.player(id) {
@@ -614,6 +1123,8 @@ impl SelectingCharacters {
         }
     }
 
+    /// Gets a list of selectable characters for the player with `id`, if it's their turn to select
+    /// a character next.
     pub fn player_get_selectable_characters(
         &self,
         id: PlayerId,
@@ -626,6 +1137,7 @@ impl SelectingCharacters {
             .map_err(Into::into)
     }
 
+    /// Gets the closed character for the player with `id` if they're chairman.
     pub fn player_get_closed_character(&self, id: PlayerId) -> Result<Character, GameError> {
         let _ = self.player_as_current(id)?;
 
@@ -635,6 +1147,9 @@ impl SelectingCharacters {
         }
     }
 
+    /// Allows player with `id` to select `character`, if it is their turn and if that character is
+    /// available to select. If they are the last player to select a character, a new [`GameState`]
+    /// is returned of type [`Round`].
     fn player_select_character(
         &mut self,
         id: PlayerId,
@@ -702,20 +1217,26 @@ impl SelectingCharacters {
         }
     }
 
+    /// Gets the list of open characters, which are the characters nobody can select this round.
     pub fn open_characters(&self) -> &[Character] {
         self.characters.open_characters()
     }
 
+    /// Gets a list of player ids that represent the order each player's turn is in. The chairman
+    /// id will always be the first id in this list, and ids will then count upward and loop back
+    /// around if necessary.
     pub fn turn_order(&self) -> Vec<PlayerId> {
         let start = usize::from(self.chairman) as u8;
         let limit = self.players.len() as u8;
         (start..limit).chain(0..start).map(Into::into).collect()
     }
 
+    /// Get the current market
     pub fn current_market(&self) -> &Market {
         &self.current_market
     }
 
+    /// Gets the [`PlayerInfo`] for each player, excluding the player that has the same id as `id`.
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
         self.players()
             .iter()
@@ -725,7 +1246,11 @@ impl SelectingCharacters {
     }
 }
 
-#[derive(Debug, Clone)]
+/// State containing all information related to the round state of the game. In the round stage,
+/// players each play a turn where they can draw cards, play cards and use their character ability.
+/// After every player has played a turn, players will be able to select characters again. If one
+/// player reached six or more assets during a round, the game will move to [`Results`] instead.
+#[derive(Debug, Clone, PartialEq)]
 pub struct Round {
     current_player: PlayerId,
     players: Players<RoundPlayer>,
@@ -740,18 +1265,27 @@ pub struct Round {
 }
 
 impl Round {
+    /// Get a reference to a [`RoundPlayer`] based on a specific `PlayerId`. Note that the players
+    /// are in order, so id 0 refers to the player at index 0 and so on.
+    /// See [`Players::player`] for further information
     pub fn player(&self, id: PlayerId) -> Result<&RoundPlayer, GameError> {
         self.players.player(id)
     }
 
+    /// Get a mutable reference to a [`RoundPlayer`] based on a specific `PlayerId`. Note that the
+    /// players are in order, so id 0 refers to the player at index 0 and so on.
+    /// See [`Players::player_mut`] for further information
     pub fn player_mut(&mut self, id: PlayerId) -> Result<&mut RoundPlayer, GameError> {
         self.players.player_mut(id)
     }
 
+    /// Get a reference to a [`RoundPlayer`] based on a specific `character`. Note that the players
+    /// are in order, so id 0 refers to the player at index 0 and so on.
     pub fn player_from_character(&self, character: Character) -> Option<&RoundPlayer> {
         self.players().iter().find(|p| p.character() == character)
     }
 
+    /// Get a reference to a [`RoundPlayer`] based on a specific `name`.
     pub fn player_by_name(&self, name: &str) -> Result<&RoundPlayer, GameError> {
         self.players()
             .iter()
@@ -759,11 +1293,16 @@ impl Round {
             .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
     }
 
+    /// Get a reference to the [`RoundPlayer`] whose turn it is.
     pub fn current_player(&self) -> &RoundPlayer {
         self.player(self.current_player)
             .expect("self.current_player went out of bounds")
     }
 
+    /// Get a reference to the [`RoundPlayer`] whose turn is up next. If the current player is the
+    /// last player, returns `None` instead.
+    ///
+    /// NOTE: this will exclude players who will be skipped this round for one reason or another.
     pub fn next_player(&self) -> Option<&RoundPlayer> {
         let current_character = self.current_player().character();
         self.players()
@@ -774,6 +1313,10 @@ impl Round {
             .min_by(|p1, p2| p1.character().cmp(&p2.character()))
     }
 
+    /// Get a mutable reference to the [`RoundPlayer`] whose turn is up next. If the current player
+    /// is the last player, returns `None` instead.
+    ///
+    /// NOTE: this will exclude players who will be skipped this round for one reason or another.
     pub fn next_player_mut(&mut self) -> Option<&mut RoundPlayer> {
         let current_character = self.current_player().character();
         self.players
@@ -785,14 +1328,18 @@ impl Round {
             .min_by(|p1, p2| p1.character().cmp(&p2.character()))
     }
 
+    /// Gets a slice of all players in the lobby.
+    /// See [`Players::players`] for further information
     pub fn players(&self) -> &[RoundPlayer] {
         self.players.players()
     }
 
+    /// Gets a slice containing all characters that cannot be picked by anyone this round.
     pub fn open_characters(&self) -> &[Character] {
         &self.open_characters
     }
 
+    /// Gets the [`PlayerInfo`] for each player, excluding the player that has the same id as `id`.
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
         self.players()
             .iter()
@@ -801,12 +1348,14 @@ impl Round {
             .collect()
     }
 
+    /// Gets the current market
     pub fn current_market(&self) -> &Market {
         &self.current_market
     }
 
     /// Internally used function that checks whether a player with such an `id` exists, and whether
-    /// that player is actually the current player.
+    /// that player is actually the current player. If this is the case, a mutable reference to the
+    /// player is returned.
     fn player_as_current_mut(&mut self, id: PlayerId) -> Result<&mut RoundPlayer, GameError> {
         match self.players.player_mut(id) {
             Ok(player) if player.id() == self.current_player => Ok(player),
@@ -815,6 +1364,9 @@ impl Round {
         }
     }
 
+    /// Gets a list of characters that are available to be fired this round. This will exclude the
+    /// list of [`Round::open_characters`] as well as characters that have already been skipped or
+    /// fired this round.
     pub fn player_get_fireble_characters(&mut self) -> Vec<Character> {
         Character::CHARACTERS
             .into_iter()
@@ -827,6 +1379,8 @@ impl Round {
             .collect()
     }
 
+    /// Gets the number of assets and liabilities for each player the regulator can choose to swap
+    /// with. This excludes their own cards.
     pub fn player_get_regulator_swap_players(&mut self) -> Vec<RegulatorSwapPlayer> {
         self.players()
             .iter()
@@ -839,6 +1393,10 @@ impl Round {
             .collect()
     }
 
+    /// Allows player with id `id` to play a card from their hand at index `card_idx`. If this
+    /// player was the first to buy their first, second, third, fourth, fifth, seventh, eight or
+    /// ninth asset, a new market and corresponding triggered events will be returned. The card that
+    /// was played will also be returned.
     pub fn player_play_card(
         &mut self,
         id: PlayerId,
@@ -864,6 +1422,9 @@ impl Round {
         }
     }
 
+    /// This allows player with id `id` to redeem a liability at index `liability_idx` if they are
+    /// the [`CFO`](Character::CFO) and if they can afford to pay off the debt. If they can redeem
+    /// the liability, it will be added back into the deck.
     pub fn player_redeem_liability(
         &mut self,
         id: PlayerId,
@@ -877,6 +1438,8 @@ impl Round {
         Ok(())
     }
 
+    /// This allows player with id `id` to draw a card of card type `card_type`. If they were
+    /// allowed to draw that card, a reference to the card will be returned.
     pub fn player_draw_card(
         &mut self,
         id: PlayerId,
@@ -900,6 +1463,8 @@ impl Round {
         }
     }
 
+    /// This allows player with id `id` to give back a card from their hand at index `card_idx`. If
+    /// they were able to give back the card, the card type of this card will be returned.
     pub fn player_give_back_card(
         &mut self,
         id: PlayerId,
@@ -919,6 +1484,9 @@ impl Round {
         }
     }
 
+    /// This allows player with id `id` to fire a player who has character `character` if they are
+    /// the shareholder. If this is successful, the player who got fired will not play their turn
+    /// this round.
     pub fn player_fire_character(
         &mut self,
         id: PlayerId,
@@ -930,11 +1498,14 @@ impl Round {
         Ok(character)
     }
 
+    /// This allows player with id `id` to swap a list of cards from their hand at indexes
+    /// `card_idxs` with the deck. If succesful, this function returns the number of cards that were
+    /// swapped with the deck in total.
     pub fn player_swap_with_deck(
         &mut self,
         id: PlayerId,
-        card_idx: Vec<usize>,
-    ) -> Result<usize, GameError> {
+        card_idxs: Vec<usize>,
+    ) -> Result<Vec<usize>, GameError> {
         // cant use player_as_current_mut here because of multiple mutable borrows of self. hmm.
         let player = match self.players.player_mut(id) {
             Ok(player) if player.id() == self.current_player => player,
@@ -942,10 +1513,13 @@ impl Round {
             Err(e) => return Err(e),
         };
 
-        let drawcount = player.swap_with_deck(card_idx, &mut self.assets, &mut self.liabilities)?;
+        let drawcount =
+            player.swap_with_deck(card_idxs, &mut self.assets, &mut self.liabilities)?;
         Ok(drawcount)
     }
 
+    /// This allows a player with id `id` to swap their hand of cards with a player with id
+    /// `target_id`. If succesful, a copy of each player's new hand is returned.
     pub fn player_swap_with_player(
         &mut self,
         id: PlayerId,
@@ -984,6 +1558,9 @@ impl Round {
         }
     }
 
+    /// This allows a player with id `id` to force player with id `target_id` to divest an asset at
+    /// index `asset_idx` for market value minus 1. If succesful, returns the amount of gold it cost
+    /// to divest the asset for.
     pub fn player_divest_asset(
         &mut self,
         id: PlayerId,
@@ -1021,6 +1598,8 @@ impl Round {
         }
     }
 
+    /// Gets a list of [`DivestPlayer`], which contains their player id as well as each asset that
+    /// can be divested as well as the current cost to do so. This list excludes their own cards.
     pub fn get_divest_assets(&mut self, id: PlayerId) -> Result<Vec<DivestPlayer>, GameError> {
         let player = self.player_as_current_mut(id)?;
         if player.character() == Character::Stakeholder {
@@ -1043,10 +1622,13 @@ impl Round {
                 })
                 .collect())
         } else {
-            Err(GetDivestAssetsError::InvalidPlayerCharacter.into())
+            Err(DivestAssetError::InvalidPlayerCharacter.into())
         }
     }
 
+    /// Gets a list of characters that are skipped between the turns of two players. Characters are
+    /// called in order, so if any character is called but unavailable for any reason (not selected,
+    /// fired or otherwise skipped), they will be added to this list.
     pub fn skipped_characters(&self) -> Vec<Character> {
         let current_character = self.current_player().character();
         let mut skipped = Character::CHARACTERS
@@ -1063,6 +1645,10 @@ impl Round {
         skipped
     }
 
+    /// Ends the turn of the player with id `id`. If succesful and this player is not the last
+    /// player to play this round, this function, returns [`TurnEnded`], which contains the next
+    /// player as well as whether or not the game has ended. If succesful and the player is the last
+    /// turn of the round, returs a new [`GameState`] of [`SelectingCharacters`].
     fn end_player_turn(&mut self, id: PlayerId) -> Result<Either<TurnEnded, GameState>, GameError> {
         let player = self.player_as_current_mut(id)?;
         if !player.should_give_back_cards() {
@@ -1128,6 +1714,7 @@ impl Round {
         }
     }
 
+    /// Returns the highest amount of assets of any player.
     fn max_bought_assets(&self) -> usize {
         self.players()
             .iter()
@@ -1136,15 +1723,16 @@ impl Round {
             .unwrap_or_default()
     }
 
+    /// Checks whether or not a market should be refreshed based on whether or not someone was the
+    /// first to buy their first, second, third, fourth, fifth, seventh, eight or ninth asset.
     fn should_refresh_market(&self, old_max_bought_assets: usize) -> bool {
         let max_bought_assets = self.max_bought_assets();
 
         max_bought_assets > old_max_bought_assets && max_bought_assets != ASSETS_FOR_END_OF_GAME
     }
 
-    /// Starts a new market. Automatically triggers if any player gets the first, second, third,
-    /// fourth, fifth, seventh or eight asset. Loops through the deck and fetches events as they
-    /// come.
+    /// Generates a new market change. Cards will be taken from the market/event deck one by one
+    /// until a new market is encountered, returning a [`MarketChange`].
     fn refresh_market(&mut self) -> MarketChange {
         let mut events = vec![];
 
@@ -1162,18 +1750,25 @@ impl Round {
         }
     }
 
+    /// Checks whether someone has bought equal to or more assets than [`ASSETS_FOR_END_OF_GAME`].
+    /// If so, this should be the final round.
     fn is_last_round(&self) -> bool {
         self.max_bought_assets() >= ASSETS_FOR_END_OF_GAME
     }
 }
 
+/// Used to return the new hands for the regulator and its player target.
 #[derive(Debug, Clone)]
 pub struct HandsAfterSwap {
+    /// The new hand of the regulator
     pub regulator_new_hand: Vec<Either<Asset, Liability>>,
+    /// The new hand for the regulator's target
     pub target_new_hand: Vec<Either<Asset, Liability>>,
 }
 
-#[derive(Debug, Clone)]
+/// State containing all information related to the results state of the game. In the resuts stage,
+/// players can see their scores.
+#[derive(Debug, Clone, PartialEq)]
 pub struct Results {
     players: Players<ResultsPlayer>,
     final_market: Market,
@@ -1182,10 +1777,14 @@ pub struct Results {
 }
 
 impl Results {
+    /// Get a reference to a [`ResultsPlayer`] based on a specific `PlayerId`. Note that the players
+    /// are in order, so id 0 refers to the player at index 0 and so on.
+    /// See [`Players::player`] for further information
     pub fn player(&self, id: PlayerId) -> Result<&ResultsPlayer, GameError> {
         self.players.player(id)
     }
 
+    /// Get a reference to a [`ResultsPlayer`] based on a specific `name`.
     pub fn player_by_name(&self, name: &str) -> Result<&ResultsPlayer, GameError> {
         self.players()
             .iter()
@@ -1193,10 +1792,13 @@ impl Results {
             .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
     }
 
+    /// Gets a slice of all players in the lobby.
+    /// See [`Players::players`] for further information
     pub fn players(&self) -> &[ResultsPlayer] {
         self.players.players()
     }
 
+    /// Gets the [`PlayerInfo`] for each player, excluding the player that has the same id as `id`.
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
         self.players()
             .iter()
@@ -1205,10 +1807,12 @@ impl Results {
             .collect()
     }
 
+    /// Gets the final market of the game
     pub fn final_market(&self) -> &Market {
         &self.final_market
     }
 
+    /// Gets the list of events that happened over the course of the game
     pub fn final_events(&self) -> &[Event] {
         &self.final_events
     }

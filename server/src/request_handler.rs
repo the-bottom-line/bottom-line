@@ -392,11 +392,11 @@ pub fn fire_character(
 pub fn swap_with_deck(
     state: &mut GameState,
     player_id: PlayerId,
-    card_idsx: Vec<usize>,
+    card_idxs: Vec<usize>,
 ) -> Result<Response, GameError> {
     let round = state.round_mut()?;
 
-    match round.player_swap_with_deck(player_id, card_idsx) {
+    match round.player_swap_with_deck(player_id, card_idxs) {
         Ok(_c) => {
             let internal = round
                 .players()
@@ -405,13 +405,18 @@ pub fn swap_with_deck(
                 .map(|p| {
                     (
                         p.id(),
-                        vec![UniqueResponse::SwapedWithDeck { card_count: _c }],
+                        vec![UniqueResponse::SwapedWithDeck {
+                            asset_count: _c[0],
+                            liability_count: _c[1],
+                        }],
                     )
                 })
                 .collect();
             Ok(Response(
                 InternalResponse(internal),
-                DirectResponse::YouSwapDeck { cards_to_draw: _c },
+                DirectResponse::YouSwapDeck {
+                    cards_to_draw: _c[0] + _c[1],
+                },
             ))
         }
         Err(e) => Err(e),

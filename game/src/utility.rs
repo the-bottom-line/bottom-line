@@ -6,7 +6,7 @@ pub mod serde_asset_liability {
 
     use either::Either;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
-    
+
     #[cfg(feature = "ts")]
     use ts_rs::TS;
 

@@ -158,10 +158,7 @@ pub enum DirectResponse {
     /// Confirmation that this player drew a card.
     YouDrewCard {
         /// The card that was drawn
-        #[cfg_attr(
-            feature = "ts",
-            ts(as = "serde_asset_liability::EitherAssetLiability")
-        )]
+        #[cfg_attr(feature = "ts", ts(as = "serde_asset_liability::EitherAssetLiability"))]
         #[serde(with = "serde_asset_liability::value")]
         card: Either<Asset, Liability>,
         /// Whether this player can draw another card.

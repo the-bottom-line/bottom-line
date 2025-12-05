@@ -1210,7 +1210,7 @@ impl Character {
 
     /// Returns true if this character can be forced to divest.
     pub fn can_be_forced_to_divest(&self) -> bool {
-        !matches!(self, Self::CFO)
+        !matches!(self, Self::CSO)
     }
 }
 

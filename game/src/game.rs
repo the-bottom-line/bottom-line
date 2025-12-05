@@ -2,6 +2,8 @@
 
 use either::Either;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "ts")]
+use ts_rs::TS;
 
 use std::{collections::HashSet, path::Path, sync::Arc, vec};
 
@@ -14,6 +16,9 @@ pub const STARTING_GOLD: u8 = 1;
 pub const ASSETS_FOR_END_OF_GAME: usize = 6;
 
 /// The event card type
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(rename = "EventCard"))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Event {
     /// The title of the event
@@ -34,6 +39,8 @@ pub struct Event {
 /// 3. Minus: (-)
 ///
 /// NOTE: The default state is `Zero`, which is also the case when parsing with serde.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub enum MarketCondition {
     /// The market for this color is up
@@ -44,11 +51,13 @@ pub enum MarketCondition {
     Minus,
     /// The market for this color is neutral
     #[default]
-    #[serde(other)]
     Zero,
 }
 
 /// The market card type
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(rename = "MarketCard"))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct Market {
     /// The title of the market
@@ -210,6 +219,8 @@ impl<T> Default for Deck<T> {
 
 /// Contains information when picking cards. One gets a list of pickable characters as
 /// well as a possible closed character if the player requesting it is the chairman.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PickableCharacters {
     /// List of pickable characters
@@ -339,6 +350,8 @@ impl ObtainingCharacters {
 }
 
 /// Data used when someone buys a new asset and a market change is triggered
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MarketChange {
     /// A list of events encountered in search for a market card
@@ -1838,6 +1851,8 @@ impl Results {
 /// assert_eq!(score.name(), "oxey");
 /// assert_eq!(score.score(), 10.0);
 /// ```
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PlayerScore {
     id: PlayerId,

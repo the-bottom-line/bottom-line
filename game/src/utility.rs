@@ -15,6 +15,7 @@ pub mod serde_asset_liability {
     /// A nicer tagged representation of `Either<Asset, Liability>` which looks much better when
     /// serialized.
     #[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(tag = "card_type")]
     pub enum EitherAssetLiability {

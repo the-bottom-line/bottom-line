@@ -8,3 +8,7 @@ pub mod errors;
 pub mod game;
 pub mod player;
 pub mod utility;
+
+/// The folder containing all shared typescript types.
+#[cfg(feature = "ts")]
+pub static SHARED_TS_DIR: &str = concat!(std::env!("CARGO_MANIFEST_DIR"), "/../shared-ts/index.ts");

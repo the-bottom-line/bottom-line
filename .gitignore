@@ -2,3 +2,4 @@
 .direnv
 /wasm-responses/target
 /wasm-responses/responses
+/shared-ts

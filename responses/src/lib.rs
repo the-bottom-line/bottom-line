@@ -17,6 +17,7 @@ use ts_rs::TS;
 
 /// The connect response. The very first thing a client should send is this request.
 #[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = game::SHARED_TS_DIR))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "action", content = "data")]
@@ -32,6 +33,7 @@ pub enum Connect {
 
 /// Requests that are sent from the frontend, to be handled by the backend.
 #[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = game::SHARED_TS_DIR))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "action", content = "data")]
@@ -101,6 +103,7 @@ pub enum FrontendRequest {
 /// a confirmation that the action was succesful, including the data needed to update the UI
 /// accordingly.
 #[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = game::SHARED_TS_DIR))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "action", content = "data")]
@@ -157,7 +160,7 @@ pub enum DirectResponse {
         /// The card that was drawn
         #[cfg_attr(
             feature = "ts",
-            ts(as = "Vec<serde_asset_liability::EitherAssetLiability>")
+            ts(as = "serde_asset_liability::EitherAssetLiability")
         )]
         #[serde(with = "serde_asset_liability::value")]
         card: Either<Asset, Liability>,
@@ -234,6 +237,7 @@ impl From<GameError> for DirectResponse {
 
 /// A response type that is meant for every other player when one player performs an action.
 #[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = game::SHARED_TS_DIR))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", content = "data")]
@@ -402,6 +406,7 @@ pub enum UniqueResponse {
 
 /// The general error type that can be sent back in a response.
 #[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = game::SHARED_TS_DIR))]
 #[derive(Debug, Error, Serialize, Deserialize)]
 pub enum ResponseError {
     /// A [`GameError`](game::errors::GameError)

@@ -764,6 +764,8 @@ impl From<RoundPlayer> for ResultsPlayer {
 /// Representation of an asset card. Each asset has a gold and a silver value, as well as an
 /// associated color. Some cards alse have an [`AssetPowerup`].
 #[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(rename = "AssetCard"))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Asset {
     /// Title of the asset card.
@@ -821,6 +823,7 @@ impl std::fmt::Display for Asset {
 /// A certain powerup some assets have. These specify special actions this asset allows a player to
 /// take at the end of the game.
 #[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum AssetPowerup {
     /// At the end of the game, for one color, turn that market color's - into 0 or 0 into +.
@@ -856,6 +859,8 @@ impl std::fmt::Display for AssetPowerup {
 /// Representation of a liability card. Each liability has an associated gold value as well as a
 /// [`LiabilityType`], which determines how expensive it is to issue this liability.
 #[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(rename = "LiabilityCard"))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Liability {
     /// Gold value of this liability
@@ -893,6 +898,7 @@ impl std::fmt::Display for Liability {
 
 /// The liability type determines the cost of lending for that particular liability.
 #[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum LiabilityType {
     /// The cheapest type of liability.
@@ -908,6 +914,7 @@ pub enum LiabilityType {
 /// A card type used in relation to actions taken with player's hands. Can either be `Asset` or
 /// `Liability`.
 #[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum CardType {
     /// The [`Asset`] card type.
@@ -936,6 +943,7 @@ where
 /// to see from another player if you were looking at what they have on the table. You cannot see
 /// their hand, but you can see the amount of asset cards and liability cards they have.
 #[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerInfo {
     /// The name of the player.
@@ -1034,6 +1042,7 @@ impl From<&ResultsPlayer> for PlayerInfo {
 /// Represtation of the colors associated with all assets as well as some selectable characters.
 #[allow(missing_docs)]
 #[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Color {
     Red,
@@ -1057,6 +1066,7 @@ impl Color {
 /// Utility struct used to represent the amount of asset cards and liability cards a certain player
 /// has.
 #[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RegulatorSwapPlayer {
     /// The id of the particular player.
@@ -1070,6 +1080,7 @@ pub struct RegulatorSwapPlayer {
 /// Utility struct used to represent each asset that can be divested from a player including the
 /// cost of doing so.
 #[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DivestPlayer {
     /// The id of the particular player.
@@ -1081,6 +1092,7 @@ pub struct DivestPlayer {
 
 /// Represents an asset that can be divested from a certain player including the cost of doing so.
 #[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DivestAsset {
     /// The asset in question.
@@ -1094,6 +1106,8 @@ pub struct DivestAsset {
 /// An enum containing all characters currently in the game in the order in which they are called.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(rename = "CharacterType"))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 pub enum Character {
     /// This character can fire any other character during their turn, excluding the
     /// [`Banker`](Character::Banker) and the [`Regulator`](Character::Regulator).
@@ -1230,6 +1244,7 @@ impl Character {
 
 /// a representation of how many assets of each color a certain player is allowed to buy this round.
 #[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PlayableAssets {
     total: u8,
@@ -1278,6 +1293,7 @@ impl Default for PlayableAssets {
 
 /// A wrapper around `u8` which represents a player's `id`.
 #[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(
     Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord,
 )]

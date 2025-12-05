@@ -65,7 +65,6 @@ pub enum FrontendRequest {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "action", content = "data")]
 pub enum DirectResponse {
-    #[cfg_attr(feature = "ts", ts(skip))]
     Error(ResponseError),
     YouStartedGame,
     YouSelectedCharacter {
@@ -235,6 +234,7 @@ pub enum UniqueResponse {
     },
 }
 
+#[cfg_attr(feature = "ts", derive(TS))]
 #[derive(Debug, Error, Serialize, Deserialize)]
 pub enum ResponseError {
     #[error(transparent)]

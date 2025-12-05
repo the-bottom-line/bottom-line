@@ -1,9 +1,7 @@
-use std::collections::HashMap;
-
 use either::Either;
 use game::{
     errors::GameError,
-    game::{Market, MarketChange},
+    game::{Market, MarketChange, PlayerScore},
     player::*,
     utility::serde_asset_liability,
 };
@@ -217,7 +215,7 @@ pub enum UniqueResponse {
         player_id: PlayerId,
     },
     GameEnded {
-        scores: HashMap<PlayerId, f64>,
+        scores: Vec<PlayerScore>,
     },
 }
 

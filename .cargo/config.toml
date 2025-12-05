@@ -2,3 +2,4 @@
 serve = "run -p server"
 test-game = "test -p game"
 test-server = "test -p server"
+export-ts = "test -p responses --features ts export_bindings"

@@ -539,11 +539,7 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
             ))
         }
         GameState::Results(results) => {
-            let scores = results
-                .players()
-                .iter()
-                .map(|p| (p.id(), p.score(results.final_market())))
-                .collect::<HashMap<_, _>>();
+            let scores = results.player_scores();
 
             let internal = results
                 .players()

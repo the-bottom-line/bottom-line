@@ -2,6 +2,8 @@
 
 use either::Either;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "ts")]
+use ts_rs::TS;
 
 use std::{collections::HashSet, path::Path, sync::Arc, vec};
 
@@ -14,6 +16,9 @@ pub const STARTING_GOLD: u8 = 1;
 pub const ASSETS_FOR_END_OF_GAME: usize = 6;
 
 /// The event card type
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(rename = "EventCard"))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Event {
     /// The title of the event
@@ -34,6 +39,8 @@ pub struct Event {
 /// 3. Minus: (-)
 ///
 /// NOTE: The default state is `Zero`, which is also the case when parsing with serde.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub enum MarketCondition {
     /// The market for this color is up
@@ -44,11 +51,13 @@ pub enum MarketCondition {
     Minus,
     /// The market for this color is neutral
     #[default]
-    #[serde(other)]
     Zero,
 }
 
 /// The market card type
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(rename = "MarketCard"))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct Market {
     /// The title of the market
@@ -104,6 +113,7 @@ pub struct Deck<T> {
     /// The list of actual cards
     #[serde(rename = "card_list")]
     pub deck: Vec<T>,
+    /// A backup of the deck, which is set when the deck is created.
     #[serde(skip, default = "default_backup_deck")]
     backup_deck: Box<[T]>,
 }
@@ -209,6 +219,8 @@ impl<T> Default for Deck<T> {
 
 /// Contains information when picking cards. One gets a list of pickable characters as
 /// well as a possible closed character if the player requesting it is the chairman.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PickableCharacters {
     /// List of pickable characters
@@ -338,6 +350,8 @@ impl ObtainingCharacters {
 }
 
 /// Data used when someone buys a new asset and a market change is triggered
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MarketChange {
     /// A list of events encountered in search for a market card
@@ -1797,6 +1811,15 @@ impl Results {
         self.players.players()
     }
 
+    /// Returns a list of [`PlayerScore`], which contains the player id as well as their final
+    /// score.
+    pub fn player_scores(&self) -> Vec<PlayerScore> {
+        self.players()
+            .iter()
+            .map(|p| PlayerScore::new(p.id(), p.name(), p.score(&self.final_market())))
+            .collect()
+    }
+
     /// Gets the [`PlayerInfo`] for each player, excluding the player that has the same id as `id`.
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
         self.players()
@@ -1814,6 +1837,80 @@ impl Results {
     /// Gets the list of events that happened over the course of the game
     pub fn final_events(&self) -> &[Event] {
         &self.final_events
+    }
+}
+
+/// Representation of a player's final score, which contains their id as well as their score.
+///
+/// # Examples
+///
+/// ```
+/// # use game::{game::PlayerScore, player::PlayerId};
+/// let score = PlayerScore::new(PlayerId(0), "oxey", 10.0);
+/// assert_eq!(score.id(), PlayerId(0));
+/// assert_eq!(score.name(), "oxey");
+/// assert_eq!(score.score(), 10.0);
+/// ```
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PlayerScore {
+    id: PlayerId,
+    name: String,
+    score: f64,
+}
+
+impl PlayerScore {
+    /// Constructs a new [`PlayerScore`]
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{game::PlayerScore, player::PlayerId};
+    /// let score = PlayerScore::new(PlayerId(0), "oxey", 10.0);
+    /// ```
+    pub fn new(id: PlayerId, name: &str, score: f64) -> Self {
+        let name = name.to_owned();
+        Self { id, name, score }
+    }
+
+    /// Gets a [`PlayerScore`]'s `id` field.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{game::PlayerScore, player::PlayerId};
+    /// let score = PlayerScore::new(PlayerId(0), "oxey", 10.0);
+    /// assert_eq!(score.id(), PlayerId(0));
+    /// ```
+    pub fn id(&self) -> PlayerId {
+        self.id
+    }
+
+    /// Gets a [`PlayerScore`]'s `name` field.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{game::PlayerScore, player::PlayerId};
+    /// let score = PlayerScore::new(PlayerId(0), "oxey", 10.0);
+    /// assert_eq!(score.name(), "oxey");
+    /// ```
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Gets a [`PlayerScore`]'s `score` field.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{game::PlayerScore, player::PlayerId};
+    /// let score = PlayerScore::new(PlayerId(0), "oxey", 10.0);
+    /// assert_eq!(score.score(), 10.0);
+    /// ```
+    pub fn score(&self) -> f64 {
+        self.score
     }
 }
 

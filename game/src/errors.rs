@@ -5,9 +5,14 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+#[cfg(feature = "ts")]
+use ts_rs::TS;
+
 use crate::player::Character;
 
 /// The main error enum used by the game logic.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
 pub enum GameError {
     /// Errors related to the lobby phase
@@ -102,6 +107,8 @@ pub enum GameError {
 
 /// Errors that can happen in the lobby phase.
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 pub enum LobbyError {
     /// Username already in use.
     #[error("Username {0} already taken")]
@@ -113,6 +120,8 @@ pub enum LobbyError {
 }
 
 /// Errors that can happen when someone plays a card.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
 pub enum PlayCardError {
     /// Provided card index is out of bounds.
@@ -138,6 +147,8 @@ pub enum PlayCardError {
 }
 
 /// Errors that can happen when redeeming a liability.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
 pub enum RedeemLiabilityError {
     /// Character type is not allowed to redeem liabilities.
@@ -163,6 +174,8 @@ pub enum RedeemLiabilityError {
 }
 
 /// Errors that can happen when a player must give back a card.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
 pub enum GiveBackCardError {
     /// Provided card index is invalid.
@@ -175,6 +188,8 @@ pub enum GiveBackCardError {
 }
 
 /// Errors related to firing a character.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
 pub enum FireCharacterError {
     /// The given character cannot be fired.
@@ -191,6 +206,8 @@ pub enum FireCharacterError {
 }
 
 /// Errors related to swapping hands/cards.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
 pub enum SwapError {
     /// Player has already swapped this turn.
@@ -211,6 +228,8 @@ pub enum SwapError {
 }
 
 /// Errors related to divesting assets.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
 pub enum DivestAssetError {
     /// Character type cannot divest assets.
@@ -239,6 +258,8 @@ pub enum DivestAssetError {
 }
 
 /// Errors related to drawing cards.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
 pub enum DrawCardError {
     /// Character has already drawn the maximum allowed for the turn.
@@ -247,6 +268,8 @@ pub enum DrawCardError {
 }
 
 /// Errors that can happen while selecting characters.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
 pub enum SelectingCharactersError {
     /// The game is not currently in the character-selection state.

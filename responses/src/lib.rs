@@ -8,12 +8,19 @@ use game::{
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+#[cfg(feature = "ts")]
+use ts_rs::TS;
+
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "action", content = "data")]
 pub enum Connect {
     Connect { username: String, channel: String },
 }
 
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "action", content = "data")]
 pub enum FrontendRequest {
@@ -53,9 +60,12 @@ pub enum FrontendRequest {
     EndTurn,
 }
 
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "action", content = "data")]
 pub enum DirectResponse {
+    #[cfg_attr(feature = "ts", ts(skip))]
     Error(ResponseError),
     YouStartedGame,
     YouSelectedCharacter {
@@ -73,6 +83,7 @@ pub enum DirectResponse {
         cards_to_draw: usize,
     },
     YouSwapPlayer {
+        #[cfg_attr(feature = "ts", ts(as = "Vec<serde_asset_liability::EitherAssetLiability>"))]
         #[serde(with = "serde_asset_liability::vec")]
         new_cards: Vec<Either<Asset, Liability>>,
     },
@@ -82,6 +93,7 @@ pub enum DirectResponse {
         perk: String,
     },
     YouDrewCard {
+        #[cfg_attr(feature = "ts", ts(as = "Vec<serde_asset_liability::EitherAssetLiability>"))]
         #[serde(with = "serde_asset_liability::value")]
         card: Either<Asset, Liability>,
         can_draw_cards: bool,
@@ -128,6 +140,8 @@ impl From<GameError> for DirectResponse {
     }
 }
 
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", content = "data")]
 pub enum UniqueResponse {
@@ -138,6 +152,7 @@ pub enum UniqueResponse {
     StartGame {
         id: PlayerId,
         cash: u8,
+        #[cfg_attr(feature = "ts", ts(as = "Vec<serde_asset_liability::EitherAssetLiability>"))]
         #[serde(with = "serde_asset_liability::vec")]
         hand: Vec<Either<Asset, Liability>>,
         player_info: Vec<PlayerInfo>,
@@ -194,6 +209,7 @@ pub enum UniqueResponse {
         character: Character,
     },
     RegulatorSwapedYourCards {
+        #[cfg_attr(feature = "ts", ts(as = "Vec<serde_asset_liability::EitherAssetLiability>"))]
         #[serde(with = "serde_asset_liability::vec")]
         new_cards: Vec<Either<Asset, Liability>>,
     },

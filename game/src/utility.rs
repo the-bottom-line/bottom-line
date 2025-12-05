@@ -6,14 +6,22 @@ pub mod serde_asset_liability {
 
     use either::Either;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    
+    #[cfg(feature = "ts")]
+    use ts_rs::TS;
 
     use crate::player::{Asset, Liability};
 
+    /// A nicer tagged representation of `Either<Asset, Liability>` which looks much better when
+    /// serialized.
+    #[cfg_attr(feature = "ts", derive(TS))]
     #[derive(Debug, Clone, Serialize, Deserialize)]
     #[serde(tag = "card_type")]
-    enum EitherAssetLiability {
+    pub enum EitherAssetLiability {
+        /// `"card_type": "asset"
         #[serde(rename = "asset")]
         Asset(Asset),
+        /// `"card_type": "liability"
         #[serde(rename = "liability")]
         Liability(Liability),
     }

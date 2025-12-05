@@ -8,7 +8,7 @@ either = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-game = { path = "../game", default-features = false }
+game = { path = "../game", default-features = false, features = [ "ts" ] }
 ts-rs = { version = "11.1.0", optional = true }
 
 [features]

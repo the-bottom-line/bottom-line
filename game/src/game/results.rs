@@ -1,0 +1,138 @@
+//! File containing the results state of the game.
+
+use crate::{errors::*, game::*, player::*};
+
+/// State containing all information related to the results state of the game. In the resuts stage,
+/// players can see their scores.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Results {
+    pub(super) players: Players<ResultsPlayer>,
+    pub(super) final_market: Market,
+    // TODO: implement events
+    pub(super) final_events: Vec<Event>,
+}
+
+impl Results {
+    /// Get a reference to a [`ResultsPlayer`] based on a specific `PlayerId`. Note that the players
+    /// are in order, so id 0 refers to the player at index 0 and so on.
+    /// See [`Players::player`] for further information
+    pub fn player(&self, id: PlayerId) -> Result<&ResultsPlayer, GameError> {
+        self.players.player(id)
+    }
+
+    /// Get a reference to a [`ResultsPlayer`] based on a specific `name`.
+    pub fn player_by_name(&self, name: &str) -> Result<&ResultsPlayer, GameError> {
+        self.players()
+            .iter()
+            .find(|p| p.name() == name)
+            .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
+    }
+
+    /// Gets a slice of all players in the lobby.
+    /// See [`Players::players`] for further information
+    pub fn players(&self) -> &[ResultsPlayer] {
+        self.players.players()
+    }
+
+    /// Returns a list of [`PlayerScore`], which contains the player id as well as their final
+    /// score.
+    pub fn player_scores(&self) -> Vec<PlayerScore> {
+        self.players()
+            .iter()
+            .map(|p| PlayerScore::new(p.id(), p.name(), p.score(&self.final_market())))
+            .collect()
+    }
+
+    /// Gets the [`PlayerInfo`] for each player, excluding the player that has the same id as `id`.
+    pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
+        self.players()
+            .iter()
+            .filter(|p| p.id() != id)
+            .map(Into::into)
+            .collect()
+    }
+
+    /// Gets the final market of the game
+    pub fn final_market(&self) -> &Market {
+        &self.final_market
+    }
+
+    /// Gets the list of events that happened over the course of the game
+    pub fn final_events(&self) -> &[Event] {
+        &self.final_events
+    }
+}
+
+/// Representation of a player's final score, which contains their id as well as their score.
+///
+/// # Examples
+///
+/// ```
+/// # use game::{game::PlayerScore, player::PlayerId};
+/// let score = PlayerScore::new(PlayerId(0), "oxey", 10.0);
+/// assert_eq!(score.id(), PlayerId(0));
+/// assert_eq!(score.name(), "oxey");
+/// assert_eq!(score.score(), 10.0);
+/// ```
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PlayerScore {
+    id: PlayerId,
+    name: String,
+    score: f64,
+}
+
+impl PlayerScore {
+    /// Constructs a new [`PlayerScore`]
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{game::PlayerScore, player::PlayerId};
+    /// let score = PlayerScore::new(PlayerId(0), "oxey", 10.0);
+    /// ```
+    pub fn new(id: PlayerId, name: &str, score: f64) -> Self {
+        let name = name.to_owned();
+        Self { id, name, score }
+    }
+
+    /// Gets a [`PlayerScore`]'s `id` field.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{game::PlayerScore, player::PlayerId};
+    /// let score = PlayerScore::new(PlayerId(0), "oxey", 10.0);
+    /// assert_eq!(score.id(), PlayerId(0));
+    /// ```
+    pub fn id(&self) -> PlayerId {
+        self.id
+    }
+
+    /// Gets a [`PlayerScore`]'s `name` field.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{game::PlayerScore, player::PlayerId};
+    /// let score = PlayerScore::new(PlayerId(0), "oxey", 10.0);
+    /// assert_eq!(score.name(), "oxey");
+    /// ```
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Gets a [`PlayerScore`]'s `score` field.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{game::PlayerScore, player::PlayerId};
+    /// let score = PlayerScore::new(PlayerId(0), "oxey", 10.0);
+    /// assert_eq!(score.score(), 10.0);
+    /// ```
+    pub fn score(&self) -> f64 {
+        self.score
+    }
+}

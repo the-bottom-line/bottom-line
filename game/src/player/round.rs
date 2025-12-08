@@ -5,8 +5,8 @@ use itertools::Itertools;
 
 use crate::{
     errors::*,
-    player::*,
     game::{Deck, Market, MarketCondition},
+    player::*,
 };
 
 /// The player type that corresponds to the [`Round`](crate::game::Round) stage of the game. During

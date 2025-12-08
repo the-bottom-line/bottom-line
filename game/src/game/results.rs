@@ -39,7 +39,7 @@ impl Results {
     pub fn player_scores(&self) -> Vec<PlayerScore> {
         self.players()
             .iter()
-            .map(|p| PlayerScore::new(p.id(), p.name(), p.score(&self.final_market())))
+            .map(|p| PlayerScore::new(p.id(), p.name(), p.score(self.final_market())))
             .collect()
     }
 

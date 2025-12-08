@@ -224,6 +224,25 @@ pub enum DirectResponse {
     },
     /// Confirmation that this player ended their turn.
     YouEndedTurn,
+
+    // Rejoin information
+    YouRejoin {
+        /// This player's personal id.
+        id: PlayerId,
+        /// The amount of cash this player gets.
+        cash: u8,
+        /// The player's hand.
+        #[cfg_attr(
+            feature = "ts",
+            ts(as = "Vec<serde_asset_liability::EitherAssetLiability>")
+        )]
+        #[serde(with = "serde_asset_liability::vec")]
+        hand: Vec<Either<Asset, Liability>>,
+        /// Public info about every other player.
+        player_info: Vec<PlayerInfo>,
+        /// The market at the start of the game.
+        market: Market,
+    }
 }
 
 impl From<GameError> for DirectResponse {

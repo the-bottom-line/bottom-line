@@ -272,7 +272,7 @@ impl Lobby {
         data_path: P,
     ) -> Result<GameState, GameError> {
         if self.can_start() {
-            let data = GameData::new(data_path).expect("Path for game data is invalid");
+            let data = GameData::new(&data_path).expect(&format!("Path: {} for game data is invalid", data_path.as_ref().display()));
 
             #[cfg(feature = "shuffle")]
             let data = {

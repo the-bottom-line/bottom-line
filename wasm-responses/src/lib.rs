@@ -77,7 +77,7 @@ impl CreateRequest {
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
-    #[wasm_bindgen(js_name = swapWithDeck)]
+    #[wasm_bindgen(js_name = swapWithPlayer)]
     pub fn swap_with_player(target_id: u8) -> Result<String, JsValue> {
         let target_player_id = PlayerId(target_id);
         serde_json::to_string(&responses::FrontendRequest::SwapWithPlayer { target_player_id })

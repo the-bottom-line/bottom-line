@@ -21,8 +21,10 @@ impl InternalResponse {
 }
 
 pub fn start_game(state: &mut GameState) -> Result<Response, GameError> {
-    let path =
-        PathBuf::from(std::env!("CARGO_MANIFEST_DIR")).join("../assets/cards/boardgame.json");
+    let assets_path = std::env::var("ASSETS_DIR")
+        .unwrap_or_else(|_| format!("{}/../assets/", env!("CARGO_MANIFEST_DIR")));
+    let path = PathBuf::from(assets_path).join("cards/boardgame.json");
+
     state.start_game(path)?;
 
     tracing::debug!("Started Game");

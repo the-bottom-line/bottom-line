@@ -272,7 +272,16 @@ impl Lobby {
         data_path: P,
     ) -> Result<GameState, GameError> {
         if self.can_start() {
-            let data = GameData::new(&data_path).expect(&format!("Path: {} for game data is invalid", data_path.as_ref().display()));
+            let data = match GameData::new(&data_path) {
+                Ok(data) => data,
+                Err(crate::cards::DataParseError::Io(_)) => {
+                    panic!(
+                        "Path '{}' for game data is invalid",
+                        data_path.as_ref().display()
+                    )
+                }
+                Err(e) => panic!("{e}"),
+            };
 
             #[cfg(feature = "shuffle")]
             let data = {

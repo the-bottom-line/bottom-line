@@ -81,6 +81,10 @@ impl RoundPlayer {
             .collect();
     }
 
+    fn can_afford_asset(&self, asset: &Asset) -> bool {
+        self.cash >= asset.gold_value
+    }
+
     /// Checks whether or not a player can play an asset of a certain color.
     fn can_play_asset(&self, color: Color) -> bool {
         self.assets_to_play
@@ -277,7 +281,7 @@ impl RoundPlayer {
 
         if let Some(card) = self.hand.get(card_idx) {
             match card {
-                Either::Left(a) if self.can_play_asset(a.color) && self.cash >= a.gold_value => {
+                Either::Left(a) if self.can_play_asset(a.color) && self.can_afford_asset(a) => {
                     let asset = self.hand.remove(card_idx).left().unwrap();
                     self.cash -= asset.gold_value;
                     self.assets_to_play -= self.playable_assets.color_cost(asset.color);
@@ -286,7 +290,7 @@ impl RoundPlayer {
                     Ok(Either::Left(asset))
                 }
                 Either::Left(a) if !self.can_play_asset(a.color) => Err(ExceedsMaximumAssets),
-                Either::Left(a) if self.cash < a.gold_value => Err(CannotAffordAsset {
+                Either::Left(a) if !self.can_afford_asset(a) => Err(CannotAffordAsset {
                     cash: self.cash,
                     cost: a.gold_value,
                 }),

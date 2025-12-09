@@ -207,6 +207,7 @@ impl Lobby {
     pub fn leave(&mut self, username: &str) -> bool {
         match self.players().iter().position(|p| p.name() == username) {
             Some(pos) => {
+                // PANIC: we just verified this is a valid position so removing here cannot crash.
                 self.players.0.remove(pos);
                 self.players_mut()
                     .iter_mut()

@@ -296,7 +296,7 @@ impl Lobby {
 
             let players = self.init_players(&mut assets, &mut liabilities);
             let current_market =
-                Lobby::initial_market(&mut markets).expect("No markets in deck for some reason");
+                Lobby::initial_market(&mut markets).unwrap_or_default();
 
             let chairman = players.players().first().unwrap().id();
             debug_assert_eq!(chairman, PlayerId(0));

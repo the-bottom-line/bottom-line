@@ -324,20 +324,23 @@ impl RoundPlayer {
     }
 
     /// Makes the player draw a new card to their hand.
-    fn draw_card(&mut self, card: Either<Asset, Liability>) {
+    fn draw_card(&mut self, card: Either<Asset, Liability>) -> Either<&Asset, &Liability> {
         self.total_cards_drawn += 1;
         self.cards_drawn.push(self.hand.len());
         self.hand.push(card);
+        // PANIC: because we just pushed to the hand, we know this to be safe.
+        self.hand.last().unwrap().as_ref()
     }
 
     /// Draws a new asset from the deck, if they are allowed. If succesful, a reference to this
     /// asset is returned.
     pub(crate) fn draw_asset(&mut self, deck: &mut Deck<Asset>) -> Result<&Asset, DrawCardError> {
         if self.can_draw_cards() {
-            let card = Either::Left(deck.draw());
-            self.draw_card(card);
+            let asset = Either::Left(deck.draw());
+            let card = self.draw_card(asset);
 
-            Ok(self.hand.last().unwrap().as_ref().left().unwrap())
+            // PANIC: because we just drew an asset, we know this to be safe.
+            Ok(card.left().unwrap())
         } else {
             Err(DrawCardError::MaximumCardsDrawn(self.total_cards_drawn))
         }
@@ -350,10 +353,11 @@ impl RoundPlayer {
         deck: &mut Deck<Liability>,
     ) -> Result<&Liability, DrawCardError> {
         if self.can_draw_cards() {
-            let card = Either::Right(deck.draw());
-            self.draw_card(card);
+            let liability = Either::Right(deck.draw());
+            let card = self.draw_card(liability);
 
-            Ok(self.hand.last().unwrap().as_ref().right().unwrap())
+            // PANIC: because we just drew a liability, we know this to be safe.
+            Ok(card.right().unwrap())
         } else {
             Err(DrawCardError::MaximumCardsDrawn(self.total_cards_drawn))
         }

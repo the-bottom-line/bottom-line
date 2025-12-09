@@ -112,6 +112,8 @@ impl SelectingCharacters {
                         .min_by(|p1, p2| p1.character().cmp(&p2.character()))
                         .map(|p| p.id())
                         .unwrap();
+                    // PANIC: This is safe because a game has to have at least four players to
+                    // start, and they cannot be removed
 
                     let players = std::mem::take(&mut self.players);
                     let assets = std::mem::take(&mut self.assets);

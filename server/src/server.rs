@@ -54,8 +54,13 @@ pub async fn setupsocket() {
         .route("/websocket", get(websocket_handler))
         .with_state(app_state);
 
+    // PANIC: this crashes if the port is not available. Since we control the server, we know it is
+    // available and so this is safe to unwrap.
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    // PANIC: since we know the listener to have a valid address, this cannot crash.
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
+    // PANIC: Although this returns a result type, as specified by the axum documentation this will
+    // never actually complete or return an error
     axum::serve(listener, app).await.unwrap();
 }
 
@@ -63,6 +68,9 @@ async fn send_external(
     msg: impl Serialize,
     sender: Arc<TokioMutex<SplitSink<WebSocket, Message>>>,
 ) -> Result<(), axum::Error> {
+    // PANIC: the documentation of `serde_json::to_string` specifies that it can return an error if
+    // the implementation of `Serialize` fails for the given type, or if the type contains a map
+    // with non-string keys. Since neither of those things are true, this as safe to unwrap.
     let msg = serde_json::to_string(&msg).unwrap();
     let mut s = sender.lock().await;
     s.send(Message::Text(msg.into())).await
@@ -96,12 +104,16 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 };
 
                 let error_response = {
+                    // PANIC: a mutex can only poison if any other thread that has access to it
+                    // crashes. Since this cannot happen, unwrapping is safe.
                     let mut rooms = state.rooms.lock().unwrap();
                     channel = connect_channel.clone();
                     let room = rooms
                         .entry(connect_channel)
                         .or_insert_with(|| Arc::new(RoomState::new()));
 
+                    // PANIC: a mutex can only poison if any other thread that has access to it
+                    // crashes. Since this cannot happen, unwrapping is safe.
                     match &mut *room.game.lock().unwrap() {
                         GameState::Lobby(lobby) => match lobby.join(connect_username.clone()) {
                             Ok(player) => {
@@ -125,6 +137,8 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     }
 
     let room = {
+        // PANIC: a mutex can only poison if any other thread that has access to it crashes. Since
+        // this cannot happen, unwrapping is safe.
         let rooms = state.rooms.lock().unwrap();
         rooms
             .get(&channel)
@@ -139,6 +153,8 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let mut player_rx = room.player_tx[channel_idx].subscribe();
 
     // announce join to everyone
+    // PANIC: a mutex can only poison if any other thread that has access to it crashes. Since this
+    // cannot happen, unwrapping is safe.
     match &*room.game.lock().unwrap() {
         GameState::Lobby(lobby) => {
             let internal = UniqueResponse::PlayersInLobby {
@@ -245,6 +261,8 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     };
 
     // announce leave
+    // PANIC: a mutex can only poison if any other thread that has access to it crashes. Since this
+    // cannot happen, unwrapping is safe.
     if let Ok(lobby) = room.game.lock().unwrap().lobby_mut() {
         // remove username on disconnect
         lobby.leave(&username);

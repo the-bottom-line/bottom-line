@@ -53,6 +53,9 @@ impl Round {
 
     /// Get a reference to the [`RoundPlayer`] whose turn it is.
     pub fn current_player(&self) -> &RoundPlayer {
+        // PANIC: This is an invariant that holds because `self.current_player` is only assigned by
+        // in Round::end_player_turn() and relies on Round::next_player() which is safe. Therefore,
+        // `self.current_player` is never invalid.
         self.player(self.current_player)
             .expect("self.current_player went out of bounds")
     }

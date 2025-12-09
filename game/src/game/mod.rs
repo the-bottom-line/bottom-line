@@ -273,12 +273,15 @@ impl ObtainingCharacters {
                 .iter()
                 .position(|c| *c == Character::CEO)
                 .unwrap();
+            // PANIC: this is completely safe because `Character::CHARACTERS always contains all
+            // characters, which of course includes the CEO.
 
             // Get CEO out of the first `open_character_count` positions
             if (0..open_character_count).contains(&ceo_pos) {
                 let ceo_insert =
                     rand::random_range(open_character_count..(available_characters.len() - 1));
-                debug_assert_eq!(available_characters.deck.remove(ceo_pos), Character::CEO);
+                // PANIC: We know `ceo_pos` to be a valid position, so removing it cannot crash.
+                assert_eq!(available_characters.deck.remove(ceo_pos), Character::CEO);
                 available_characters.deck.insert(ceo_insert, Character::CEO);
             }
             // CEO is now out of bottom positions of the deck (start of list) but we want it out

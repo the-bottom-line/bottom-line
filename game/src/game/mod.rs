@@ -336,6 +336,7 @@ impl ObtainingCharacters {
             Ok(PickableCharacters { mut characters, .. }) => {
                 match characters.iter().position(|&c| c == character) {
                     Some(i) => {
+                        // PANIC: we know `i` to be a valid position, so removing it cannot crash.
                         characters.remove(i);
                         self.draw_idx += 1;
                         self.available_characters.deck = characters;

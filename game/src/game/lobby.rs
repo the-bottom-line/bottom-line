@@ -355,6 +355,7 @@ impl Lobby {
     /// Grab market card if available. If no market cards are in the deck, `None` is returned.
     fn initial_market(markets: &mut Deck<Either<Market, Event>>) -> Option<Market> {
         match markets.deck.iter().position(|c| c.is_left()) {
+            // PANIC: we verified that this is a valid position, so removing it cannot crash.
             Some(pos) => markets.deck.swap_remove(pos).left(),
             _ => None,
         }

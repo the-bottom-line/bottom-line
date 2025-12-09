@@ -229,6 +229,7 @@ impl RoundPlayer {
     /// was removed from the player.
     pub fn remove_asset(&mut self, asset_idx: usize) -> Result<Asset, DivestAssetError> {
         if self.assets.get(asset_idx).is_some() {
+            // PANIC: We verified that asset_idx is a valid index, so this cannot crash.
             Ok(self.assets.remove(asset_idx))
         } else {
             Err(DivestAssetError::InvalidCardIdx)

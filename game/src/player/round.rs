@@ -307,7 +307,16 @@ impl RoundPlayer {
                     Ok(Either::Right(liability))
                 }
                 Either::Right(_) if !self.can_play_liability() => Err(ExceedsMaximumLiabilities),
-                _ => unreachable!(),
+                _ => {
+                    // PANIC: the compiler cannot verify that all cases are covered, but we can:
+                    // Left() if we can both play and buy asset is checked,
+                    // Left() if we can either not play or not buy asset is checked
+                    // -- this covers all possible paths when it comes to the Left path
+                    // Right if we can play liability is checked
+                    // Right if we can't play liability is checked
+                    // -- again we have full coverage of the Right path, so this is safe.
+                    unreachable!()
+                }
             }
         } else {
             Err(InvalidCardIndex(card_idx as u8))

@@ -54,8 +54,13 @@ pub async fn setupsocket() {
         .route("/websocket", get(websocket_handler))
         .with_state(app_state);
 
+    // PANIC: this crashes if the port is not available. Since we control the server, we know it is
+    // available and so this is safe to unwrap.
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    // PANIC: since we know the listener to have a valid address, this cannot crash.
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
+    // PANIC: Although this returns a result type, as specified by the axum documentation this will
+    // never actually complete or return an error
     axum::serve(listener, app).await.unwrap();
 }
 

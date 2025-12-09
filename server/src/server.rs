@@ -68,6 +68,9 @@ async fn send_external(
     msg: impl Serialize,
     sender: Arc<TokioMutex<SplitSink<WebSocket, Message>>>,
 ) -> Result<(), axum::Error> {
+    // PANIC: the documentation of `serde_json::to_string` specifies that it can return an error if
+    // the implementation of `Serialize` fails for the given type, or if the type contains a map
+    // with non-string keys. Since neither of those things are true, this as safe to unwrap.
     let msg = serde_json::to_string(&msg).unwrap();
     let mut s = sender.lock().await;
     s.send(Message::Text(msg.into())).await

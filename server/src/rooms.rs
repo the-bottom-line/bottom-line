@@ -38,6 +38,8 @@ impl RoomState {
         msg: FrontendRequest,
         player_name: &str,
     ) -> Result<Response, GameError> {
+        // PANIC: a mutex can only poison if any other thread that has access to it crashes. Since
+        // this cannot happen, unwrapping is safe.
         let state = &mut *self.game.lock().unwrap();
 
         match msg {

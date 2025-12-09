@@ -96,12 +96,16 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 };
 
                 let error_response = {
+                    // PANIC: a mutex can only poison if any other thread that has access to it
+                    // crashes. Since this cannot happen, unwrapping is safe.
                     let mut rooms = state.rooms.lock().unwrap();
                     channel = connect_channel.clone();
                     let room = rooms
                         .entry(connect_channel)
                         .or_insert_with(|| Arc::new(RoomState::new()));
 
+                    // PANIC: a mutex can only poison if any other thread that has access to it
+                    // crashes. Since this cannot happen, unwrapping is safe.
                     match &mut *room.game.lock().unwrap() {
                         GameState::Lobby(lobby) => match lobby.join(connect_username.clone()) {
                             Ok(player) => {
@@ -125,6 +129,8 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     }
 
     let room = {
+        // PANIC: a mutex can only poison if any other thread that has access to it crashes. Since
+        // this cannot happen, unwrapping is safe.
         let rooms = state.rooms.lock().unwrap();
         rooms
             .get(&channel)
@@ -139,6 +145,8 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let mut player_rx = room.player_tx[channel_idx].subscribe();
 
     // announce join to everyone
+    // PANIC: a mutex can only poison if any other thread that has access to it crashes. Since this
+    // cannot happen, unwrapping is safe.
     match &*room.game.lock().unwrap() {
         GameState::Lobby(lobby) => {
             let internal = UniqueResponse::PlayersInLobby {
@@ -245,6 +253,8 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     };
 
     // announce leave
+    // PANIC: a mutex can only poison if any other thread that has access to it crashes. Since this
+    // cannot happen, unwrapping is safe.
     if let Ok(lobby) = room.game.lock().unwrap().lobby_mut() {
         // remove username on disconnect
         lobby.leave(&username);

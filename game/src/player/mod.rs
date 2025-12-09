@@ -70,16 +70,6 @@ impl Asset {
     }
 }
 
-impl std::fmt::Display for Asset {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}\ngold: {}\nsilver: {}\ncolor: {:?}",
-            self.title, self.gold_value, self.silver_value, self.color
-        )
-    }
-}
-
 /// A certain powerup some assets have. These specify special actions this asset allows a player to
 /// take at the end of the game.
 #[cfg_attr(feature = "ts", derive(TS))]
@@ -95,25 +85,6 @@ pub enum AssetPowerup {
     /// At the end of the game, count one of your assets as any color.
     #[serde(rename = "At the end of the game, count one of your assets as any color")]
     CountAsAnyColor,
-}
-
-impl std::fmt::Display for AssetPowerup {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::MinusIntoPlus => write!(
-                f,
-                "At the end of the game, for one color, turn - into 0 or 0 into +"
-            ),
-            Self::SilverIntoGold => write!(
-                f,
-                "At the end of the game, turn silver into gold on one asset card"
-            ),
-            Self::CountAsAnyColor => write!(
-                f,
-                "At the end of the game, count one of your assets as any color"
-            ),
-        }
-    }
 }
 
 /// Representation of a liability card. Each liability has an associated gold value as well as a
@@ -141,18 +112,6 @@ impl Liability {
             LiabilityType::BankLoan => 2,
             LiabilityType::Bonds => 3,
         }
-    }
-}
-
-impl std::fmt::Display for Liability {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let title = serde_json::to_string(&self.rfr_type).unwrap();
-        write!(
-            f,
-            "{title} - {}%\nvalue: {}\n",
-            self.rfr_percentage(),
-            self.value
-        )
     }
 }
 

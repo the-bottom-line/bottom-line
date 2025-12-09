@@ -1253,7 +1253,7 @@ impl SelectingCharacters {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Round {
     current_player: PlayerId,
-    players: Players<RoundPlayer>,
+    players: Players<PlayerState>,
     assets: Deck<Asset>,
     liabilities: Deck<Liability>,
     markets: Deck<Either<Market, Event>>,

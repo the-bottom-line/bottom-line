@@ -290,7 +290,7 @@ pub fn redeem_liability(
 
 fn turn_starts(round: &Round) -> UniqueResponse {
     let current_player = round.current_player();
-
+    //TODO implement to banker targetplayer type from round player
     UniqueResponse::TurnStarts {
         player_turn: current_player.id(),
         player_turn_cash: current_player.turn_cash(round.current_market()),

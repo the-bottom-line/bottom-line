@@ -177,8 +177,11 @@ impl RoundPlayer {
                     // TODO: actually draw new cards for player?
                     let mut asset_count: usize = 0;
                     let mut liability_count: usize = 0;
-                    for card in card_idxs.into_iter().rev() {
-                        match self.hand.remove(card) {
+                    for card_idx in card_idxs.into_iter().rev() {
+                        // PANIC: we know each card_idx to be a valid index, so removing them cannot
+                        // crash. Clarification: Sorting puts the highest index last, and we check
+                        // if the last index is within the bounds of the player's hand.
+                        match self.hand.remove(card_idx) {
                             Either::Left(a) => {
                                 asset_deck.put_back(a);
                                 asset_count += 1;

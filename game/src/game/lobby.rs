@@ -296,10 +296,13 @@ impl Lobby {
             let mut markets = data.market_deck;
 
             let players = self.init_players(&mut assets, &mut liabilities);
-            let current_market =
-                Lobby::initial_market(&mut markets).unwrap_or_default();
+            let current_market = Lobby::initial_market(&mut markets).unwrap_or_default();
 
-            let chairman = players.players().first().unwrap().id();
+            let chairman = players
+                .players()
+                .first()
+                .ok_or(GameError::InvalidPlayerCount(players.len() as u8))?
+                .id();
             debug_assert_eq!(chairman, PlayerId(0));
 
             let characters = ObtainingCharacters::new(players.len(), chairman)?;

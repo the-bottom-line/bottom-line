@@ -286,6 +286,8 @@ impl RoundPlayer {
         if let Some(card) = self.hand.get(card_idx) {
             match card {
                 Either::Left(a) if self.can_play_asset(a.color) && self.can_afford_asset(a) => {
+                    // PANIC: self.hand[card_idx] exists and has been verified to be an asset, so
+                    // this is safe to unwrap
                     let asset = self.hand.remove(card_idx).left().unwrap();
                     self.cash -= asset.gold_value;
                     self.assets_to_play -= self.playable_assets.color_cost(asset.color);
@@ -299,6 +301,8 @@ impl RoundPlayer {
                     cost: a.gold_value,
                 }),
                 Either::Right(_) if self.can_play_liability() => {
+                    // PANIC: self.hand[card_idx] exists and has been verified to be a liability, so
+                    // this is safe to unwrap
                     let liability = self.hand.remove(card_idx).right().unwrap();
                     self.cash += liability.value;
                     self.liabilities_to_play -= 1;
@@ -374,6 +378,8 @@ impl RoundPlayer {
                 Some(_) => {
                     self.total_cards_given_back += 1;
                     self.update_cards_drawn(card_idx);
+                    // PANIC: we just verified that there is a card at this index, so removing it
+                    // cannot crash.
                     Ok(self.hand.remove(card_idx))
                 }
                 None => Err(GiveBackCardError::InvalidCardIndex(card_idx as u8)),

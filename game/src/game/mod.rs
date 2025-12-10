@@ -62,6 +62,26 @@ pub enum MarketCondition {
     Zero,
 }
 
+impl MarketCondition {
+    /// Makes into a higher market condition:
+    /// `Plus` and `Zero` become `Plus`, `Minus` becomes `Zero.
+    pub fn make_higher(&mut self) {
+        *self = match self {
+            Self::Plus | Self::Zero => Self::Plus,
+            Self::Minus => Self::Zero,
+        };
+    }
+
+    /// Makes into a lower market condition:
+    /// `Zero` and `Minus` become `Minus`, `Plus` becomes `Zero.
+    pub fn make_lower(&mut self) {
+        *self = match self {
+            Self::Minus | Self::Zero => Self::Minus,
+            Self::Plus => Self::Zero,
+        };
+    }
+}
+
 /// The market card type
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(rename = "MarketCard"))]
@@ -518,17 +538,17 @@ impl<P> Players<P> {
     ) -> Result<[&mut P; N], std::slice::GetDisjointMutError> {
         self.0.get_disjoint_mut(indices)
     }
-    
+
     /// Returns an iterator over the slice.
     /// The iterator yields all players from start to end.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use game::game::Players;
     /// let players = Players::new(vec![1, 2, 4]);
     /// let mut iterator = players.iter();
-    /// 
+    ///
     /// assert_eq!(iterator.next(), Some(&1));
     /// assert_eq!(iterator.next(), Some(&2));
     /// assert_eq!(iterator.next(), Some(&4));

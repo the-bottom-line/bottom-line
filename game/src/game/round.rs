@@ -463,7 +463,12 @@ impl Round {
                 let final_events = std::mem::take(&mut self.current_events);
                 let players = std::mem::take(&mut self.players);
 
-                let players = Players(players.0.into_iter().map(Into::into).collect());
+                let players = Players(
+                    players
+                        .into_iter()
+                        .map(|round_player| ResultsPlayer::new(round_player, self.current_market()))
+                        .collect(),
+                );
 
                 let state = GameState::Results(Results {
                     players,

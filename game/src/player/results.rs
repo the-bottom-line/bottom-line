@@ -14,9 +14,25 @@ pub struct ResultsPlayer {
     assets: Vec<Asset>,
     liabilities: Vec<Liability>,
     hand: Vec<Either<Asset, Liability>>,
+    market: Market,
 }
 
 impl ResultsPlayer {
+    /// Creates a new `ResultsPlayer` based on a [`RoundPlayer`] and a given [`Market`]. Because of
+    /// the [`MinusIntoPlus`](crate::player::AssetPowerup) asset ability, each player keeps track of
+    /// their own market.
+    pub fn new(player: RoundPlayer, market: &Market) -> Self {
+        Self {
+            id: player.id,
+            name: player.name,
+            cash: player.cash,
+            assets: player.assets,
+            liabilities: player.liabilities,
+            hand: player.hand,
+            market: market.clone(),
+        }
+    }
+
     /// Gets the id of the player
     pub fn id(&self) -> PlayerId {
         self.id
@@ -132,19 +148,6 @@ impl ResultsPlayer {
         let fcf = red + green + yellow + purple + blue;
 
         (fcf / (10.0 * wacc)) + (debt / 3.0) + self.cash() as f64
-    }
-}
-
-impl From<RoundPlayer> for ResultsPlayer {
-    fn from(player: RoundPlayer) -> Self {
-        Self {
-            id: player.id,
-            name: player.name,
-            cash: player.cash,
-            assets: player.assets,
-            liabilities: player.liabilities,
-            hand: player.hand,
-        }
     }
 }
 

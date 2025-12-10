@@ -99,6 +99,10 @@ impl RoomState {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
                 end_turn(state, player_id)
             }
+            FrontendRequest::MinusIntoPlus { color } => todo!(),
+            FrontendRequest::SilverIntoGold { asset_idx } => todo!(),
+            FrontendRequest::ChangeAssetColor { asset_idx, color } => todo!(),
+            FrontendRequest::ConfirmAssetAbility { asset_idx } => todo!(),
         }
     }
 }

@@ -5,7 +5,7 @@
 use either::Either;
 use game::{
     errors::GameError,
-    game::{Market, MarketChange, PlayerScore},
+    game::{Market, MarketChange, MarketCondition, PlayerScore},
     player::*,
     utility::serde_asset_liability,
 };
@@ -97,6 +97,31 @@ pub enum FrontendRequest {
     },
     /// Tries to end the turn of this player.
     EndTurn,
+    /// Tries to turn minus into zero or zero into plus for the player's market at the end of the
+    /// game. Related to [`AssetPowerup::MinusIntoPlus`](game::player::AssetPowerup::MinusIntoPlus).
+    MinusIntoPlus {
+        /// The color to change the minus from.
+        color: Color,
+    },
+    /// Tries to turn the silver of a particular asset into gold. Related to
+    /// [`AssetPowerup::SilverIntoGold`](game::player::AssetPowerup::MinusIntoPlus).
+    SilverIntoGold {
+        /// The index of the asset to change silver into gold from.
+        asset_idx: usize,
+    },
+    /// Tries to change the color of any bought asset into another color. Related to
+    /// [`AssetPowerup::ChangeAssetColor`](game::player::AssetPowerup::ChangeAssetColor).
+    ChangeAssetColor {
+        /// The index of the asset to change color from.
+        asset_idx: usize,
+        /// The new color of the asset.
+        color: Color,
+    },
+    /// Tries to confirm the usage of a asset ability.
+    ConfirmAssetAbility {
+        /// The index of the asset which ability was used.
+        asset_idx: usize,
+    },
 }
 
 /// A response type that a player receives after performing an action. Can either be an error or
@@ -224,6 +249,38 @@ pub enum DirectResponse {
     },
     /// Confirmation that this player ended their turn.
     YouEndedTurn,
+    /// Confirms that this player changed one of their market colors.
+    YouMinusedIntoPlus {
+        /// The market color that was changed,
+        color: Color,
+        /// The new condition of the market.
+        new_condition: MarketCondition,
+        /// The updated player score.
+        new_score: f64,
+    },
+    /// Confirms that this player changed the silver of one of their cards into gold.
+    YouSilveredIntoGold {
+        /// The index of the asset which silver was changed into gold.
+        asset_idx: usize,
+        /// The new gold value,
+        gold_value: u8,
+        /// The updated player score.
+        new_score: f64,
+    },
+    /// Confirms that this player changed the color of one of their assets.
+    YouChangedAssetColor {
+        /// The index of the asset which changed color.
+        asset_idx: usize,
+        /// The new color of this asset.
+        color: Color,
+        /// The updated player score.
+        new_score: f64,
+    },
+    /// Confirms that this player confirmed an asset ability's choice.
+    YouConfirmedAssetAbility {
+        /// The asset the player confirmed their choice for.
+        asset_idx: usize,
+    },
 }
 
 impl From<GameError> for DirectResponse {
@@ -398,6 +455,46 @@ pub enum UniqueResponse {
     GameEnded {
         /// A list of player scores.
         scores: Vec<PlayerScore>,
+    },
+    /// Confirms that a player changed one of their market colors.
+    MinusedIntoPlus {
+        /// The id of the player which changed one of their market colors.
+        player_id: PlayerId,
+        /// The market color that was changed,
+        color: Color,
+        /// The new condition of the market.
+        new_condition: MarketCondition,
+        /// The updated player score.
+        new_score: f64,
+    },
+    /// Confirms that a player changed the silver of one of their cards into gold.
+    SilveredIntoGold {
+        /// The id of the player which changed the silver of one of their cards into gold.
+        player_id: PlayerId,
+        /// The index of the asset which silver was changed into gold.
+        asset_idx: usize,
+        /// The new gold value,
+        gold_value: u8,
+        /// The updated player score.
+        new_score: f64,
+    },
+    /// Confirms that a player changed the color of one of their assets.
+    ChangedAssetColor {
+        /// The id of the player which changed the color of one of their assets.
+        player_id: PlayerId,
+        /// The index of the asset which changed color.
+        asset_idx: usize,
+        /// The new color of this asset.
+        color: Color,
+        /// The updated player score.
+        new_score: f64,
+    },
+    /// Confirms that a player confirmed an asset ability's choice.
+    ConfirmedAssetAbility {
+        /// The id of the player which confirmed an asset ability's choice.
+        player_id: PlayerId,
+        /// The asset the player confirmed their choice for.
+        asset_idx: usize,
     },
 }
 

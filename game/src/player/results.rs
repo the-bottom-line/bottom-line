@@ -97,13 +97,13 @@ impl ResultsPlayer {
     }
 
     /// Gets the value of all assets of a certain color this player has
-    pub fn color_value(&self, color: Color, market: &Market) -> f64 {
+    pub fn color_value(&self, color: Color) -> f64 {
         let market_condition = match color {
-            Color::Red => market.red,
-            Color::Green => market.green,
-            Color::Purple => market.purple,
-            Color::Yellow => market.yellow,
-            Color::Blue => market.blue,
+            Color::Red => self.market.red,
+            Color::Green => self.market.green,
+            Color::Purple => self.market.purple,
+            Color::Yellow => self.market.yellow,
+            Color::Blue => self.market.blue,
         };
 
         let mul = match market_condition {
@@ -123,7 +123,7 @@ impl ResultsPlayer {
     }
 
     /// Gets the final score for this player
-    pub fn score(&self, final_market: &Market) -> f64 {
+    pub fn score(&self) -> f64 {
         let gold = self.total_gold() as f64;
         let silver = self.total_silver() as f64;
 
@@ -137,13 +137,13 @@ impl ResultsPlayer {
         // TODO: end of game bonuses
         let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / gold;
 
-        let wacc = final_market.rfr as f64 + drp + beta * final_market.mrp as f64;
+        let wacc = self.market.rfr as f64 + drp + beta * self.market.mrp as f64;
 
-        let red = self.color_value(Color::Red, final_market);
-        let green = self.color_value(Color::Green, final_market);
-        let yellow = self.color_value(Color::Yellow, final_market);
-        let purple = self.color_value(Color::Purple, final_market);
-        let blue = self.color_value(Color::Blue, final_market);
+        let red = self.color_value(Color::Red);
+        let green = self.color_value(Color::Green);
+        let yellow = self.color_value(Color::Yellow);
+        let purple = self.color_value(Color::Purple);
+        let blue = self.color_value(Color::Blue);
 
         let fcf = red + green + yellow + purple + blue;
 

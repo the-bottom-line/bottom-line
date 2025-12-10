@@ -957,18 +957,7 @@ mod tests {
                 };
                 let round_player = RoundPlayer::try_from(selecting_player).unwrap();
 
-                let mut market = Market {
-                    title: Default::default(),
-                    rfr: Default::default(),
-                    mrp: Default::default(),
-                    yellow: Zero,
-                    blue: Zero,
-                    green: Zero,
-                    purple: Zero,
-                    red: Zero,
-                    image_front_url: Default::default(),
-                    image_back_url: Default::default(),
-                };
+                let mut market = Market::default();
 
                 match character.color() {
                     Some(Color::Red) => market.red = condition,

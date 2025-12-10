@@ -63,6 +63,22 @@ impl ResultsPlayer {
         &self.hand
     }
 
+    /// Resets back to the passed `final_market` and then turns the minus of a certain color into a
+    /// zero or a zero into a plus.
+    pub fn minus_into_plus(&mut self, color: Color, final_market: &Market) -> &Market {
+        self.market = final_market.clone();
+
+        match color {
+            Color::Red => self.market.red.make_higher(),
+            Color::Green => self.market.green.make_higher(),
+            Color::Purple => self.market.purple.make_higher(),
+            Color::Yellow => self.market.yellow.make_higher(),
+            Color::Blue => self.market.blue.make_higher(),
+        }
+
+        &self.market
+    }
+
     /// Gets tho total gold value of all assets this player owns
     pub fn total_gold(&self) -> u8 {
         self.assets.iter().map(|a| a.gold_value).sum()

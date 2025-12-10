@@ -444,7 +444,7 @@ impl Round {
                 let current_market = std::mem::take(&mut self.current_market);
                 let current_events = std::mem::take(&mut self.current_events);
 
-                let players = Players(players.0.into_iter().map(Into::into).collect());
+                let players = Players(players.into_iter().map(Into::into).collect());
 
                 let state = GameState::SelectingCharacters(SelectingCharacters {
                     players,

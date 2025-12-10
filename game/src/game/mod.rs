@@ -518,11 +518,40 @@ impl<P> Players<P> {
     ) -> Result<[&mut P; N], std::slice::GetDisjointMutError> {
         self.0.get_disjoint_mut(indices)
     }
+    
+    /// Returns an iterator over the slice.
+    /// The iterator yields all players from start to end.
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// # use game::game::Players;
+    /// let players = Players::new(vec![1, 2, 4]);
+    /// let mut iterator = players.iter();
+    /// 
+    /// assert_eq!(iterator.next(), Some(&1));
+    /// assert_eq!(iterator.next(), Some(&2));
+    /// assert_eq!(iterator.next(), Some(&4));
+    /// assert_eq!(iterator.next(), None);
+    /// ```
+    pub fn iter(&self) -> impl Iterator<Item = &P> {
+        self.0.iter()
+    }
 }
 
 impl<P> Default for Players<P> {
     fn default() -> Self {
         Self(Default::default())
+    }
+}
+
+impl<P> IntoIterator for Players<P> {
+    type Item = P;
+
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 

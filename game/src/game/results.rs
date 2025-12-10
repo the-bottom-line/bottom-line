@@ -61,6 +61,15 @@ impl Results {
     pub fn final_events(&self) -> &[Event] {
         &self.final_events
     }
+
+    /// Increases one of the market conditions of a certain color for player with `id`. This means
+    /// that minus is turned into zero and zero is turned into plus. Returns the resulting market.
+    pub fn minus_into_plus(&mut self, id: PlayerId, color: Color) -> Result<Market, GameError> {
+        let player = self.players.player_mut(id)?;
+        let market = player.minus_into_plus(color, &self.final_market).to_owned();
+
+        Ok(market)
+    }
 }
 
 /// Representation of a player's final score, which contains their id as well as their score.

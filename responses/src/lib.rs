@@ -5,7 +5,7 @@
 use either::Either;
 use game::{
     errors::GameError,
-    game::{Market, MarketChange, MarketCondition, PlayerScore},
+    game::{Market, MarketChange, PlayerScore},
     player::*,
     utility::serde_asset_liability,
 };
@@ -253,8 +253,8 @@ pub enum DirectResponse {
     YouMinusedIntoPlus {
         /// The market color that was changed,
         color: Color,
-        /// The new condition of the market.
-        new_condition: MarketCondition,
+        /// The new market for this player.
+        new_market: Market,
         /// The updated player score.
         new_score: f64,
     },
@@ -460,10 +460,8 @@ pub enum UniqueResponse {
     MinusedIntoPlus {
         /// The id of the player which changed one of their market colors.
         player_id: PlayerId,
-        /// The market color that was changed,
-        color: Color,
-        /// The new condition of the market.
-        new_condition: MarketCondition,
+        /// The new market for the player that performed the action,
+        new_market: Market,
         /// The updated player score.
         new_score: f64,
     },

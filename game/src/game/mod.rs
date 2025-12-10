@@ -58,6 +58,7 @@ pub enum MarketCondition {
     Minus,
     /// The market for this color is neutral
     #[default]
+    #[serde(rename = "zero")]
     Zero,
 }
 

@@ -16,6 +16,7 @@ pub struct ResultsPlayer {
     hand: Vec<Either<Asset, Liability>>,
     market: Market,
     old_silver_into_gold: Option<SilverIntoGoldData>,
+    old_change_asset_color: Option<ChangeAssetColorData>,
 }
 
 impl ResultsPlayer {
@@ -32,6 +33,7 @@ impl ResultsPlayer {
             hand: player.hand,
             market: market.clone(),
             old_silver_into_gold: None,
+            old_change_asset_color: None,
         }
     }
 
@@ -143,6 +145,59 @@ impl ResultsPlayer {
             self.old_silver_into_gold = Some(new_data);
 
             Ok(ToggleSilverIntoGold::new(None, Some(new_data)))
+        }
+    }
+
+    /// Turns the color of one of this player's assets into another color. If they already did this,
+    /// Also resets that asset's color.
+    pub fn toggle_change_asset_color(
+        &mut self,
+        asset_idx: usize,
+        color: Color,
+    ) -> Result<ToggleChangeAssetColor, GameError> {
+        if self.assets.get(asset_idx).is_none() {
+            return Err(GameError::InvalidAssetIndex(asset_idx as u8));
+        }
+
+        if let Some(old) = self.old_change_asset_color {
+            match self.assets.get_disjoint_mut([asset_idx, old.asset_idx]) {
+                Ok([asset, old_asset]) => {
+                    old_asset.color = old.color;
+                    asset.color = color;
+
+                    let old_data = ChangeAssetColorData::new(old.asset_idx, old_asset.color);
+                    let new_data = ChangeAssetColorData::new(asset_idx, asset.color);
+
+                    self.old_change_asset_color = Some(new_data);
+
+                    Ok(ToggleChangeAssetColor::new(Some(old_data), Some(new_data)))
+                }
+                Err(_) => {
+                    // PANIC: we control old.asset_idx and know it is always valid because when it's
+                    // set it's always valid.
+                    let old_asset = self.assets.get_mut(old.asset_idx).unwrap();
+
+                    old_asset.color = old.color;
+
+                    self.old_silver_into_gold = None;
+
+                    let old_data = ChangeAssetColorData::new(old.asset_idx, old_asset.color);
+
+                    Ok(ToggleChangeAssetColor::new(Some(old_data), None))
+                }
+            }
+        } else {
+            // PANIC: we already validated the index, so this is safe to do.
+            let asset = self.assets.get_mut(asset_idx).unwrap();
+
+            asset.gold_value += asset.silver_value;
+            asset.silver_value = 0;
+
+            let new_data = ChangeAssetColorData::new(asset_idx, asset.color);
+
+            self.old_change_asset_color = Some(new_data);
+
+            Ok(ToggleChangeAssetColor::new(None, Some(new_data)))
         }
     }
 
@@ -313,5 +368,65 @@ impl SilverIntoGoldData {
             gold_value,
             silver_value,
         }
+    }
+}
+
+/// The representation of the result of toggling with [`ChangeAssetColor`].
+pub struct ToggleChangeAssetColor {
+    /// The data for the new asset.
+    pub old_asset_data: Option<ChangeAssetColorData>,
+    /// The data for the old asset.
+    pub new_asset_data: Option<ChangeAssetColorData>,
+}
+
+impl ToggleChangeAssetColor {
+    /// Instantiates a new ToggleChangeAssetColor.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::player::{ChangeAssetColorData, Color, ToggleChangeAssetColor};
+    /// let new_data = ChangeAssetColorData::new(1, Color::Green);
+    /// let old_data = ChangeAssetColorData::new(6, Color::Blue);
+    /// let toggled = ToggleChangeAssetColor::new(Some(old_data), Some(new_data));
+    ///
+    /// assert_eq!(toggled.new_asset_data.unwrap().asset_idx, 1);
+    /// assert_eq!(toggled.new_asset_data.unwrap().color, Color::Green);
+    /// assert_eq!(toggled.old_asset_data.unwrap().color, Color::Blue);
+    /// ```
+    pub fn new(
+        old_asset_data: Option<ChangeAssetColorData>,
+        new_asset_data: Option<ChangeAssetColorData>,
+    ) -> Self {
+        Self {
+            old_asset_data,
+            new_asset_data,
+        }
+    }
+}
+
+/// A type that represents the changes made with the [`ChangeAssetColor`] asset ability. It contains
+/// the index of the asset that was changed, as well as its original color.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChangeAssetColorData {
+    /// The index of the asset in question.
+    pub asset_idx: usize,
+    /// The color of the asset in question.
+    pub color: Color,
+}
+
+impl ChangeAssetColorData {
+    /// Instantiates a new ChangeAssetColorData.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::player::{ChangeAssetColorData, Color};
+    /// let data = ChangeAssetColorData::new(5, Color::Red);
+    /// assert_eq!(data.asset_idx, 5);
+    /// assert_eq!(data.color, Color::Red);
+    /// ```
+    pub fn new(asset_idx: usize, color: Color) -> Self {
+        Self { asset_idx, color }
     }
 }

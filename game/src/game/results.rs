@@ -70,6 +70,18 @@ impl Results {
 
         Ok(market)
     }
+
+    /// Toggles the [`SilverIntoGold`] asset ability for a particular player.
+    pub fn toggle_silver_into_gold(
+        &mut self,
+        id: PlayerId,
+        asset_idx: usize,
+    ) -> Result<ToggleSilverIntoGold, GameError> {
+        let player = self.players.player_mut(id)?;
+        let data = player.toggle_silver_into_gold(asset_idx)?;
+
+        Ok(data)
+    }
 }
 
 /// Representation of a player's final score, which contains their id as well as their score.

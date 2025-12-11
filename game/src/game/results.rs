@@ -82,6 +82,19 @@ impl Results {
 
         Ok(data)
     }
+
+    /// Toggles the [`ChangeAssetColor`] asset ability for a particular player.
+    pub fn toggle_change_asset_color(
+        &mut self,
+        id: PlayerId,
+        asset_idx: usize,
+        color: Color,
+    ) -> Result<ToggleChangeAssetColor, GameError> {
+        let player = self.players.player_mut(id)?;
+        let data = player.toggle_change_asset_color(asset_idx, color)?;
+
+        Ok(data)
+    }
 }
 
 /// Representation of a player's final score, which contains their id as well as their score.

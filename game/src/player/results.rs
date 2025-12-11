@@ -85,7 +85,7 @@ impl ResultsPlayer {
     pub fn toggle_silver_into_gold(
         &mut self,
         asset_idx: usize,
-    ) -> Result<SilverIntoGoldData, GameError> {
+    ) -> Result<ToggleSilverIntoGold, GameError> {
         if self.assets.get(asset_idx).is_none() {
             return Err(GameError::InvalidAssetIndex(asset_idx as u8));
         }
@@ -99,11 +99,20 @@ impl ResultsPlayer {
                     asset.gold_value += asset.silver_value;
                     asset.silver_value = 0;
 
-                    Ok(SilverIntoGoldData::new(asset_idx, asset.silver_value))
+                    let old_data = SilverIntoGoldData::new(
+                        old.asset_idx,
+                        old_asset.gold_value,
+                        old_asset.silver_value,
+                    );
+                    let new_data =
+                        SilverIntoGoldData::new(asset_idx, asset.gold_value, asset.silver_value);
+
+                    Ok(ToggleSilverIntoGold::new(Some(old_data), Some(new_data)))
                 }
                 Err(_) => {
-                    // PANIC: we already validated the index, so this is safe to do
-                    let old_asset = self.assets.get_mut(asset_idx).unwrap();
+                    // PANIC: we control old.asset_idx and know it is always valid because when it's
+                    // set it's always valid.
+                    let old_asset = self.assets.get_mut(old.asset_idx).unwrap();
                     let silver_value = old.silver_value;
 
                     old_asset.gold_value -= silver_value;
@@ -111,7 +120,13 @@ impl ResultsPlayer {
 
                     self.old_silver_into_gold = None;
 
-                    Ok(SilverIntoGoldData::new(asset_idx, silver_value))
+                    let old_data = SilverIntoGoldData::new(
+                        old.asset_idx,
+                        old_asset.gold_value,
+                        old_asset.silver_value,
+                    );
+
+                    Ok(ToggleSilverIntoGold::new(Some(old_data), None))
                 }
             }
         } else {
@@ -121,7 +136,9 @@ impl ResultsPlayer {
             asset.gold_value += asset.silver_value;
             asset.silver_value = 0;
 
-            Ok(SilverIntoGoldData::new(asset_idx, asset.silver_value))
+            let new_data = SilverIntoGoldData::new(asset_idx, asset.gold_value, asset.silver_value);
+
+            Ok(ToggleSilverIntoGold::new(None, Some(new_data)))
         }
     }
 
@@ -228,12 +245,48 @@ impl From<&ResultsPlayer> for PlayerInfo {
     }
 }
 
+/// The representation of the result of toggling with [`SilverIntoGold`].
+pub struct ToggleSilverIntoGold {
+    /// The data for the new asset.
+    pub old_asset_data: Option<SilverIntoGoldData>,
+    /// The data for the old asset.
+    pub new_asset_data: Option<SilverIntoGoldData>,
+}
+
+impl ToggleSilverIntoGold {
+    /// Instantiates a new ToggleSilverIntoGold.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::player::{SilverIntoGoldData, ToggleSilverIntoGold};
+    /// let new_data = SilverIntoGoldData::new(1, 2, 3);
+    /// let old_data = SilverIntoGoldData::new(6, 7, 8);
+    /// let toggled = ToggleSilverIntoGold::new(Some(old_data), Some(new_data));
+    ///
+    /// assert_eq!(toggled.new_asset_data.unwrap().asset_idx, 1);
+    /// assert_eq!(toggled.new_asset_data.unwrap().gold_value, 2);
+    /// assert_eq!(toggled.old_asset_data.unwrap().silver_value, 8);
+    /// ```
+    pub fn new(
+        old_asset_data: Option<SilverIntoGoldData>,
+        new_asset_data: Option<SilverIntoGoldData>,
+    ) -> Self {
+        Self {
+            old_asset_data,
+            new_asset_data,
+        }
+    }
+}
+
 /// A type that represents the changes made with the [`SilverIntoGold`] asset ability. It contains
 /// the index of the asset that was changed, as well as its original silver value.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SilverIntoGoldData {
     /// The index of the asset in question.
     pub asset_idx: usize,
+    /// The gold value of the asset in question.
+    pub gold_value: u8,
     /// The silver value of the asset in question.
     pub silver_value: u8,
 }
@@ -245,13 +298,15 @@ impl SilverIntoGoldData {
     ///
     /// ```
     /// # use game::player::SilverIntoGoldData;
-    /// let data = SilverIntoGoldData::new(5, 3);
+    /// let data = SilverIntoGoldData::new(5, 6, 3);
     /// assert_eq!(data.asset_idx, 5);
+    /// assert_eq!(data.gold_value, 6);
     /// assert_eq!(data.silver_value, 3);
     /// ```
-    pub fn new(asset_idx: usize, silver_value: u8) -> Self {
+    pub fn new(asset_idx: usize, gold_value: u8, silver_value: u8) -> Self {
         Self {
             asset_idx,
+            gold_value,
             silver_value,
         }
     }

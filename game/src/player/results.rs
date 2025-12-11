@@ -69,6 +69,17 @@ impl ResultsPlayer {
         &self.hand
     }
 
+    fn asset_ability_prechecks(&self, asset_idx: usize) -> Result<(), GameError> {
+        if self.assets.get(asset_idx).is_none() {
+            return Err(GameError::InvalidAssetIndex(asset_idx as u8));
+        }
+        if self.confirmed_asset_ability_idxs.contains(&asset_idx) {
+            return Err(AssetAbilityError::AlreadyConfirmedAssetIndex(asset_idx as u8).into());
+        }
+
+        Ok(())
+    }
+
     /// Resets back to the passed `final_market` and then turns the minus of a certain color into a
     /// zero or a zero into a plus.
     pub fn minus_into_plus(&mut self, color: Color, final_market: &Market) -> &Market {
@@ -91,12 +102,7 @@ impl ResultsPlayer {
         &mut self,
         asset_idx: usize,
     ) -> Result<ToggleSilverIntoGold, GameError> {
-        if self.assets.get(asset_idx).is_none() {
-            return Err(GameError::InvalidAssetIndex(asset_idx as u8));
-        }
-        if self.confirmed_asset_ability_idxs.contains(&asset_idx) {
-            return Err(AssetAbilityError::AlreadyConfirmedAssetIndex(asset_idx as u8).into());
-        }
+        self.asset_ability_prechecks(asset_idx)?;
 
         if let Some(old) = self.old_silver_into_gold {
             match self.assets.get_disjoint_mut([asset_idx, old.asset_idx]) {
@@ -161,12 +167,7 @@ impl ResultsPlayer {
         asset_idx: usize,
         color: Color,
     ) -> Result<ToggleChangeAssetColor, GameError> {
-        if self.assets.get(asset_idx).is_none() {
-            return Err(GameError::InvalidAssetIndex(asset_idx as u8));
-        }
-        if self.confirmed_asset_ability_idxs.contains(&asset_idx) {
-            return Err(AssetAbilityError::AlreadyConfirmedAssetIndex(asset_idx as u8).into());
-        }
+        self.asset_ability_prechecks(asset_idx)?;
 
         if let Some(old) = self.old_change_asset_color {
             match self.assets.get_disjoint_mut([asset_idx, old.asset_idx]) {
@@ -208,6 +209,16 @@ impl ResultsPlayer {
 
             Ok(ToggleChangeAssetColor::new(None, Some(new_data)))
         }
+    }
+
+    /// Asset abilities are toggleable by default. This function confirms the current configuration,
+    /// after which a player cannot toggle this particular index anymore.
+    pub fn confirm_asset_ability(&mut self, asset_idx: usize) -> Result<(), GameError> {
+        self.asset_ability_prechecks(asset_idx)?;
+
+        self.confirmed_asset_ability_idxs.push(asset_idx);
+
+        Ok(())
     }
 
     /// Gets tho total gold value of all assets this player owns

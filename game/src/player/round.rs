@@ -519,12 +519,12 @@ impl From<&RoundPlayer> for PlayerInfo {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::*;
     use claim::*;
     use itertools::Itertools;
 
-    fn asset(color: Color) -> Asset {
+    pub(crate) fn asset(color: Color) -> Asset {
         Asset {
             color,
             title: "Asset".to_owned(),
@@ -536,7 +536,7 @@ mod tests {
         }
     }
 
-    fn liability(value: u8) -> Liability {
+    pub(crate) fn liability(value: u8) -> Liability {
         Liability {
             value,
             rfr_type: LiabilityType::BankLoan,
@@ -545,11 +545,11 @@ mod tests {
         }
     }
 
-    fn hand_asset(color: Color) -> Vec<Either<Asset, Liability>> {
+    pub(crate) fn hand_asset(color: Color) -> Vec<Either<Asset, Liability>> {
         vec![Either::Left(asset(color))]
     }
 
-    fn hand_liability(value: u8) -> Vec<Either<Asset, Liability>> {
+    pub(crate) fn hand_liability(value: u8) -> Vec<Either<Asset, Liability>> {
         vec![Either::Right(liability(value))]
     }
 

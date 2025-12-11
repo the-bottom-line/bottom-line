@@ -463,3 +463,250 @@ impl ChangeAssetColorData {
         Self { asset_idx, color }
     }
 }
+
+#[cfg(test)]
+pub(super) mod tests {
+    use assert_approx_eq::assert_approx_eq;
+    use itertools::Itertools;
+
+    use super::round::tests::*;
+    use super::*;
+
+    fn market(
+        yellow: MarketCondition,
+        blue: MarketCondition,
+        green: MarketCondition,
+        purple: MarketCondition,
+        red: MarketCondition,
+        rfr: u8,
+        mrp: u8,
+    ) -> Market {
+        Market {
+            title: Default::default(),
+            rfr,
+            mrp,
+            yellow,
+            blue,
+            green,
+            purple,
+            red,
+        }
+    }
+
+    fn results_player(
+        cash: u8,
+        assets: Vec<Asset>,
+        liabilities: Vec<Liability>,
+        market: Market,
+    ) -> ResultsPlayer {
+        ResultsPlayer {
+            id: PlayerId(0),
+            name: Default::default(),
+            cash,
+            assets,
+            liabilities,
+            hand: vec![],
+            market,
+            old_silver_into_gold: None,
+            old_change_asset_color: None,
+            confirmed_asset_ability_idxs: vec![],
+        }
+    }
+
+    fn default_results_player() -> ResultsPlayer {
+        let player = results_player(0, vec![], vec![], Market::default());
+
+        assert!(player.assets().is_empty());
+        assert!(player.liabilities().is_empty());
+
+        player
+    }
+
+    fn liability_with_type(value: u8, rfr_type: LiabilityType) -> Liability {
+        Liability {
+            value,
+            rfr_type,
+            image_front_url: Default::default(),
+            image_back_url: Default::default(),
+        }
+    }
+
+    #[test]
+    pub fn total_gold() {
+        for i in 0..10 {
+            let mut player = default_results_player();
+            for _ in i..10 {
+                // asset(Color) has 1 gold and 1 silver
+                player.assets.push(asset(Color::Blue));
+            }
+            let total_gold = player.assets.iter().map(|a| a.gold_value).sum::<u8>();
+            assert_eq!(total_gold, player.total_gold());
+        }
+    }
+
+    #[test]
+    pub fn total_silver() {
+        for i in 0..10 {
+            let mut player = default_results_player();
+            for _ in i..10 {
+                // asset(Color) has 1 gold and 1 silver
+                player.assets.push(asset(Color::Blue));
+            }
+            let total_gold = player.assets.iter().map(|a| a.silver_value).sum::<u8>();
+            assert_eq!(total_gold, player.total_silver());
+        }
+    }
+
+    #[test]
+    fn calc_loan() {
+        let liability_value = 10;
+
+        let rfr_types = [
+            LiabilityType::TradeCredit,
+            LiabilityType::BankLoan,
+            LiabilityType::Bonds,
+        ];
+
+        for rfr_type in rfr_types {
+            for i in 0..10 {
+                let mut player = default_results_player();
+                for _ in i..10 {
+                    player
+                        .liabilities
+                        .push(liability_with_type(liability_value, rfr_type));
+                }
+
+                let total_value = (10 - i) * liability_value;
+                assert_eq!(player.calc_loan(rfr_type), total_value, "{i}: {rfr_type:?}");
+
+                let trade_credit = player.trade_credit();
+                let bank_loan = player.bank_loan();
+                let bonds = player.bonds();
+
+                match rfr_type {
+                    LiabilityType::TradeCredit => {
+                        assert_eq!(trade_credit, total_value);
+
+                        assert_eq!(bank_loan, 0);
+                        assert_eq!(bonds, 0);
+                    }
+                    LiabilityType::BankLoan => {
+                        assert_eq!(bank_loan, total_value);
+
+                        assert_eq!(trade_credit, 0);
+                        assert_eq!(bonds, 0);
+                    }
+                    LiabilityType::Bonds => {
+                        assert_eq!(bonds, total_value);
+
+                        assert_eq!(trade_credit, 0);
+                        assert_eq!(bank_loan, 0);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    pub fn color_value() {
+        let market_conditions = [
+            MarketCondition::Minus,
+            MarketCondition::Zero,
+            MarketCondition::Plus,
+        ];
+
+        std::iter::repeat_n(market_conditions, 5)
+            .multi_cartesian_product()
+            .cartesian_product(std::iter::repeat_n(Color::COLORS, 6).multi_cartesian_product())
+            .map(|(m, colors)| {
+                let market = market(m[0], m[1], m[2], m[3], m[4], 0, 0);
+                let mut player = results_player(10, vec![], vec![], market);
+                for &c in colors.iter().take(5) {
+                    player.assets.push(asset(c));
+                }
+                (player, colors[5])
+            })
+            .for_each(|(player, color_to_check)| {
+                let market_condition = match color_to_check {
+                    Color::Red => player.market().red,
+                    Color::Green => player.market().green,
+                    Color::Purple => player.market().purple,
+                    Color::Yellow => player.market().yellow,
+                    Color::Blue => player.market().blue,
+                };
+
+                let mul = match market_condition {
+                    MarketCondition::Plus => 1.0,
+                    MarketCondition::Zero => 0.0,
+                    MarketCondition::Minus => -1.0,
+                };
+
+                let color_value = player
+                    .assets
+                    .iter()
+                    .filter_map(|a| {
+                        a.color.eq(&color_to_check).then(|| {
+                            let gold = a.gold_value as f64;
+                            let silver = a.silver_value as f64;
+                            gold + silver * mul
+                        })
+                    })
+                    .sum::<f64>();
+
+                assert_approx_eq!(color_value, player.color_value(color_to_check));
+            });
+    }
+
+    #[test]
+    pub fn score() {
+        let market_conditions = [
+            MarketCondition::Minus,
+            MarketCondition::Zero,
+            MarketCondition::Plus,
+        ];
+
+        std::iter::repeat_n(market_conditions, 5)
+            .multi_cartesian_product()
+            .cartesian_product(std::iter::repeat_n(Color::COLORS, 5).multi_cartesian_product())
+            .map(|(m, colors)| {
+                let market = market(m[0], m[1], m[2], m[3], m[4], 1, 1);
+                let mut player = results_player(10, vec![], vec![], market);
+                for c in colors {
+                    player.assets.push(asset(c));
+                }
+                player
+            })
+            .for_each(|player| {
+                let cash = player.cash() as f64;
+                let gold = player.total_gold() as f64;
+                let silver = player.total_silver() as f64;
+
+                let trade_credit = player.trade_credit() as f64;
+                let bank_loan = player.bank_loan() as f64;
+                let bonds = player.bonds() as f64;
+                let debt = trade_credit + bank_loan + bonds;
+
+                let beta = silver / (1.0 + gold);
+
+                // TODO: end of game bonuses
+                let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / (gold + cash);
+
+                let rfr = player.market.rfr as f64;
+                let mrp = player.market.mrp as f64;
+
+                let wacc = rfr + drp + beta * mrp;
+
+                let red = player.color_value(Color::Red);
+                let green = player.color_value(Color::Green);
+                let yellow = player.color_value(Color::Yellow);
+                let purple = player.color_value(Color::Purple);
+                let blue = player.color_value(Color::Blue);
+
+                let fcf = red + green + yellow + purple + blue;
+
+                let score = (fcf / (10.0 * wacc)) + (debt / 3.0) + cash;
+
+                assert_approx_eq!(score, player.score());
+            });
+    }
+}

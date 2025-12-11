@@ -69,6 +69,11 @@ impl ResultsPlayer {
         &self.hand
     }
 
+    /// Gets the player's personal market.
+    pub fn market(&self) -> &Market {
+        &self.market
+    }
+
     fn asset_ability_prechecks(&self, asset_idx: usize) -> Result<(), GameError> {
         if self.assets.get(asset_idx).is_none() {
             return Err(GameError::InvalidAssetIndex(asset_idx as u8));
@@ -280,6 +285,14 @@ impl ResultsPlayer {
             .sum()
     }
 
+    /// Calculates the fcf (total market value of all player's assets) for this player.
+    pub fn fcf(&self) -> f64 {
+        Color::COLORS
+            .into_iter()
+            .map(|color| self.color_value(color))
+            .sum()
+    }
+
     /// Gets the final score for this player
     pub fn score(&self) -> f64 {
         let cash = self.cash() as f64;
@@ -289,22 +302,18 @@ impl ResultsPlayer {
         let trade_credit = self.trade_credit() as f64;
         let bank_loan = self.bank_loan() as f64;
         let bonds = self.bonds() as f64;
-        let debt = trade_credit + bank_loan + bonds;
 
         let beta = silver / gold;
 
         // TODO: end of game bonuses
         let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / (gold + cash);
 
-        let wacc = self.market.rfr as f64 + drp + beta * self.market.mrp as f64;
+        let rfr = self.market.rfr as f64;
+        let mrp = self.market.mrp as f64;
 
-        let red = self.color_value(Color::Red);
-        let green = self.color_value(Color::Green);
-        let yellow = self.color_value(Color::Yellow);
-        let purple = self.color_value(Color::Purple);
-        let blue = self.color_value(Color::Blue);
-
-        let fcf = red + green + yellow + purple + blue;
+        let fcf = self.fcf();
+        let wacc = rfr + drp + beta * mrp;
+        let debt = trade_credit + bank_loan + bonds;
 
         (fcf / (10.0 * wacc)) + (debt / 3.0) + cash
     }

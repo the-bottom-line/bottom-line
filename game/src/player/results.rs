@@ -288,13 +288,7 @@ impl ResultsPlayer {
 
     /// Gets the value of all assets of a certain color this player has
     pub fn color_value(&self, color: Color) -> f64 {
-        let market_condition = match color {
-            Color::Red => self.market.red,
-            Color::Green => self.market.green,
-            Color::Purple => self.market.purple,
-            Color::Yellow => self.market.yellow,
-            Color::Blue => self.market.blue,
-        };
+        let market_condition = self.market.color_condition(color);
 
         let mul = match market_condition {
             MarketCondition::Plus => 1.0,

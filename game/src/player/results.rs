@@ -303,7 +303,7 @@ impl ResultsPlayer {
         let bank_loan = self.bank_loan() as f64;
         let bonds = self.bonds() as f64;
 
-        let beta = silver / gold;
+        let beta = silver / (1.0 + gold);
 
         // TODO: end of game bonuses
         let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / (gold + cash);

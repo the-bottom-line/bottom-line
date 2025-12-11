@@ -1,6 +1,7 @@
 //! This file contains the implementation of [`ResultsPlayer`].
 
 use either::Either;
+use itertools::Itertools;
 
 use crate::{game::*, player::*};
 
@@ -74,7 +75,20 @@ impl ResultsPlayer {
         &self.market
     }
 
-    fn asset_ability_prechecks(&self, asset_idx: usize) -> Result<(), GameError> {
+    fn asset_ability_prechecks(
+        &self,
+        asset_idx: usize,
+        ability: Option<AssetPowerup>,
+    ) -> Result<(), GameError> {
+        if ability.is_some()
+            && self
+                .assets
+                .iter()
+                .positions(|a| a.ability == ability)
+                .all(|pos| self.confirmed_asset_ability_idxs.contains(&pos))
+        {
+            return Err(AssetAbilityError::PlayerDoesNotHaveAbility.into());
+        }
         if self.assets.get(asset_idx).is_none() {
             return Err(GameError::InvalidAssetIndex(asset_idx as u8));
         }
@@ -107,7 +121,7 @@ impl ResultsPlayer {
         &mut self,
         asset_idx: usize,
     ) -> Result<ToggleSilverIntoGold, GameError> {
-        self.asset_ability_prechecks(asset_idx)?;
+        self.asset_ability_prechecks(asset_idx, Some(AssetPowerup::SilverIntoGold))?;
 
         if let Some(old) = self.old_silver_into_gold {
             match self.assets.get_disjoint_mut([asset_idx, old.asset_idx]) {
@@ -172,7 +186,7 @@ impl ResultsPlayer {
         asset_idx: usize,
         color: Color,
     ) -> Result<ToggleChangeAssetColor, GameError> {
-        self.asset_ability_prechecks(asset_idx)?;
+        self.asset_ability_prechecks(asset_idx, Some(AssetPowerup::CountAsAnyColor))?;
 
         if let Some(old) = self.old_change_asset_color {
             match self.assets.get_disjoint_mut([asset_idx, old.asset_idx]) {
@@ -219,7 +233,7 @@ impl ResultsPlayer {
     /// Asset abilities are toggleable by default. This function confirms the current configuration,
     /// after which a player cannot toggle this particular index anymore.
     pub fn confirm_asset_ability(&mut self, asset_idx: usize) -> Result<(), GameError> {
-        self.asset_ability_prechecks(asset_idx)?;
+        self.asset_ability_prechecks(asset_idx, None)?;
 
         self.confirmed_asset_ability_idxs.push(asset_idx);
 

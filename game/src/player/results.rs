@@ -107,6 +107,8 @@ impl ResultsPlayer {
                     let new_data =
                         SilverIntoGoldData::new(asset_idx, asset.gold_value, asset.silver_value);
 
+                    self.old_silver_into_gold = Some(new_data);
+
                     Ok(ToggleSilverIntoGold::new(Some(old_data), Some(new_data)))
                 }
                 Err(_) => {
@@ -137,6 +139,8 @@ impl ResultsPlayer {
             asset.silver_value = 0;
 
             let new_data = SilverIntoGoldData::new(asset_idx, asset.gold_value, asset.silver_value);
+
+            self.old_silver_into_gold = Some(new_data);
 
             Ok(ToggleSilverIntoGold::new(None, Some(new_data)))
         }

@@ -95,6 +95,17 @@ impl Results {
 
         Ok(data)
     }
+
+    /// Asset abilities are toggleable by default. This function confirms the current configuration
+    /// for this particular player, after which they cannot toggle this particular index anymore.
+    pub fn confirm_asset_ability(
+        &mut self,
+        id: PlayerId,
+        asset_idx: usize,
+    ) -> Result<(), GameError> {
+        let player = self.players.player_mut(id)?;
+        player.confirm_asset_ability(asset_idx)
+    }
 }
 
 /// Representation of a player's final score, which contains their id as well as their score.

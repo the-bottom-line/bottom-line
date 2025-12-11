@@ -102,8 +102,11 @@ impl RoomState {
             FrontendRequest::MinusIntoPlus { color } => {
                 let player_id = state.results()?.player_by_name(player_name)?.id();
                 minus_into_plus(state, player_id, color)
-            },
-            FrontendRequest::SilverIntoGold { asset_idx } => todo!(),
+            }
+            FrontendRequest::SilverIntoGold { asset_idx } => {
+                let player_id = state.results()?.player_by_name(player_name)?.id();
+                silver_into_gold(state, player_id, asset_idx)
+            }
             FrontendRequest::ChangeAssetColor { asset_idx, color } => todo!(),
             FrontendRequest::ConfirmAssetAbility { asset_idx } => todo!(),
         }

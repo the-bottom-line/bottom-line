@@ -606,6 +606,51 @@ pub fn minus_into_plus(
     }
 }
 
+pub fn silver_into_gold(
+    state: &mut GameState,
+    player_id: PlayerId,
+    asset_idx: usize,
+) -> Result<Response, GameError> {
+    let results = state.results_mut()?;
+
+    match results.toggle_silver_into_gold(player_id, asset_idx) {
+        Ok(ToggleSilverIntoGold {
+            old_asset_data,
+            new_asset_data,
+        }) => {
+            let player = results.player(player_id)?;
+            let new_score = player.score();
+
+            let internal = results
+                .players()
+                .iter()
+                .filter(|p| p.id() != player_id)
+                .map(|p| {
+                    (
+                        p.id(),
+                        vec![UniqueResponse::SilveredIntoGold {
+                            player_id,
+                            old_asset_data,
+                            new_asset_data,
+                            new_score,
+                        }],
+                    )
+                })
+                .collect();
+
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouSilveredIntoGold {
+                    old_asset_data,
+                    new_asset_data,
+                    new_score,
+                },
+            ))
+        }
+        Err(e) => Err(e),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

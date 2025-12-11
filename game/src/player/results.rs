@@ -15,6 +15,7 @@ pub struct ResultsPlayer {
     liabilities: Vec<Liability>,
     hand: Vec<Either<Asset, Liability>>,
     market: Market,
+    old_silver_into_gold: Option<SilverIntoGoldData>,
 }
 
 impl ResultsPlayer {
@@ -30,6 +31,7 @@ impl ResultsPlayer {
             liabilities: player.liabilities,
             hand: player.hand,
             market: market.clone(),
+            old_silver_into_gold: None,
         }
     }
 
@@ -77,6 +79,50 @@ impl ResultsPlayer {
         }
 
         &self.market
+    }
+
+    /// Turns the silver value of one of this player's assets into gold.
+    pub fn toggle_silver_into_gold(
+        &mut self,
+        asset_idx: usize,
+    ) -> Result<SilverIntoGoldData, GameError> {
+        if self.assets.get(asset_idx).is_none() {
+            return Err(GameError::InvalidAssetIndex(asset_idx as u8));
+        }
+
+        if let Some(old) = self.old_silver_into_gold {
+            match self.assets.get_disjoint_mut([asset_idx, old.asset_idx]) {
+                Ok([asset, old_asset]) => {
+                    old_asset.gold_value -= old.silver_value;
+                    old_asset.silver_value = old.silver_value;
+
+                    asset.gold_value += asset.silver_value;
+                    asset.silver_value = 0;
+
+                    Ok(SilverIntoGoldData::new(asset_idx, asset.silver_value))
+                }
+                Err(_) => {
+                    // PANIC: we already validated the index, so this is safe to do
+                    let old_asset = self.assets.get_mut(asset_idx).unwrap();
+                    let silver_value = old.silver_value;
+
+                    old_asset.gold_value -= silver_value;
+                    old_asset.silver_value = silver_value;
+
+                    self.old_silver_into_gold = None;
+
+                    Ok(SilverIntoGoldData::new(asset_idx, silver_value))
+                }
+            }
+        } else {
+            // PANIC: we already validated the index, so this is safe to do.
+            let asset = self.assets.get_mut(asset_idx).unwrap();
+
+            asset.gold_value += asset.silver_value;
+            asset.silver_value = 0;
+
+            Ok(SilverIntoGoldData::new(asset_idx, asset.silver_value))
+        }
     }
 
     /// Gets tho total gold value of all assets this player owns
@@ -177,6 +223,35 @@ impl From<&ResultsPlayer> for PlayerInfo {
             liabilities: player.liabilities.clone(),
             cash: player.cash,
             character: None,
+        }
+    }
+}
+
+/// A type that represents the changes made with the [`SilverIntoGold`] asset ability. It contains
+/// the index of the asset that was changed, as well as its original silver value.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SilverIntoGoldData {
+    /// The index of the asset in question.
+    pub asset_idx: usize,
+    /// The silver value of the asset in question.
+    pub silver_value: u8,
+}
+
+impl SilverIntoGoldData {
+    /// Instantiates a new SilverIntoGoldData.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::player::SilverIntoGoldData;
+    /// let data = SilverIntoGoldData::new(5, 3);
+    /// assert_eq!(data.asset_idx, 5);
+    /// assert_eq!(data.silver_value, 3);
+    /// ```
+    pub fn new(asset_idx: usize, silver_value: u8) -> Self {
+        Self {
+            asset_idx,
+            silver_value,
         }
     }
 }

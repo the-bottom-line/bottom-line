@@ -186,6 +186,7 @@ impl ResultsPlayer {
 
     /// Gets the final score for this player
     pub fn score(&self) -> f64 {
+        let cash = self.cash() as f64;
         let gold = self.total_gold() as f64;
         let silver = self.total_silver() as f64;
 
@@ -197,7 +198,7 @@ impl ResultsPlayer {
         let beta = silver / gold;
 
         // TODO: end of game bonuses
-        let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / gold;
+        let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / (gold + cash);
 
         let wacc = self.market.rfr as f64 + drp + beta * self.market.mrp as f64;
 
@@ -209,7 +210,7 @@ impl ResultsPlayer {
 
         let fcf = red + green + yellow + purple + blue;
 
-        (fcf / (10.0 * wacc)) + (debt / 3.0) + self.cash() as f64
+        (fcf / (10.0 * wacc)) + (debt / 3.0) + cash
     }
 }
 

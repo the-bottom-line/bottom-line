@@ -51,6 +51,10 @@ pub enum GameError {
     #[error(transparent)]
     DivestAsset(#[from] DivestAssetError),
 
+    /// Errors related to the asset abilities
+    #[error(transparent)]
+    CardAbility(#[from] AssetAbilityError),
+
     /// Error indicating when a certain index is out of bounds
     #[error("Asset index {0} is invalid")]
     InvalidAssetIndex(u8),
@@ -287,4 +291,15 @@ pub enum SelectingCharactersError {
     /// Action is restricted to the chairman.
     #[error("Player is not chairman")]
     NotChairman,
+}
+
+/// Errors that can happen while performing card abilities
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
+pub enum AssetAbilityError {
+    /// Player already confirmed choice for this particular asset ability. They cannot change it
+    /// anymore.
+    #[error("Player already confirmed choice for asset index {0}")]
+    AlreadyConfirmedAssetIndex(u8),
 }

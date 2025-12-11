@@ -260,10 +260,12 @@ pub enum DirectResponse {
     },
     /// Confirms that this player changed the silver of one of their cards into gold.
     YouSilveredIntoGold {
-        /// The index of the asset which silver was changed into gold.
-        asset_idx: usize,
-        /// The new gold value,
-        gold_value: u8,
+        /// The data of the old asset that should be updated. When no card was selected before this
+        /// action, this value will be `None`.
+        old_asset_data: Option<SilverIntoGoldData>,
+        /// The data of the new asset that should be updated. When a card was deselected, this value
+        /// will be `None`.
+        new_asset_data: Option<SilverIntoGoldData>,
         /// The updated player score.
         new_score: f64,
     },
@@ -469,10 +471,12 @@ pub enum UniqueResponse {
     SilveredIntoGold {
         /// The id of the player which changed the silver of one of their cards into gold.
         player_id: PlayerId,
-        /// The index of the asset which silver was changed into gold.
-        asset_idx: usize,
-        /// The new gold value,
-        gold_value: u8,
+        /// The data of the old asset that should be updated. When no card was selected before this
+        /// action, this value will be `None`.
+        old_asset_data: Option<SilverIntoGoldData>,
+        /// The data of the new asset that should be updated. When a card was deselected, this value
+        /// will be `None`.
+        new_asset_data: Option<SilverIntoGoldData>,
         /// The updated player score.
         new_score: f64,
     },

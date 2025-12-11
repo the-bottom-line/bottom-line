@@ -101,7 +101,13 @@ impl ResultsPlayer {
 
     /// Resets back to the passed `final_market` and then turns the minus of a certain color into a
     /// zero or a zero into a plus.
-    pub fn minus_into_plus(&mut self, color: Color, final_market: &Market) -> &Market {
+    pub fn minus_into_plus(
+        &mut self,
+        color: Color,
+        final_market: &Market,
+    ) -> Result<&Market, GameError> {
+        self.asset_ability_prechecks(0, Some(AssetPowerup::MinusIntoPlus))?;
+
         // TODO: handle confirmation for this action
         self.market = final_market.clone();
 
@@ -113,7 +119,7 @@ impl ResultsPlayer {
             Color::Blue => self.market.blue.make_higher(),
         }
 
-        &self.market
+        Ok(&self.market)
     }
 
     /// Turns the silver value of one of this player's assets into gold.

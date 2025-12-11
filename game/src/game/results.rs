@@ -66,9 +66,9 @@ impl Results {
     /// that minus is turned into zero and zero is turned into plus. Returns the resulting market.
     pub fn minus_into_plus(&mut self, id: PlayerId, color: Color) -> Result<Market, GameError> {
         let player = self.players.player_mut(id)?;
-        let market = player.minus_into_plus(color, &self.final_market).to_owned();
+        let market = player.minus_into_plus(color, &self.final_market)?;
 
-        Ok(market)
+        Ok(market.to_owned())
     }
 
     /// Toggles the [`SilverIntoGold`] asset ability for a particular player.

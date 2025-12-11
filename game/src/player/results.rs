@@ -17,6 +17,7 @@ pub struct ResultsPlayer {
     market: Market,
     old_silver_into_gold: Option<SilverIntoGoldData>,
     old_change_asset_color: Option<ChangeAssetColorData>,
+    confirmed_asset_ability_idxs: Vec<usize>,
 }
 
 impl ResultsPlayer {
@@ -34,6 +35,7 @@ impl ResultsPlayer {
             market: market.clone(),
             old_silver_into_gold: None,
             old_change_asset_color: None,
+            confirmed_asset_ability_idxs: vec![],
         }
     }
 
@@ -70,6 +72,7 @@ impl ResultsPlayer {
     /// Resets back to the passed `final_market` and then turns the minus of a certain color into a
     /// zero or a zero into a plus.
     pub fn minus_into_plus(&mut self, color: Color, final_market: &Market) -> &Market {
+        // TODO: handle confirmation for this action
         self.market = final_market.clone();
 
         match color {
@@ -90,6 +93,9 @@ impl ResultsPlayer {
     ) -> Result<ToggleSilverIntoGold, GameError> {
         if self.assets.get(asset_idx).is_none() {
             return Err(GameError::InvalidAssetIndex(asset_idx as u8));
+        }
+        if self.confirmed_asset_ability_idxs.contains(&asset_idx) {
+            return Err(AssetAbilityError::AlreadyConfirmedAssetIndex(asset_idx as u8).into());
         }
 
         if let Some(old) = self.old_silver_into_gold {
@@ -157,6 +163,9 @@ impl ResultsPlayer {
     ) -> Result<ToggleChangeAssetColor, GameError> {
         if self.assets.get(asset_idx).is_none() {
             return Err(GameError::InvalidAssetIndex(asset_idx as u8));
+        }
+        if self.confirmed_asset_ability_idxs.contains(&asset_idx) {
+            return Err(AssetAbilityError::AlreadyConfirmedAssetIndex(asset_idx as u8).into());
         }
 
         if let Some(old) = self.old_change_asset_color {

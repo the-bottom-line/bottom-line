@@ -651,6 +651,52 @@ pub fn silver_into_gold(
     }
 }
 
+pub fn change_asset_color(
+    state: &mut GameState,
+    player_id: PlayerId,
+    asset_idx: usize,
+    color: Color,
+) -> Result<Response, GameError> {
+    let results = state.results_mut()?;
+
+    match results.toggle_change_asset_color(player_id, asset_idx, color) {
+        Ok(ToggleChangeAssetColor {
+            old_asset_data,
+            new_asset_data,
+        }) => {
+            let player = results.player(player_id)?;
+            let new_score = player.score();
+
+            let internal = results
+                .players()
+                .iter()
+                .filter(|p| p.id() != player_id)
+                .map(|p| {
+                    (
+                        p.id(),
+                        vec![UniqueResponse::ChangedAssetColor {
+                            player_id,
+                            old_asset_data,
+                            new_asset_data,
+                            new_score,
+                        }],
+                    )
+                })
+                .collect();
+
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouChangedAssetColor {
+                    old_asset_data,
+                    new_asset_data,
+                    new_score,
+                },
+            ))
+        }
+        Err(e) => Err(e),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

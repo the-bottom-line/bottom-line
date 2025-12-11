@@ -107,7 +107,10 @@ impl RoomState {
                 let player_id = state.results()?.player_by_name(player_name)?.id();
                 silver_into_gold(state, player_id, asset_idx)
             }
-            FrontendRequest::ChangeAssetColor { asset_idx, color } => todo!(),
+            FrontendRequest::ChangeAssetColor { asset_idx, color } => {
+                let player_id = state.results()?.player_by_name(player_name)?.id();
+                change_asset_color(state, player_id, asset_idx, color)
+            }
             FrontendRequest::ConfirmAssetAbility { asset_idx } => todo!(),
         }
     }

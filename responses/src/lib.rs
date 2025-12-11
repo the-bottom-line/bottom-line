@@ -271,10 +271,12 @@ pub enum DirectResponse {
     },
     /// Confirms that this player changed the color of one of their assets.
     YouChangedAssetColor {
-        /// The index of the asset which changed color.
-        asset_idx: usize,
-        /// The new color of this asset.
-        color: Color,
+        /// The data of the old asset that should be updated. When no card was selected before this
+        /// action, this value will be `None`.
+        old_asset_data: Option<ChangeAssetColorData>,
+        /// The data of the new asset that should be updated. When a card was deselected, this value
+        /// will be `None`.
+        new_asset_data: Option<ChangeAssetColorData>,
         /// The updated player score.
         new_score: f64,
     },
@@ -484,10 +486,12 @@ pub enum UniqueResponse {
     ChangedAssetColor {
         /// The id of the player which changed the color of one of their assets.
         player_id: PlayerId,
-        /// The index of the asset which changed color.
-        asset_idx: usize,
-        /// The new color of this asset.
-        color: Color,
+        /// The data of the old asset that should be updated. When no card was selected before this
+        /// action, this value will be `None`.
+        old_asset_data: Option<ChangeAssetColorData>,
+        /// The data of the new asset that should be updated. When a card was deselected, this value
+        /// will be `None`.
+        new_asset_data: Option<ChangeAssetColorData>,
         /// The updated player score.
         new_score: f64,
     },

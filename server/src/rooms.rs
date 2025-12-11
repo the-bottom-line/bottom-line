@@ -111,7 +111,10 @@ impl RoomState {
                 let player_id = state.results()?.player_by_name(player_name)?.id();
                 change_asset_color(state, player_id, asset_idx, color)
             }
-            FrontendRequest::ConfirmAssetAbility { asset_idx } => todo!(),
+            FrontendRequest::ConfirmAssetAbility { asset_idx } => {
+                let player_id = state.results()?.player_by_name(player_name)?.id();
+                confirm_asset_ability(state, player_id, asset_idx)
+            }
         }
     }
 }

@@ -360,6 +360,8 @@ impl ToggleSilverIntoGold {
 
 /// A type that represents the changes made with the [`SilverIntoGold`] asset ability. It contains
 /// the index of the asset that was changed, as well as its original silver value.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SilverIntoGoldData {
     /// The index of the asset in question.
@@ -427,6 +429,8 @@ impl ToggleChangeAssetColor {
 
 /// A type that represents the changes made with the [`ChangeAssetColor`] asset ability. It contains
 /// the index of the asset that was changed, as well as its original color.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChangeAssetColorData {
     /// The index of the asset in question.

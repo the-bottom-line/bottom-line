@@ -16,6 +16,7 @@ pub struct ResultsPlayer {
     liabilities: Vec<Liability>,
     hand: Vec<Either<Asset, Liability>>,
     market: Market,
+    final_market: Market,
     old_silver_into_gold: Option<SilverIntoGoldData>,
     old_change_asset_color: Option<ChangeAssetColorData>,
     confirmed_asset_ability_idxs: Vec<usize>,
@@ -34,6 +35,7 @@ impl ResultsPlayer {
             liabilities: player.liabilities,
             hand: player.hand,
             market: market.clone(),
+            final_market: market.clone(),
             old_silver_into_gold: None,
             old_change_asset_color: None,
             confirmed_asset_ability_idxs: vec![],
@@ -104,12 +106,11 @@ impl ResultsPlayer {
     pub fn toggle_minus_into_plus(
         &mut self,
         color: Color,
-        final_market: &Market,
     ) -> Result<&Market, GameError> {
         self.asset_ability_prechecks(0, Some(AssetPowerup::MinusIntoPlus))?;
 
         // TODO: handle confirmation for this action
-        self.market = final_market.clone();
+        self.market = self.final_market.clone();
 
         match color {
             Color::Red => self.market.red.make_higher(),
@@ -242,6 +243,12 @@ impl ResultsPlayer {
         self.asset_ability_prechecks(asset_idx, None)?;
 
         self.confirmed_asset_ability_idxs.push(asset_idx);
+        
+        // PANIC: self.asset_ability_prechecks already verifies that asset_idx is valid, so this
+        // unwrap is totally safe to do.
+        if Some(AssetPowerup::MinusIntoPlus) == self.assets.get(asset_idx).unwrap().ability {
+            self.final_market = self.market.clone();
+        }
 
         Ok(())
     }
@@ -526,6 +533,7 @@ pub(super) mod tests {
             assets,
             liabilities,
             hand: vec![],
+            final_market: market.clone(),
             market,
             old_silver_into_gold: None,
             old_change_asset_color: None,

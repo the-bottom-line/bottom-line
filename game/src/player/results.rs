@@ -101,7 +101,7 @@ impl ResultsPlayer {
 
     /// Resets back to the passed `final_market` and then turns the minus of a certain color into a
     /// zero or a zero into a plus.
-    pub fn minus_into_plus(
+    pub fn toggle_minus_into_plus(
         &mut self,
         color: Color,
         final_market: &Market,

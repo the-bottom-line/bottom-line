@@ -64,9 +64,9 @@ impl Results {
 
     /// Increases one of the market conditions of a certain color for player with `id`. This means
     /// that minus is turned into zero and zero is turned into plus. Returns the resulting market.
-    pub fn minus_into_plus(&mut self, id: PlayerId, color: Color) -> Result<Market, GameError> {
+    pub fn toggle_minus_into_plus(&mut self, id: PlayerId, color: Color) -> Result<Market, GameError> {
         let player = self.players.player_mut(id)?;
-        let market = player.minus_into_plus(color, &self.final_market)?;
+        let market = player.toggle_minus_into_plus(color, &self.final_market)?;
 
         Ok(market.to_owned())
     }

@@ -571,7 +571,7 @@ pub fn minus_into_plus(
 ) -> Result<Response, GameError> {
     let results = state.results_mut()?;
 
-    match results.minus_into_plus(player_id, color) {
+    match results.toggle_minus_into_plus(player_id, color) {
         Ok(new_market) => {
             let player = results.player(player_id)?;
             let new_score = player.score();

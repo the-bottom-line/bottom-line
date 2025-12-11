@@ -1,5 +1,7 @@
 //! File containing the round state of the game.
 
+use std::any::Any;
+
 use either::Either;
 
 use crate::{errors::*, game::*, player::*};
@@ -11,7 +13,7 @@ use crate::{errors::*, game::*, player::*};
 #[derive(Debug, Clone, PartialEq)]
 pub struct Round {
     pub(super) current_player: PlayerId,
-    pub(super) players: Players<RoundPlayer>,
+    pub(super) players: Players<RoundPlayerState>,
     pub(super) assets: Deck<Asset>,
     pub(super) liabilities: Deck<Liability>,
     pub(super) markets: Deck<Either<Market, Event>>,
@@ -27,20 +29,41 @@ impl Round {
     /// are in order, so id 0 refers to the player at index 0 and so on.
     /// See [`Players::player`] for further information
     pub fn player(&self, id: PlayerId) -> Result<&RoundPlayer, GameError> {
-        self.players.player(id)
+        let player = self.players.player(id);
+         match  player{
+            Ok(RoundPlayerState::RoundPlayer(p)) => Ok(p),
+            Ok(RoundPlayerState::BankerTargetPlayer(_)) => {
+                 return Err(GameError::NotRoundPlayerState)
+            },
+            Err(_) => Err(GameError::NotRoundPlayerState)
+         }
     }
 
     /// Get a mutable reference to a [`RoundPlayer`] based on a specific `PlayerId`. Note that the
     /// players are in order, so id 0 refers to the player at index 0 and so on.
     /// See [`Players::player_mut`] for further information
     pub fn player_mut(&mut self, id: PlayerId) -> Result<&mut RoundPlayer, GameError> {
-        self.players.player_mut(id)
+        let player =self.players.player_mut(id);
+        match  player{
+            Ok(RoundPlayerState::RoundPlayer(p)) => Ok(p),
+            Ok(RoundPlayerState::BankerTargetPlayer(_)) => {
+                 return Err(GameError::NotRoundPlayerState)
+            },
+            Err(_) => Err(GameError::NotRoundPlayerState)
+         }
     }
 
     /// Get a reference to a [`RoundPlayer`] based on a specific `character`. Note that the players
     /// are in order, so id 0 refers to the player at index 0 and so on.
     pub fn player_from_character(&self, character: Character) -> Option<&RoundPlayer> {
-        self.players().iter().find(|p| p.character() == character)
+        let player =  self.players().iter().find(|p| p.character() == character);
+        match player {
+            Some(p) => match p {
+                    RoundPlayerState::RoundPlayer(rp) => Some(rp),
+                    RoundPlayerState::BankerTargetPlayer(_) => None,
+                }
+            None => None
+        }
     }
 
     /// Get a reference to a [`RoundPlayer`] based on a specific `name`.
@@ -91,8 +114,9 @@ impl Round {
 
     /// Gets a slice of all players in the lobby.
     /// See [`Players::players`] for further information
-    pub fn players(&self) -> &[RoundPlayer] {
-        self.players.players()
+    pub fn players(&self) -> Result<&[RoundPlayer],GameError> {
+         self.players.players().iter().map(TryInto::try_into).collect::<Result<_, _>>()?
+        
     }
 
     /// Gets a slice containing all characters that cannot be picked by anyone this round.

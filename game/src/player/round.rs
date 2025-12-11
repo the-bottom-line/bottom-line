@@ -9,6 +9,111 @@ use crate::{
     player::*,
 };
 
+#[derive(Debug, Clone, PartialEq)]
+///different player states to limit available actions for a player
+pub enum RoundPlayerState {
+    /// Default round player with all functionalities to make actions in a turn
+    RoundPlayer(RoundPlayer),
+    /// Limited player who can only take actions related to being targeted by the banker
+    BankerTargetPlayer(BankerTargetPlayer),
+}
+
+impl RoundPlayerState {
+    pub fn id(&self) -> PlayerId {
+        match self {
+            Self::RoundPlayer(p) => p.id(),
+            Self::BankerTargetPlayer(p) => p.id(),
+        }
+    }
+
+    pub fn start_turn(&mut self, market: &Market) {
+        match self {
+            Self::RoundPlayer(p) => p.start_turn(market),
+            //TODO implement different start turn to get only one cash and later give the extra start gold
+            Self::BankerTargetPlayer(_) => (),
+        }
+    }
+    pub fn character(&self) -> Character {
+        match self {
+            Self::RoundPlayer(p) => p.character(),
+            Self::BankerTargetPlayer(p) => p.character(),
+        }
+    }
+
+}
+
+impl TryFrom<SelectingCharacters> for RoundPlayerState {
+    type Error = GameError;
+
+    fn try_from(value: SelectingCharacters) -> Result<Self, Self::Error> {
+        Ok(Self::RoundPlayer(value.try_into()?))
+    }
+}
+
+/// The player type that corresponds to the [`Round`](crate::game::Round) stage of the game. During
+/// the round stage, each player has selected a character.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BankerTargetPlayer {
+    id: PlayerId,
+    name: String,
+    cash: u8,
+    assets: Vec<Asset>,
+    liabilities: Vec<Liability>,
+    character: Character,
+    hand: Vec<Either<Asset, Liability>>,
+    liabilities_to_play: u8,
+}
+
+impl BankerTargetPlayer {
+    /// Gets the id for this player
+    pub fn id(&self) -> PlayerId {
+        self.id
+    }
+
+    /// Gets the character for this player
+    pub fn character(&self) -> Character {
+        self.character
+    }
+}
+
+impl From<RoundPlayer> for BankerTargetPlayer {
+    fn from(player: RoundPlayer) -> Self {
+        Self {
+            id: player.id,
+            name: player.name,
+            cash: player.cash,
+            assets: player.assets,
+            liabilities: player.liabilities,
+            character: player.character,
+            hand: player.hand,
+            liabilities_to_play: player.liabilities_to_play,
+        }
+    }
+}
+
+impl From<BankerTargetPlayer> for RoundPlayer {
+    fn from(player: BankerTargetPlayer) -> Self {
+        let playable_assets = player.character.playable_assets();
+        Self {
+            id: player.id,
+            name: player.name,
+            cash: player.cash,
+            assets: player.assets,
+            liabilities: player.liabilities,
+            character: player.character,
+            hand: player.hand,
+            liabilities_to_play: player.liabilities_to_play,
+            cards_drawn: vec![],
+            bonus_draw_cards: 0,
+            assets_to_play: playable_assets.total(),
+            playable_assets,
+            total_cards_drawn: 0,
+            total_cards_given_back: 0,
+            has_used_ability: false,
+        }
+    }
+}
+
 /// The player type that corresponds to the [`Round`](crate::game::Round) stage of the game. During
 /// the round stage, each player has selected a character.
 #[derive(Debug, Clone, PartialEq)]

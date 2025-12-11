@@ -92,6 +92,10 @@ pub enum GameError {
     #[error("Action only allowed in Round state")]
     NotRoundState,
 
+    /// Error indicating that this action is only allowed in the round state
+    #[error("Action only allowed in RoundPlayer state")]
+    NotRoundPlayerState,
+
     /// Error indicating that this action is only allowed in the results state
     #[error("Action only allowed in Results state")]
     NotResultsState,

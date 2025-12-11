@@ -118,7 +118,7 @@ impl ResultsPlayer {
             Color::Purple => self.market.purple.make_higher(),
             Color::Yellow => self.market.yellow.make_higher(),
             Color::Blue => self.market.blue.make_higher(),
-        }
+        };
 
         Ok(&self.market)
     }

@@ -65,20 +65,22 @@ pub enum MarketCondition {
 impl MarketCondition {
     /// Makes into a higher market condition:
     /// `Plus` and `Zero` become `Plus`, `Minus` becomes `Zero.
-    pub fn make_higher(&mut self) {
+    pub fn make_higher(&mut self) -> Self {
         *self = match self {
             Self::Plus | Self::Zero => Self::Plus,
             Self::Minus => Self::Zero,
         };
+        *self
     }
 
     /// Makes into a lower market condition:
     /// `Zero` and `Minus` become `Minus`, `Plus` becomes `Zero.
-    pub fn make_lower(&mut self) {
+    pub fn make_lower(&mut self) -> Self {
         *self = match self {
             Self::Minus | Self::Zero => Self::Minus,
             Self::Plus => Self::Zero,
         };
+        *self
     }
 }
 
@@ -802,6 +804,20 @@ mod tests {
     use super::*;
     use claim::*;
     use itertools::Itertools;
+    
+    #[test]
+    fn market_condition_make_higher() {
+        assert_eq!(MarketCondition::Minus.make_higher(), MarketCondition::Zero);
+        assert_eq!(MarketCondition::Zero.make_higher(), MarketCondition::Plus);
+        assert_eq!(MarketCondition::Plus.make_higher(), MarketCondition::Plus);
+    }
+    
+    #[test]
+    fn market_condition_make_lower() {
+        assert_eq!(MarketCondition::Minus.make_lower(), MarketCondition::Minus);
+        assert_eq!(MarketCondition::Zero.make_lower(), MarketCondition::Minus);
+        assert_eq!(MarketCondition::Plus.make_lower(), MarketCondition::Zero);
+    }
 
     #[test]
     fn all_unique_ids() {

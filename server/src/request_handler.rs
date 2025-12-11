@@ -697,6 +697,35 @@ pub fn change_asset_color(
     }
 }
 
+pub fn confirm_asset_ability(
+    state: &mut GameState,
+    player_id: PlayerId,
+    asset_idx: usize,
+) -> Result<Response, GameError> {
+    let results = state.results_mut()?;
+    results.confirm_asset_ability(player_id, asset_idx)?;
+
+    let internal = results
+        .players()
+        .iter()
+        .filter(|p| p.id() != player_id)
+        .map(|p| {
+            (
+                p.id(),
+                vec![UniqueResponse::ConfirmedAssetAbility {
+                    player_id,
+                    asset_idx,
+                }],
+            )
+        })
+        .collect();
+
+    Ok(Response(
+        InternalResponse(internal),
+        DirectResponse::YouConfirmedAssetAbility { asset_idx },
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

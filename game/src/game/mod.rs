@@ -58,6 +58,7 @@ pub enum MarketCondition {
     Minus,
     /// The market for this color is neutral
     #[default]
+    #[serde(rename = "zero")]
     Zero,
 }
 
@@ -108,10 +109,6 @@ pub struct Market {
     /// The market condition for red
     #[serde(rename = "Red", default)]
     pub red: MarketCondition,
-    /// A url which points to the front of this market card in the assets folder
-    pub image_front_url: String,
-    /// A url which points to the back of a market card in the assets folder
-    pub image_back_url: Arc<String>,
 }
 
 impl Market {

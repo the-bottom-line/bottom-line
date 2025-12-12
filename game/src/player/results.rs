@@ -749,10 +749,11 @@ pub(super) mod tests {
 
         std::iter::repeat_n(market_conditions, 5)
             .multi_cartesian_product()
-            .cartesian_product(std::iter::repeat_n(Color::COLORS, 5).multi_cartesian_product())
-            .map(|(m, colors)| {
+            .cartesian_product(std::iter::repeat_n(Color::COLORS, 4).multi_cartesian_product())
+            .cartesian_product(0..3)
+            .map(|((m, colors), cash)| {
                 let market = market(m[0], m[1], m[2], m[3], m[4], 1, 1);
-                let mut player = results_player(10, vec![], vec![], market);
+                let mut player = results_player(cash, vec![], vec![], market);
                 for c in colors {
                     player.assets.push(asset(c));
                 }

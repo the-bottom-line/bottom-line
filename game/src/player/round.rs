@@ -42,10 +42,10 @@ impl RoundPlayerState {
 
 }
 
-impl TryFrom<SelectingCharacters> for RoundPlayerState {
+impl TryFrom<SelectingCharactersPlayer> for RoundPlayerState {
     type Error = GameError;
 
-    fn try_from(value: SelectingCharacters) -> Result<Self, Self::Error> {
+    fn try_from(value: SelectingCharactersPlayer) -> Result<Self, Self::Error> {
         Ok(Self::RoundPlayer(value.try_into()?))
     }
 }
@@ -110,6 +110,17 @@ impl From<BankerTargetPlayer> for RoundPlayer {
             total_cards_drawn: 0,
             total_cards_given_back: 0,
             has_used_ability: false,
+        }
+    }
+}
+
+impl TryFrom<RoundPlayerState> for RoundPlayer {
+    type Error = GameError;
+
+    fn try_from(player: RoundPlayerState) ->  Result<Self, Self::Error> {
+        match player {
+            RoundPlayerState::RoundPlayer(p) => Ok(p),
+            RoundPlayerState::BankerTargetPlayer(_) => Err(GameError::NotRoundPlayerState),
         }
     }
 }

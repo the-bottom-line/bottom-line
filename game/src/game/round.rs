@@ -68,7 +68,7 @@ impl Round {
 
     /// Get a reference to a [`RoundPlayer`] based on a specific `name`.
     pub fn player_by_name(&self, name: &str) -> Result<&RoundPlayer, GameError> {
-        self.players()
+        self.players()?
             .iter()
             .find(|p| p.name() == name)
             .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
@@ -115,7 +115,7 @@ impl Round {
     /// Gets a slice of all players in the lobby.
     /// See [`Players::players`] for further information
     pub fn players(&self) -> Result<&[RoundPlayer],GameError> {
-         self.players.players().iter().map(TryInto::try_into).collect::<Result<_, _>>()?
+        let players = self.players.players();
         
     }
 
@@ -125,12 +125,12 @@ impl Round {
     }
 
     /// Gets the [`PlayerInfo`] for each player, excluding the player that has the same id as `id`.
-    pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
-        self.players()
-            .iter()
-            .filter(|p| p.id() != id)
-            .map(Into::into)
-            .collect()
+    pub fn player_info(&self, id: PlayerId) -> Result<Vec<PlayerInfo>,GameError> {
+        Ok(self.players()?
+                    .iter()
+                    .filter(|p| p.id() != id)
+                    .map(Into::into)
+                    .collect())
     }
 
     /// Gets the current market
@@ -167,7 +167,7 @@ impl Round {
     /// Gets the number of assets and liabilities for each player the regulator can choose to swap
     /// with. This excludes their own cards.
     pub fn player_get_regulator_swap_players(&mut self) -> Vec<RegulatorSwapPlayer> {
-        self.players()
+        self.players()?
             .iter()
             .filter(|p| p.character() != Character::Regulator)
             .map(|p| RegulatorSwapPlayer {
@@ -326,6 +326,7 @@ impl Round {
         if id != target_id {
             match self
                 .players
+                .players()
                 .get_disjoint_mut([usize::from(id), usize::from(target_id)])
             {
                 Ok([regulator, target]) => {

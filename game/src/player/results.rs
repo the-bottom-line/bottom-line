@@ -752,15 +752,25 @@ pub(super) mod tests {
             MarketCondition::Plus,
         ];
 
+        let loans = [
+            LiabilityType::TradeCredit,
+            LiabilityType::BankLoan,
+            LiabilityType::Bonds,
+        ];
+
         std::iter::repeat_n(market_conditions, 5)
             .multi_cartesian_product()
-            .cartesian_product(std::iter::repeat_n(Color::COLORS, 4).multi_cartesian_product())
+            .cartesian_product(std::iter::repeat_n(Color::COLORS, 3).multi_cartesian_product())
+            .cartesian_product(std::iter::repeat_n(loans, 3).multi_cartesian_product())
             .cartesian_product(0..3)
-            .map(|((m, colors), cash)| {
+            .map(|(((m, colors), rfr_types), cash)| {
                 let market = market(m[0], m[1], m[2], m[3], m[4], 1, 1);
                 let mut player = results_player(cash, vec![], vec![], market);
-                for c in colors {
+                for c in colors.into_iter().take(cash as usize) {
                     player.assets.push(asset(c));
+                }
+                for rfr_type in rfr_types.into_iter().take(cash as usize) {
+                    player.liabilities.push(liability_with_type(cash, rfr_type));
                 }
                 player
             })

@@ -627,7 +627,7 @@ pub(super) mod tests {
     }
 
     #[test]
-    pub fn total_silver() {
+    fn total_silver() {
         for i in 0..10 {
             let mut player = default_results_player();
             for _ in i..10 {

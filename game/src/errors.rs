@@ -8,7 +8,7 @@ use thiserror::Error;
 #[cfg(feature = "ts")]
 use ts_rs::TS;
 
-use crate::player::Character;
+use crate::player::{AssetPowerup, Character};
 
 /// The main error enum used by the game logic.
 #[cfg_attr(feature = "ts", derive(TS))]
@@ -299,8 +299,8 @@ pub enum SelectingCharactersError {
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
 pub enum AssetAbilityError {
     /// Player does not have that ability (anymore).
-    #[error("This player does not have a card with that ability")]
-    PlayerDoesNotHaveAbility,
+    #[error("This player does not have a card ability '{0:?}")]
+    PlayerDoesNotHaveAbility(AssetPowerup),
     /// Player already confirmed choice for this particular asset ability. They cannot change it
     /// anymore.
     #[error("Player already confirmed choice for asset index {0}")]

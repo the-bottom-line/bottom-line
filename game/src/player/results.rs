@@ -532,7 +532,67 @@ pub(super) mod tests {
     }
 
     #[test]
-    pub fn total_gold() {
+    fn minus_into_plus() {
+        fn assert_ability_error(player: &mut ResultsPlayer) {
+            for color in Color::COLORS {
+                assert_matches!(
+                    player.toggle_minus_into_plus(color),
+                    Err(GameError::CardAbility(
+                        AssetAbilityError::PlayerDoesNotHaveAbility(AssetPowerup::MinusIntoPlus)
+                    ))
+                );
+            }
+        }
+        
+        let mut player = default_results_player();
+
+        assert_eq!(player.market, player.final_market);
+
+        assert_ability_error(&mut player);
+
+        for card_idx in 0..3 {
+            player.assets.push(asset(Color::Purple));
+            player.assets[card_idx].ability = Some(AssetPowerup::MinusIntoPlus);
+
+            for color in Color::COLORS {
+                let market = player
+                    .toggle_minus_into_plus(color)
+                    .expect("Could not perform ability")
+                    .clone();
+
+                assert_eq!(player.market, market);
+
+                for color_check in Color::COLORS {
+                    let market_condition = player.market.color_condition(color_check);
+                    let mut final_market_condition =
+                        player.final_market.color_condition(color_check);
+
+                    if color == color_check {
+                        assert_eq!(market_condition, final_market_condition.make_higher());
+                    } else {
+                        assert_eq!(market_condition, final_market_condition);
+                    }
+                }
+            }
+
+            player.confirm_asset_ability(card_idx).unwrap();
+
+            assert_ability_error(&mut player);
+        }
+        
+        player.assets.push(asset(Color::Purple));
+        
+        assert_ability_error(&mut player);
+        
+        player.assets[3].ability = Some(AssetPowerup::MinusIntoPlus);
+        
+        for color in Color::COLORS {
+            assert_ok!(player.toggle_minus_into_plus(color));
+        }
+    }
+
+    #[test]
+    fn total_gold() {
         for i in 0..10 {
             let mut player = default_results_player();
             for _ in i..10 {

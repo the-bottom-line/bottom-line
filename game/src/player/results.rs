@@ -614,7 +614,7 @@ pub(super) mod tests {
     }
 
     #[test]
-    pub fn total_gold() {
+    fn total_gold() {
         for i in 0..10 {
             let mut player = default_results_player();
             for _ in i..10 {

@@ -77,37 +77,30 @@ impl ResultsPlayer {
         &self.market
     }
 
-    fn asset_ability_prechecks(
-        &self,
-        asset_idx: usize,
-        ability: Option<AssetPowerup>,
-    ) -> Result<(), GameError> {
-        if ability.is_some()
-            && self
-                .assets
-                .iter()
-                .positions(|a| a.ability == ability)
-                .all(|pos| self.confirmed_asset_ability_idxs.contains(&pos))
-        {
-            return Err(AssetAbilityError::PlayerDoesNotHaveAbility.into());
-        }
-        if self.assets.get(asset_idx).is_none() {
-            return Err(GameError::InvalidAssetIndex(asset_idx as u8));
-        }
-        if self.confirmed_asset_ability_idxs.contains(&asset_idx) {
-            return Err(AssetAbilityError::AlreadyConfirmedAssetIndex(asset_idx as u8).into());
-        }
+    fn check_has_ability(&self, ability: AssetPowerup) -> Result<(), AssetAbilityError> {
+        let has_ability = self
+            .assets
+            .iter()
+            .positions(|a| a.ability == Some(ability))
+            .any(|pos| !self.confirmed_asset_ability_idxs.contains(&pos));
 
-        Ok(())
+        match has_ability {
+            true => Ok(()),
+            false => Err(AssetAbilityError::PlayerDoesNotHaveAbility(ability)),
+        }
+    }
+
+    fn check_is_valid_asset_idx(&self, asset_idx: usize) -> Result<(), GameError> {
+        match self.assets.get(asset_idx) {
+            Some(_) => Ok(()),
+            None => Err(GameError::InvalidAssetIndex(asset_idx as u8)),
+        }
     }
 
     /// Resets back to the passed `final_market` and then turns the minus of a certain color into a
     /// zero or a zero into a plus.
-    pub fn toggle_minus_into_plus(
-        &mut self,
-        color: Color,
-    ) -> Result<&Market, GameError> {
-        self.asset_ability_prechecks(0, Some(AssetPowerup::MinusIntoPlus))?;
+    pub fn toggle_minus_into_plus(&mut self, color: Color) -> Result<&Market, GameError> {
+        self.check_has_ability(AssetPowerup::MinusIntoPlus)?;
 
         // TODO: handle confirmation for this action
         self.market = self.final_market.clone();
@@ -128,7 +121,8 @@ impl ResultsPlayer {
         &mut self,
         asset_idx: usize,
     ) -> Result<ToggleSilverIntoGold, GameError> {
-        self.asset_ability_prechecks(asset_idx, Some(AssetPowerup::SilverIntoGold))?;
+        self.check_has_ability(AssetPowerup::SilverIntoGold)?;
+        self.check_is_valid_asset_idx(asset_idx)?;
 
         if let Some(old) = self.old_silver_into_gold {
             match self.assets.get_disjoint_mut([asset_idx, old.asset_idx]) {
@@ -193,7 +187,8 @@ impl ResultsPlayer {
         asset_idx: usize,
         color: Color,
     ) -> Result<ToggleChangeAssetColor, GameError> {
-        self.asset_ability_prechecks(asset_idx, Some(AssetPowerup::CountAsAnyColor))?;
+        self.check_has_ability(AssetPowerup::CountAsAnyColor)?;
+        self.check_is_valid_asset_idx(asset_idx)?;
 
         if let Some(old) = self.old_change_asset_color {
             match self.assets.get_disjoint_mut([asset_idx, old.asset_idx]) {
@@ -240,11 +235,15 @@ impl ResultsPlayer {
     /// Asset abilities are toggleable by default. This function confirms the current configuration,
     /// after which a player cannot toggle this particular index anymore.
     pub fn confirm_asset_ability(&mut self, asset_idx: usize) -> Result<(), GameError> {
-        self.asset_ability_prechecks(asset_idx, None)?;
+        self.check_is_valid_asset_idx(asset_idx)?;
+
+        if self.confirmed_asset_ability_idxs.contains(&asset_idx) {
+            return Err(AssetAbilityError::AlreadyConfirmedAssetIndex(asset_idx as u8).into());
+        }
 
         self.confirmed_asset_ability_idxs.push(asset_idx);
-        
-        // PANIC: self.asset_ability_prechecks already verifies that asset_idx is valid, so this
+
+        // PANIC: self.check_is_valid_asset_idx already verifies that asset_idx is valid, so this
         // unwrap is totally safe to do.
         if Some(AssetPowerup::MinusIntoPlus) == self.assets.get(asset_idx).unwrap().ability {
             self.final_market = self.market.clone();

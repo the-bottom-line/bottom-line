@@ -690,7 +690,7 @@ pub(super) mod tests {
     }
 
     #[test]
-    pub fn color_value() {
+    fn color_value() {
         let market_conditions = [
             MarketCondition::Minus,
             MarketCondition::Zero,

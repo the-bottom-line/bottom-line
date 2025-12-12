@@ -322,20 +322,25 @@ impl ResultsPlayer {
         let trade_credit = self.trade_credit() as f64;
         let bank_loan = self.bank_loan() as f64;
         let bonds = self.bonds() as f64;
-
-        let beta = silver / (1.0 + gold);
-
-        // TODO: end of game bonuses
-        let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / (gold + cash);
-
-        let rfr = self.market.rfr as f64;
-        let mrp = self.market.mrp as f64;
-
-        let fcf = self.fcf();
-        let wacc = rfr + drp + beta * mrp;
         let debt = trade_credit + bank_loan + bonds;
 
-        (fcf / (10.0 * wacc)) + (debt / 3.0) + cash
+        if gold == 0.0 {
+            // lim->inf fcf / wacc = 0
+            (debt / 3.0) + cash
+        } else {
+            let beta = silver / gold;
+
+            // TODO: end of game bonuses
+            let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / gold + cash;
+
+            let rfr = self.market.rfr as f64;
+            let mrp = self.market.mrp as f64;
+
+            let fcf = self.fcf();
+            let wacc = rfr + drp + beta * mrp;
+
+            (fcf / (10.0 * wacc)) + (debt / 3.0) + cash
+        }
     }
 }
 
@@ -565,7 +570,7 @@ pub(super) mod tests {
                 );
             }
         }
-        
+
         let mut player = default_results_player();
 
         assert_eq!(player.market, player.final_market);
@@ -601,13 +606,13 @@ pub(super) mod tests {
 
             assert_ability_error(&mut player);
         }
-        
+
         player.assets.push(asset(Color::Purple));
-        
+
         assert_ability_error(&mut player);
-        
+
         player.assets[3].ability = Some(AssetPowerup::MinusIntoPlus);
-        
+
         for color in Color::COLORS {
             assert_ok!(player.toggle_minus_into_plus(color));
         }
@@ -769,25 +774,30 @@ pub(super) mod tests {
                 let bonds = player.bonds() as f64;
                 let debt = trade_credit + bank_loan + bonds;
 
-                let beta = silver / (1.0 + gold);
+                let score = if gold == 0.0 {
+                    // lim->inf fcf / wacc = 0
+                    (debt / 3.0) + cash
+                } else {
+                    let beta = silver / gold;
 
-                // TODO: end of game bonuses
-                let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / (gold + cash);
+                    // TODO: end of game bonuses
+                    let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / gold + cash;
 
-                let rfr = player.market.rfr as f64;
-                let mrp = player.market.mrp as f64;
+                    let rfr = player.market.rfr as f64;
+                    let mrp = player.market.mrp as f64;
 
-                let wacc = rfr + drp + beta * mrp;
+                    let wacc = rfr + drp + beta * mrp;
 
-                let red = player.color_value(Color::Red);
-                let green = player.color_value(Color::Green);
-                let yellow = player.color_value(Color::Yellow);
-                let purple = player.color_value(Color::Purple);
-                let blue = player.color_value(Color::Blue);
+                    let red = player.color_value(Color::Red);
+                    let green = player.color_value(Color::Green);
+                    let yellow = player.color_value(Color::Yellow);
+                    let purple = player.color_value(Color::Purple);
+                    let blue = player.color_value(Color::Blue);
 
-                let fcf = red + green + yellow + purple + blue;
+                    let fcf = red + green + yellow + purple + blue;
 
-                let score = (fcf / (10.0 * wacc)) + (debt / 3.0) + cash;
+                    (fcf / (10.0 * wacc)) + (debt / 3.0) + cash
+                };
 
                 assert_approx_eq!(score, player.score());
             });

@@ -740,7 +740,7 @@ pub(super) mod tests {
     }
 
     #[test]
-    pub fn score() {
+    fn score() {
         let market_conditions = [
             MarketCondition::Minus,
             MarketCondition::Zero,

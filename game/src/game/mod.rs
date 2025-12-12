@@ -804,14 +804,14 @@ mod tests {
     use super::*;
     use claim::*;
     use itertools::Itertools;
-    
+
     #[test]
     fn market_condition_make_higher() {
         assert_eq!(MarketCondition::Minus.make_higher(), MarketCondition::Zero);
         assert_eq!(MarketCondition::Zero.make_higher(), MarketCondition::Plus);
         assert_eq!(MarketCondition::Plus.make_higher(), MarketCondition::Plus);
     }
-    
+
     #[test]
     fn market_condition_make_lower() {
         assert_eq!(MarketCondition::Minus.make_lower(), MarketCondition::Minus);

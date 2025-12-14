@@ -714,6 +714,23 @@ impl GameState {
         }
     }
 
+        /// Tries to get a `&`[`Round`] state. Returns an error if the game is not in a round state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::{GameState, Lobby}};
+    /// let game = GameState::Lobby(Lobby::default());
+    /// assert_eq!(game.round(), Err(GameError::NotBankerTargetState));
+    /// ```
+    pub fn bankertarget(&self) -> Result<&BankerTargetRound, GameError> {
+        match self {
+            Self::BankerTarget(r) => Ok(r),
+            _ => Err(GameError::NotAvailableInBankerTargetState),
+        }
+    }
+
+
     /// Tries to get a `&`[`Results`] state. Returns an error if the game is not in a results state.
     ///
     /// # Examples

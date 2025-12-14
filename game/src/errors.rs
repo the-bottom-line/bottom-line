@@ -112,7 +112,6 @@ pub enum GameError {
     #[error("Action unavailable in lobby state")]
     NotAvailableInBankerTargetState,
 
-
     /// Error indicating that this action is not allowed in the results state
     #[error("Action unavailable in results state")]
     NotAvailableInResultsState,

@@ -82,6 +82,11 @@ pub enum FrontendRequest {
         /// The character who's credit line will be terminated.
         character: Character,
     },
+    /// Tries to send cash to the banker when player is targeted
+    PayBanker {
+        /// The amount of cash to pay
+        cash: usize,
+    },
     /// Tries to swap a list of card indices with the deck for this player.
     SwapWithDeck {
         /// The list of card indices to be swapped with the deck.
@@ -156,6 +161,11 @@ pub enum DirectResponse {
     YouTerminateCreditCharacter {
         /// The character who's credit line was terminated.
         character: Character,
+    },
+    /// Confirmation that you paid some gold to the banker.
+    YouPaidBanker {
+        /// The amount of gold paid
+        cash: usize,
     },
     /// Confirmation that this player was succesful in getting regulator options
     YouRegulatorOptions {
@@ -427,6 +437,7 @@ pub enum UniqueResponse {
         /// The character which was fired.
         character: Character,
     },
+    /// sent when a characters credit line has been terminated
     TerminatedCreditCharacter {
         /// The id of the player who teminated the credit line someone.
         player_id: PlayerId,

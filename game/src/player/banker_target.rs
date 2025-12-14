@@ -27,6 +27,11 @@ impl BankerTargetPlayer {
         self.id
     }
 
+    /// Gets the name of the player
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
     /// Gets the character for this player
     pub fn character(&self) -> Character {
         self.character

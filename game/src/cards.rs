@@ -276,9 +276,6 @@ impl From<Deck<MarketEventCard>> for Deck<Either<Market, Event>> {
             .deck
             .into_iter()
             .flat_map(|c| {
-                // keep borrow checker happy about moving an Rc into each Liability
-                let image_back_url = image_back_url.clone();
-
                 (0..c.copies).map(move |_| match c.details.clone() {
                     MarketEventDetails::MarketStatus { market_status } => Either::Left(Market {
                         title: c.title.clone(),
@@ -289,8 +286,6 @@ impl From<Deck<MarketEventCard>> for Deck<Either<Market, Event>> {
                         blue: market_status.blue,
                         yellow: market_status.yellow,
                         purple: market_status.purple,
-                        image_front_url: c.card_image_url.clone(),
-                        image_back_url: image_back_url.clone(),
                     }),
                     MarketEventDetails::Event { event } => Either::Right(Event {
                         title: c.title.clone(),

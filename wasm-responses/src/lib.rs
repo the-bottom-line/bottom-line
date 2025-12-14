@@ -1,4 +1,4 @@
-use game::player::{CardType, Character, PlayerId};
+use game::player::{CardType, Character, Color, PlayerId};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -77,7 +77,7 @@ impl CreateRequest {
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
-    #[wasm_bindgen(js_name = swapWithDeck)]
+    #[wasm_bindgen(js_name = swapWithPlayer)]
     pub fn swap_with_player(target_id: u8) -> Result<String, JsValue> {
         let target_player_id = PlayerId(target_id);
         serde_json::to_string(&responses::FrontendRequest::SwapWithPlayer { target_player_id })
@@ -97,6 +97,32 @@ impl CreateRequest {
     #[wasm_bindgen(js_name = endTurn)]
     pub fn end_turn() -> Result<String, JsValue> {
         serde_json::to_string(&responses::FrontendRequest::EndTurn)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = minusIntoPlus)]
+    pub fn minus_into_plus(color: JsValue) -> Result<String, JsValue> {
+        let color: Color = serde_wasm_bindgen::from_value(color)?;
+        serde_json::to_string(&responses::FrontendRequest::MinusIntoPlus { color })
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = silverIntoGold)]
+    pub fn silver_into_gold(asset_idx: usize) -> Result<String, JsValue> {
+        serde_json::to_string(&responses::FrontendRequest::SilverIntoGold { asset_idx })
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = changeAssetColor)]
+    pub fn change_asset_color(asset_idx: usize, color: JsValue) -> Result<String, JsValue> {
+        let color: Color = serde_wasm_bindgen::from_value(color)?;
+        serde_json::to_string(&responses::FrontendRequest::ChangeAssetColor { asset_idx, color })
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = confirmAssetAbility)]
+    pub fn confirm_asset_ability(asset_idx: usize) -> Result<String, JsValue> {
+        serde_json::to_string(&responses::FrontendRequest::ConfirmAssetAbility { asset_idx })
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 }
@@ -135,6 +161,19 @@ impl CreateRequest {
                 card_idx,
             } => Self::divest_asset(target_player_id.0, card_idx),
             responses::FrontendRequest::EndTurn => Self::end_turn(),
+            responses::FrontendRequest::MinusIntoPlus { color: _ } => {
+                Self::minus_into_plus(JsValue::null())
+            }
+            responses::FrontendRequest::SilverIntoGold { asset_idx } => {
+                Self::silver_into_gold(asset_idx)
+            }
+            responses::FrontendRequest::ChangeAssetColor {
+                asset_idx,
+                color: _,
+            } => Self::change_asset_color(asset_idx, JsValue::null()),
+            responses::FrontendRequest::ConfirmAssetAbility { asset_idx } => {
+                Self::confirm_asset_ability(asset_idx)
+            }
         };
     }
 }

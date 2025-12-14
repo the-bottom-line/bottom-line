@@ -5,8 +5,8 @@ use itertools::Itertools;
 
 use crate::{
     errors::*,
-    player::*,
     game::{Deck, Market, MarketCondition},
+    player::*,
 };
 
 /// The player type that corresponds to the [`Round`](crate::game::Round) stage of the game. During
@@ -79,6 +79,10 @@ impl RoundPlayer {
             .copied()
             .filter(|&i| i != card_idx)
             .collect();
+    }
+
+    fn can_afford_asset(&self, asset: &Asset) -> bool {
+        self.cash >= asset.gold_value
     }
 
     /// Checks whether or not a player can play an asset of a certain color.
@@ -173,8 +177,11 @@ impl RoundPlayer {
                     // TODO: actually draw new cards for player?
                     let mut asset_count: usize = 0;
                     let mut liability_count: usize = 0;
-                    for card in card_idxs.into_iter().rev() {
-                        match self.hand.remove(card) {
+                    for card_idx in card_idxs.into_iter().rev() {
+                        // PANIC: we know each card_idx to be a valid index, so removing them cannot
+                        // crash. Clarification: Sorting puts the highest index last, and we check
+                        // if the last index is within the bounds of the player's hand.
+                        match self.hand.remove(card_idx) {
                             Either::Left(a) => {
                                 asset_deck.put_back(a);
                                 asset_count += 1;
@@ -222,6 +229,7 @@ impl RoundPlayer {
     /// was removed from the player.
     pub fn remove_asset(&mut self, asset_idx: usize) -> Result<Asset, DivestAssetError> {
         if self.assets.get(asset_idx).is_some() {
+            // PANIC: We verified that asset_idx is a valid index, so this cannot crash.
             Ok(self.assets.remove(asset_idx))
         } else {
             Err(DivestAssetError::InvalidCardIdx)
@@ -277,7 +285,9 @@ impl RoundPlayer {
 
         if let Some(card) = self.hand.get(card_idx) {
             match card {
-                Either::Left(a) if self.can_play_asset(a.color) && self.cash >= a.gold_value => {
+                Either::Left(a) if self.can_play_asset(a.color) && self.can_afford_asset(a) => {
+                    // PANIC: self.hand[card_idx] exists and has been verified to be an asset, so
+                    // this is safe to unwrap
                     let asset = self.hand.remove(card_idx).left().unwrap();
                     self.cash -= asset.gold_value;
                     self.assets_to_play -= self.playable_assets.color_cost(asset.color);
@@ -286,11 +296,13 @@ impl RoundPlayer {
                     Ok(Either::Left(asset))
                 }
                 Either::Left(a) if !self.can_play_asset(a.color) => Err(ExceedsMaximumAssets),
-                Either::Left(a) if self.cash < a.gold_value => Err(CannotAffordAsset {
+                Either::Left(a) if !self.can_afford_asset(a) => Err(CannotAffordAsset {
                     cash: self.cash,
                     cost: a.gold_value,
                 }),
                 Either::Right(_) if self.can_play_liability() => {
+                    // PANIC: self.hand[card_idx] exists and has been verified to be a liability, so
+                    // this is safe to unwrap
                     let liability = self.hand.remove(card_idx).right().unwrap();
                     self.cash += liability.value;
                     self.liabilities_to_play -= 1;
@@ -299,7 +311,16 @@ impl RoundPlayer {
                     Ok(Either::Right(liability))
                 }
                 Either::Right(_) if !self.can_play_liability() => Err(ExceedsMaximumLiabilities),
-                _ => unreachable!(),
+                _ => {
+                    // PANIC: the compiler cannot verify that all cases are covered, but we can:
+                    // Left() if we can both play and buy asset is checked,
+                    // Left() if we can either not play or not buy asset is checked
+                    // -- this covers all possible paths when it comes to the Left path
+                    // Right if we can play liability is checked
+                    // Right if we can't play liability is checked
+                    // -- again we have full coverage of the Right path, so this is safe.
+                    unreachable!()
+                }
             }
         } else {
             Err(InvalidCardIndex(card_idx as u8))
@@ -307,20 +328,23 @@ impl RoundPlayer {
     }
 
     /// Makes the player draw a new card to their hand.
-    fn draw_card(&mut self, card: Either<Asset, Liability>) {
+    fn draw_card(&mut self, card: Either<Asset, Liability>) -> Either<&Asset, &Liability> {
         self.total_cards_drawn += 1;
         self.cards_drawn.push(self.hand.len());
         self.hand.push(card);
+        // PANIC: because we just pushed to the hand, we know this to be safe.
+        self.hand.last().unwrap().as_ref()
     }
 
     /// Draws a new asset from the deck, if they are allowed. If succesful, a reference to this
     /// asset is returned.
     pub(crate) fn draw_asset(&mut self, deck: &mut Deck<Asset>) -> Result<&Asset, DrawCardError> {
         if self.can_draw_cards() {
-            let card = Either::Left(deck.draw());
-            self.draw_card(card);
+            let asset = Either::Left(deck.draw());
+            let card = self.draw_card(asset);
 
-            Ok(self.hand.last().unwrap().as_ref().left().unwrap())
+            // PANIC: because we just drew an asset, we know this to be safe.
+            Ok(card.left().unwrap())
         } else {
             Err(DrawCardError::MaximumCardsDrawn(self.total_cards_drawn))
         }
@@ -333,10 +357,11 @@ impl RoundPlayer {
         deck: &mut Deck<Liability>,
     ) -> Result<&Liability, DrawCardError> {
         if self.can_draw_cards() {
-            let card = Either::Right(deck.draw());
-            self.draw_card(card);
+            let liability = Either::Right(deck.draw());
+            let card = self.draw_card(liability);
 
-            Ok(self.hand.last().unwrap().as_ref().right().unwrap())
+            // PANIC: because we just drew a liability, we know this to be safe.
+            Ok(card.right().unwrap())
         } else {
             Err(DrawCardError::MaximumCardsDrawn(self.total_cards_drawn))
         }
@@ -353,6 +378,8 @@ impl RoundPlayer {
                 Some(_) => {
                     self.total_cards_given_back += 1;
                     self.update_cards_drawn(card_idx);
+                    // PANIC: we just verified that there is a card at this index, so removing it
+                    // cannot crash.
                     Ok(self.hand.remove(card_idx))
                 }
                 None => Err(GiveBackCardError::InvalidCardIndex(card_idx as u8)),
@@ -492,12 +519,12 @@ impl From<&RoundPlayer> for PlayerInfo {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::*;
     use claim::*;
     use itertools::Itertools;
 
-    fn asset(color: Color) -> Asset {
+    pub(crate) fn asset(color: Color) -> Asset {
         Asset {
             color,
             title: "Asset".to_owned(),
@@ -509,7 +536,7 @@ mod tests {
         }
     }
 
-    fn liability(value: u8) -> Liability {
+    pub(crate) fn liability(value: u8) -> Liability {
         Liability {
             value,
             rfr_type: LiabilityType::BankLoan,
@@ -518,11 +545,11 @@ mod tests {
         }
     }
 
-    fn hand_asset(color: Color) -> Vec<Either<Asset, Liability>> {
+    pub(crate) fn hand_asset(color: Color) -> Vec<Either<Asset, Liability>> {
         vec![Either::Left(asset(color))]
     }
 
-    fn hand_liability(value: u8) -> Vec<Either<Asset, Liability>> {
+    pub(crate) fn hand_liability(value: u8) -> Vec<Either<Asset, Liability>> {
         vec![Either::Right(liability(value))]
     }
 
@@ -930,18 +957,7 @@ mod tests {
                 };
                 let round_player = RoundPlayer::try_from(selecting_player).unwrap();
 
-                let mut market = Market {
-                    title: Default::default(),
-                    rfr: Default::default(),
-                    mrp: Default::default(),
-                    yellow: Zero,
-                    blue: Zero,
-                    green: Zero,
-                    purple: Zero,
-                    red: Zero,
-                    image_front_url: Default::default(),
-                    image_back_url: Default::default(),
-                };
+                let mut market = Market::default();
 
                 match character.color() {
                     Some(Color::Red) => market.red = condition,

@@ -8,7 +8,7 @@ use thiserror::Error;
 #[cfg(feature = "ts")]
 use ts_rs::TS;
 
-use crate::player::Character;
+use crate::player::{AssetPowerup, Character};
 
 /// The main error enum used by the game logic.
 #[cfg_attr(feature = "ts", derive(TS))]
@@ -50,6 +50,10 @@ pub enum GameError {
     /// Errors related to the action of forcing another player to divest an asset
     #[error(transparent)]
     DivestAsset(#[from] DivestAssetError),
+
+    /// Errors related to the asset abilities
+    #[error(transparent)]
+    CardAbility(#[from] AssetAbilityError),
 
     /// Error indicating when a certain index is out of bounds
     #[error("Asset index {0} is invalid")]
@@ -287,4 +291,21 @@ pub enum SelectingCharactersError {
     /// Action is restricted to the chairman.
     #[error("Player is not chairman")]
     NotChairman,
+}
+
+/// Errors that can happen while performing card abilities
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
+pub enum AssetAbilityError {
+    /// Player does not have a card with an ability at that index
+    #[error("Player does not have a card with an ability at index {0}")]
+    InvalidAbilityIndex(usize),
+    /// Player does not have that ability (anymore).
+    #[error("This player does not have a card ability '{0:?}")]
+    PlayerDoesNotHaveAbility(AssetPowerup),
+    /// Player already confirmed choice for this particular asset ability. They cannot change it
+    /// anymore.
+    #[error("Player already confirmed choice for asset index {0}")]
+    AlreadyConfirmedAssetIndex(u8),
 }

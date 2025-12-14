@@ -53,6 +53,9 @@ impl Round {
 
     /// Get a reference to the [`RoundPlayer`] whose turn it is.
     pub fn current_player(&self) -> &RoundPlayer {
+        // PANIC: This is an invariant that holds because `self.current_player` is only assigned by
+        // in Round::end_player_turn() and relies on Round::next_player() which is safe. Therefore,
+        // `self.current_player` is never invalid.
         self.player(self.current_player)
             .expect("self.current_player went out of bounds")
     }
@@ -441,7 +444,7 @@ impl Round {
                 let current_market = std::mem::take(&mut self.current_market);
                 let current_events = std::mem::take(&mut self.current_events);
 
-                let players = Players(players.0.into_iter().map(Into::into).collect());
+                let players = Players(players.into_iter().map(Into::into).collect());
 
                 let state = GameState::SelectingCharacters(SelectingCharacters {
                     players,
@@ -460,7 +463,12 @@ impl Round {
                 let final_events = std::mem::take(&mut self.current_events);
                 let players = std::mem::take(&mut self.players);
 
-                let players = Players(players.0.into_iter().map(Into::into).collect());
+                let players = Players(
+                    players
+                        .into_iter()
+                        .map(|round_player| ResultsPlayer::new(round_player, self.current_market()))
+                        .collect(),
+                );
 
                 let state = GameState::Results(Results {
                     players,

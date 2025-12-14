@@ -58,7 +58,30 @@ pub enum MarketCondition {
     Minus,
     /// The market for this color is neutral
     #[default]
+    #[serde(rename = "zero")]
     Zero,
+}
+
+impl MarketCondition {
+    /// Makes into a higher market condition:
+    /// `Plus` and `Zero` become `Plus`, `Minus` becomes `Zero.
+    pub fn make_higher(&mut self) -> Self {
+        *self = match self {
+            Self::Plus | Self::Zero => Self::Plus,
+            Self::Minus => Self::Zero,
+        };
+        *self
+    }
+
+    /// Makes into a lower market condition:
+    /// `Zero` and `Minus` become `Minus`, `Plus` becomes `Zero.
+    pub fn make_lower(&mut self) -> Self {
+        *self = match self {
+            Self::Minus | Self::Zero => Self::Minus,
+            Self::Plus => Self::Zero,
+        };
+        *self
+    }
 }
 
 /// The market card type
@@ -88,10 +111,6 @@ pub struct Market {
     /// The market condition for red
     #[serde(rename = "Red", default)]
     pub red: MarketCondition,
-    /// A url which points to the front of this market card in the assets folder
-    pub image_front_url: String,
-    /// A url which points to the back of a market card in the assets folder
-    pub image_back_url: Arc<String>,
 }
 
 impl Market {
@@ -273,12 +292,15 @@ impl ObtainingCharacters {
                 .iter()
                 .position(|c| *c == Character::CEO)
                 .unwrap();
+            // PANIC: this is completely safe because `Character::CHARACTERS always contains all
+            // characters, which of course includes the CEO.
 
             // Get CEO out of the first `open_character_count` positions
             if (0..open_character_count).contains(&ceo_pos) {
                 let ceo_insert =
                     rand::random_range(open_character_count..(available_characters.len() - 1));
-                debug_assert_eq!(available_characters.deck.remove(ceo_pos), Character::CEO);
+                // PANIC: We know `ceo_pos` to be a valid position, so removing it cannot crash.
+                assert_eq!(available_characters.deck.remove(ceo_pos), Character::CEO);
                 available_characters.deck.insert(ceo_insert, Character::CEO);
             }
             // CEO is now out of bottom positions of the deck (start of list) but we want it out
@@ -333,6 +355,7 @@ impl ObtainingCharacters {
             Ok(PickableCharacters { mut characters, .. }) => {
                 match characters.iter().position(|&c| c == character) {
                     Some(i) => {
+                        // PANIC: we know `i` to be a valid position, so removing it cannot crash.
                         characters.remove(i);
                         self.draw_idx += 1;
                         self.available_characters.deck = characters;
@@ -517,11 +540,40 @@ impl<P> Players<P> {
     ) -> Result<[&mut P; N], std::slice::GetDisjointMutError> {
         self.0.get_disjoint_mut(indices)
     }
+
+    /// Returns an iterator over the slice.
+    /// The iterator yields all players from start to end.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::game::Players;
+    /// let players = Players::new(vec![1, 2, 4]);
+    /// let mut iterator = players.iter();
+    ///
+    /// assert_eq!(iterator.next(), Some(&1));
+    /// assert_eq!(iterator.next(), Some(&2));
+    /// assert_eq!(iterator.next(), Some(&4));
+    /// assert_eq!(iterator.next(), None);
+    /// ```
+    pub fn iter(&self) -> impl Iterator<Item = &P> {
+        self.0.iter()
+    }
 }
 
 impl<P> Default for Players<P> {
     fn default() -> Self {
         Self(Default::default())
+    }
+}
+
+impl<P> IntoIterator for Players<P> {
+    type Item = P;
+
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
@@ -752,6 +804,20 @@ mod tests {
     use super::*;
     use claim::*;
     use itertools::Itertools;
+
+    #[test]
+    fn market_condition_make_higher() {
+        assert_eq!(MarketCondition::Minus.make_higher(), MarketCondition::Zero);
+        assert_eq!(MarketCondition::Zero.make_higher(), MarketCondition::Plus);
+        assert_eq!(MarketCondition::Plus.make_higher(), MarketCondition::Plus);
+    }
+
+    #[test]
+    fn market_condition_make_lower() {
+        assert_eq!(MarketCondition::Minus.make_lower(), MarketCondition::Minus);
+        assert_eq!(MarketCondition::Zero.make_lower(), MarketCondition::Minus);
+        assert_eq!(MarketCondition::Plus.make_lower(), MarketCondition::Zero);
+    }
 
     #[test]
     fn all_unique_ids() {

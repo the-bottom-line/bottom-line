@@ -24,7 +24,9 @@ RUN cargo build --release --target x86_64-unknown-linux-musl --bin server
 # Stage 4: Runtime
 FROM alpine:3.20 AS runtime
 WORKDIR /app
+ENV ASSETS_DIR=./assets
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/server .
+COPY --from=builder /app/assets ./assets
 EXPOSE 3000
 RUN chmod +x server
 CMD ["./server"]

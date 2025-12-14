@@ -197,39 +197,42 @@ impl ResultsPlayer {
             match self.assets.get_disjoint_mut([asset_idx, old.asset_idx]) {
                 Ok([asset, old_asset]) => {
                     old_asset.color = old.color;
+
+                    let new_old_data = ChangeAssetColorData::new(asset_idx, asset.color);
+                    self.old_change_asset_color = Some(new_old_data);
+
                     asset.color = color;
 
                     let old_data = ChangeAssetColorData::new(old.asset_idx, old_asset.color);
                     let new_data = ChangeAssetColorData::new(asset_idx, asset.color);
 
-                    self.old_change_asset_color = Some(new_data);
-
                     Ok(ToggleChangeAssetColor::new(Some(old_data), Some(new_data)))
                 }
                 Err(_) => {
-                    // PANIC: we control old.asset_idx and know it is always valid because when it's
-                    // set it's always valid.
-                    let old_asset = self.assets.get_mut(old.asset_idx).unwrap();
+                    // PANIC: self.check_is_valid_asset_idx already verifies that this is a valid
+                    // index, so unwrapping is safe here
+                    let asset = self.assets.get_mut(asset_idx).unwrap();
 
-                    old_asset.color = old.color;
+                    let old_data = ChangeAssetColorData::new(asset_idx, asset.color);
+                    self.old_change_asset_color = Some(old_data);
 
-                    self.old_silver_into_gold = None;
+                    asset.color = color;
 
-                    let old_data = ChangeAssetColorData::new(old.asset_idx, old_asset.color);
+                    let new_data = ChangeAssetColorData::new(asset_idx, asset.color);
 
-                    Ok(ToggleChangeAssetColor::new(Some(old_data), None))
+                    Ok(ToggleChangeAssetColor::new(Some(old_data), Some(new_data)))
                 }
             }
         } else {
             // PANIC: we already validated the index, so this is safe to do.
             let asset = self.assets.get_mut(asset_idx).unwrap();
 
-            asset.gold_value += asset.silver_value;
-            asset.silver_value = 0;
+            let new_old_data = ChangeAssetColorData::new(asset_idx, asset.color);
+            self.old_change_asset_color = Some(new_old_data);
+
+            asset.color = color;
 
             let new_data = ChangeAssetColorData::new(asset_idx, asset.color);
-
-            self.old_change_asset_color = Some(new_data);
 
             Ok(ToggleChangeAssetColor::new(None, Some(new_data)))
         }

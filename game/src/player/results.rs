@@ -130,6 +130,10 @@ impl ResultsPlayer {
                     old_asset.gold_value -= old.silver_value;
                     old_asset.silver_value = old.silver_value;
 
+                    let new_old_data =
+                        SilverIntoGoldData::new(asset_idx, asset.gold_value, asset.silver_value);
+                    self.old_silver_into_gold = Some(new_old_data);
+
                     asset.gold_value += asset.silver_value;
                     asset.silver_value = 0;
 
@@ -140,8 +144,6 @@ impl ResultsPlayer {
                     );
                     let new_data =
                         SilverIntoGoldData::new(asset_idx, asset.gold_value, asset.silver_value);
-
-                    self.old_silver_into_gold = Some(new_data);
 
                     Ok(ToggleSilverIntoGold::new(Some(old_data), Some(new_data)))
                 }
@@ -156,25 +158,26 @@ impl ResultsPlayer {
 
                     self.old_silver_into_gold = None;
 
-                    let old_data = SilverIntoGoldData::new(
+                    let new_old_data = SilverIntoGoldData::new(
                         old.asset_idx,
                         old_asset.gold_value,
                         old_asset.silver_value,
                     );
 
-                    Ok(ToggleSilverIntoGold::new(Some(old_data), None))
+                    Ok(ToggleSilverIntoGold::new(Some(new_old_data), None))
                 }
             }
         } else {
             // PANIC: we already validated the index, so this is safe to do.
             let asset = self.assets.get_mut(asset_idx).unwrap();
 
+            let old_data = SilverIntoGoldData::new(asset_idx, asset.gold_value, asset.silver_value);
+            self.old_silver_into_gold = Some(old_data);
+
             asset.gold_value += asset.silver_value;
             asset.silver_value = 0;
 
             let new_data = SilverIntoGoldData::new(asset_idx, asset.gold_value, asset.silver_value);
-
-            self.old_silver_into_gold = Some(new_data);
 
             Ok(ToggleSilverIntoGold::new(None, Some(new_data)))
         }

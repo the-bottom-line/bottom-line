@@ -20,6 +20,7 @@ pub struct Round {
     pub(super) current_events: Vec<Event>,
     pub(super) open_characters: Vec<Character>,
     pub(super) fired_characters: Vec<Character>,
+    pub(super) banker_target: Option<Character>,
 }
 
 impl Round {
@@ -256,6 +257,21 @@ impl Round {
         let player = self.player_as_current_mut(id)?;
         let character = player.fire_character(character)?;
         self.fired_characters.push(character);
+        Ok(character)
+    }
+
+    
+    /// This allows player with id `id` to fire a player who has character `character` if they are
+    /// the shareholder. If this is successful, the player who got fired will not play their turn
+    /// this round.
+    pub fn player_terminate_credit_character(
+        &mut self,
+        id: PlayerId,
+        character: Character,
+    ) -> Result<Character, GameError> {
+        let player = self.player_as_current_mut(id)?;
+        let character = player.terminate_credit(character)?;
+        self.banker_target = Some(character);
         Ok(character)
     }
 

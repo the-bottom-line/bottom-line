@@ -4,11 +4,13 @@ mod lobby;
 mod results;
 mod round;
 mod selecting_characters;
+mod banker_target;
 
 pub use lobby::*;
 pub use results::*;
 pub use round::*;
 pub use selecting_characters::*;
+pub use banker_target::*;
 
 use either::Either;
 use serde::{Deserialize, Serialize};
@@ -593,6 +595,8 @@ pub enum GameState {
     /// Round state of the game. In this state each player plays their turn, which includes drawing
     /// cards, playing assets and liabilities and using their character ability
     Round(Round),
+    /// Banker target state of the game. In this state a player can do all their actions to pay the baker
+    BankerTarget(BankerTargetRound),
     /// Results state of the game. In this state players can see how they did compared to everyone
     /// else
     Results(Results),

@@ -5,11 +5,13 @@ mod lobby;
 mod results;
 mod round;
 mod selecting_characters;
+mod banker_target;
 
 pub use lobby::*;
 pub use results::*;
 pub use round::*;
 pub use selecting_characters::*;
+pub use banker_target::*;
 
 use either::Either;
 use serde::{Deserialize, Serialize};

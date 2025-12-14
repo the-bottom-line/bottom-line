@@ -152,6 +152,27 @@ impl RoundPlayer {
         }
     }
 
+    /// Tries to terminate credit line of character. If succesful, returns that character.
+    pub fn terminate_credit(
+        &mut self,
+        character: Character,
+    ) -> Result<Character, TerminateCreditCharacterError> {
+        if self.character == Character::Shareholder {
+            if !self.has_used_ability {
+                if character.can_be_fired() { // list of firable characters is the same for the banker
+                    self.has_used_ability = true;
+                    Ok(character)
+                } else {
+                    Err(TerminateCreditCharacterError::InvalidCharacter)
+                }
+            } else {
+                Err(TerminateCreditCharacterError::AlreadyFiredThisTurn)
+            }
+        } else {
+            Err(TerminateCreditCharacterError::InvalidPlayerCharacter)
+        }
+    }
+
     /// Swaps a list of card indexes `card_idxs` with the deck. Each asset that is swapped is put
     /// back into the deck and replaced by drawing a new asset, and each liability that is swapped
     /// is put back into the liability deck and replaced by drawing a new liability. If succesful,
@@ -517,6 +538,8 @@ impl From<&RoundPlayer> for PlayerInfo {
         }
     }
 }
+
+
 
 #[cfg(test)]
 pub(super) mod tests {

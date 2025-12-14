@@ -42,6 +42,10 @@ pub enum GameError {
     /// Errors related to the action of firing a character
     #[error(transparent)]
     FireCharacter(#[from] FireCharacterError),
+    
+    /// Errors related to the action of terminating a characters credit line
+    #[error(transparent)]
+    TerminateCreditCharacter(#[from] TerminateCreditCharacterError),
 
     /// Errors related to the action of swapping cards with another player or the deck
     #[error(transparent)]
@@ -103,6 +107,11 @@ pub enum GameError {
     /// Error indicating that this action is not allowed in the lobby state
     #[error("Action unavailable in lobby state")]
     NotAvailableInLobbyState,
+
+    /// Error indicating that this action is not allowed in the banker target state
+    #[error("Action unavailable in lobby state")]
+    NotAvailableInBankerTargetState,
+
 
     /// Error indicating that this action is not allowed in the results state
     #[error("Action unavailable in results state")]
@@ -196,6 +205,24 @@ pub enum GiveBackCardError {
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
 pub enum FireCharacterError {
+    /// The given character cannot be fired.
+    #[error("Character is not allowed to be fired")]
+    InvalidCharacter,
+
+    /// Only a particular player may fire the character (role mismatch).
+    #[error("Only the shareholder can fire a character")]
+    InvalidPlayerCharacter,
+
+    /// Player has already fired a character this turn.
+    #[error("Player has already fired a character this turn")]
+    AlreadyFiredThisTurn,
+}
+
+/// Errors related to terminating a character's credit line.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
+pub enum TerminateCreditCharacterError {
     /// The given character cannot be fired.
     #[error("Character is not allowed to be fired")]
     InvalidCharacter,

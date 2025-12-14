@@ -80,6 +80,10 @@ impl RoomState {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
                 fire_character(state, player_id, character)
             }
+            FrontendRequest::TerminateCreditCharacter { character } => {
+                let player_id = state.round()?.player_by_name(player_name)?.id();
+                terminate_credit_character(state, player_id, character)
+            }
             FrontendRequest::SwapWithDeck { card_idxs } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
                 swap_with_deck(state, player_id, card_idxs)

@@ -235,21 +235,32 @@ impl ResultsPlayer {
     /// Asset abilities are toggleable by default. This function confirms the current configuration,
     /// after which a player cannot toggle this particular index anymore.
     pub fn confirm_asset_ability(&mut self, asset_idx: usize) -> Result<(), GameError> {
-        self.check_is_valid_asset_idx(asset_idx)?;
+        if let Some(asset) = self.assets.get(asset_idx) {
+            match asset.ability {
+                Some(AssetPowerup::MinusIntoPlus) => {
+                    self.final_market = self.market.clone();
+                }
+                Some(AssetPowerup::SilverIntoGold) => {
+                    self.old_silver_into_gold = None;
+                }
+                Some(AssetPowerup::CountAsAnyColor) => {
+                    self.old_change_asset_color = None;
+                }
+                None => {
+                    return Err(AssetAbilityError::InvalidAbilityIndex(asset_idx).into());
+                }
+            }
 
-        if self.confirmed_asset_ability_idxs.contains(&asset_idx) {
-            return Err(AssetAbilityError::AlreadyConfirmedAssetIndex(asset_idx as u8).into());
+            if self.confirmed_asset_ability_idxs.contains(&asset_idx) {
+                return Err(AssetAbilityError::AlreadyConfirmedAssetIndex(asset_idx as u8).into());
+            }
+
+            self.confirmed_asset_ability_idxs.push(asset_idx);
+
+            Ok(())
+        } else {
+            Err(GameError::InvalidAssetIndex(asset_idx as u8))
         }
-
-        self.confirmed_asset_ability_idxs.push(asset_idx);
-
-        // PANIC: self.check_is_valid_asset_idx already verifies that asset_idx is valid, so this
-        // unwrap is totally safe to do.
-        if Some(AssetPowerup::MinusIntoPlus) == self.assets.get(asset_idx).unwrap().ability {
-            self.final_market = self.market.clone();
-        }
-
-        Ok(())
     }
 
     /// Gets tho total gold value of all assets this player owns

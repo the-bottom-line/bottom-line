@@ -298,6 +298,9 @@ pub enum SelectingCharactersError {
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
 pub enum AssetAbilityError {
+    /// Player does not have a card with an ability at that index
+    #[error("Player does not have a card with an ability at index {0}")]
+    InvalidAbilityIndex(usize),
     /// Player does not have that ability (anymore).
     #[error("This player does not have a card ability '{0:?}")]
     PlayerDoesNotHaveAbility(AssetPowerup),

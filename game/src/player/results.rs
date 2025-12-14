@@ -632,6 +632,82 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn silver_into_gold() {
+        fn assert_ability_error(player: &mut ResultsPlayer) {
+            for asset_idx in 0..player.assets.len() {
+                assert_matches!(
+                    player.toggle_silver_into_gold(asset_idx),
+                    Err(GameError::CardAbility(
+                        AssetAbilityError::PlayerDoesNotHaveAbility(AssetPowerup::SilverIntoGold)
+                    ))
+                );
+            }
+        }
+
+        let mut player = results_player(
+            0,
+            vec![asset(Color::Purple), asset(Color::Green)],
+            vec![],
+            Market::default(),
+        );
+
+        assert_ability_error(&mut player);
+
+        player.assets[0].ability = Some(AssetPowerup::SilverIntoGold);
+        player.assets[1].silver_value = 4;
+        
+        let (a1_g, a1_s) = (player.assets[0].gold_value, player.assets[0].silver_value);
+        let (a2_g, a2_s) = (player.assets[1].gold_value, player.assets[1].silver_value);
+
+        for _ in 0..3 {
+            // Test with no old data
+            assert_eq!(
+                player.toggle_silver_into_gold(0),
+                Ok(ToggleSilverIntoGold::new(
+                    None,
+                    Some(SilverIntoGoldData::new(0, a1_g + a1_s, 0))
+                ))
+            );
+            assert_eq!(
+                player.old_silver_into_gold,
+                Some(SilverIntoGoldData::new(0, a1_g, a1_s))
+            );
+
+            // Test with old data and disjointed indices
+            assert_eq!(
+                player.toggle_silver_into_gold(1),
+                Ok(ToggleSilverIntoGold::new(
+                    Some(SilverIntoGoldData::new(0, a1_g, a1_s)),
+                    Some(SilverIntoGoldData::new(1, a2_g + a2_s, 0))
+                ))
+            );
+            assert_eq!(
+                player.old_silver_into_gold,
+                Some(SilverIntoGoldData::new(1, a2_g, a2_s))
+            );
+
+            // Test with old data and same indices
+            assert_eq!(
+                player.toggle_silver_into_gold(1),
+                Ok(ToggleSilverIntoGold::new(
+                    Some(SilverIntoGoldData::new(1, a2_g, a2_s)),
+                    None
+                ))
+            );
+            assert_eq!(player.old_silver_into_gold, None);
+        }
+
+        assert_eq!(
+            player.toggle_silver_into_gold(34),
+            Err(GameError::InvalidAssetIndex(34))
+        );
+        
+        assert_ok!(player.confirm_asset_ability(0));
+
+        assert_ability_error(&mut player);
+    }
+
+    #[test]
     fn total_gold() {
         for i in 0..10 {
             let mut player = default_results_player();

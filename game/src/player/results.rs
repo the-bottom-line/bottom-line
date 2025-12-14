@@ -370,6 +370,7 @@ impl From<&ResultsPlayer> for PlayerInfo {
 }
 
 /// The representation of the result of toggling with [`SilverIntoGold`].
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ToggleSilverIntoGold {
     /// The data for the new asset.
     pub old_asset_data: Option<SilverIntoGoldData>,
@@ -439,6 +440,7 @@ impl SilverIntoGoldData {
 }
 
 /// The representation of the result of toggling with [`ChangeAssetColor`].
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ToggleChangeAssetColor {
     /// The data for the new asset.
     pub old_asset_data: Option<ChangeAssetColorData>,

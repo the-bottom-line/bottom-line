@@ -39,7 +39,7 @@ impl Results {
     pub fn player_scores(&self) -> Vec<PlayerScore> {
         self.players()
             .iter()
-            .map(|p| PlayerScore::new(p.id(), p.name(), p.score(self.final_market())))
+            .map(|p| PlayerScore::new(p.id(), p.name(), p.score()))
             .collect()
     }
 
@@ -60,6 +60,55 @@ impl Results {
     /// Gets the list of events that happened over the course of the game
     pub fn final_events(&self) -> &[Event] {
         &self.final_events
+    }
+
+    /// Increases one of the market conditions of a certain color for player with `id`. This means
+    /// that minus is turned into zero and zero is turned into plus. Returns the resulting market.
+    pub fn toggle_minus_into_plus(
+        &mut self,
+        id: PlayerId,
+        color: Color,
+    ) -> Result<Market, GameError> {
+        let player = self.players.player_mut(id)?;
+        let market = player.toggle_minus_into_plus(color)?;
+
+        Ok(market.to_owned())
+    }
+
+    /// Toggles the [`SilverIntoGold`] asset ability for a particular player.
+    pub fn toggle_silver_into_gold(
+        &mut self,
+        id: PlayerId,
+        asset_idx: usize,
+    ) -> Result<ToggleSilverIntoGold, GameError> {
+        let player = self.players.player_mut(id)?;
+        let data = player.toggle_silver_into_gold(asset_idx)?;
+
+        Ok(data)
+    }
+
+    /// Toggles the [`ChangeAssetColor`] asset ability for a particular player.
+    pub fn toggle_change_asset_color(
+        &mut self,
+        id: PlayerId,
+        asset_idx: usize,
+        color: Color,
+    ) -> Result<ToggleChangeAssetColor, GameError> {
+        let player = self.players.player_mut(id)?;
+        let data = player.toggle_change_asset_color(asset_idx, color)?;
+
+        Ok(data)
+    }
+
+    /// Asset abilities are toggleable by default. This function confirms the current configuration
+    /// for this particular player, after which they cannot toggle this particular index anymore.
+    pub fn confirm_asset_ability(
+        &mut self,
+        id: PlayerId,
+        asset_idx: usize,
+    ) -> Result<(), GameError> {
+        let player = self.players.player_mut(id)?;
+        player.confirm_asset_ability(asset_idx)
     }
 }
 

@@ -62,6 +62,28 @@ pub enum MarketCondition {
     Zero,
 }
 
+impl MarketCondition {
+    /// Makes into a higher market condition:
+    /// `Plus` and `Zero` become `Plus`, `Minus` becomes `Zero.
+    pub fn make_higher(&mut self) -> Self {
+        *self = match self {
+            Self::Plus | Self::Zero => Self::Plus,
+            Self::Minus => Self::Zero,
+        };
+        *self
+    }
+
+    /// Makes into a lower market condition:
+    /// `Zero` and `Minus` become `Minus`, `Plus` becomes `Zero.
+    pub fn make_lower(&mut self) -> Self {
+        *self = match self {
+            Self::Minus | Self::Zero => Self::Minus,
+            Self::Plus => Self::Zero,
+        };
+        *self
+    }
+}
+
 /// The market card type
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(rename = "MarketCard"))]
@@ -518,11 +540,40 @@ impl<P> Players<P> {
     ) -> Result<[&mut P; N], std::slice::GetDisjointMutError> {
         self.0.get_disjoint_mut(indices)
     }
+
+    /// Returns an iterator over the slice.
+    /// The iterator yields all players from start to end.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::game::Players;
+    /// let players = Players::new(vec![1, 2, 4]);
+    /// let mut iterator = players.iter();
+    ///
+    /// assert_eq!(iterator.next(), Some(&1));
+    /// assert_eq!(iterator.next(), Some(&2));
+    /// assert_eq!(iterator.next(), Some(&4));
+    /// assert_eq!(iterator.next(), None);
+    /// ```
+    pub fn iter(&self) -> impl Iterator<Item = &P> {
+        self.0.iter()
+    }
 }
 
 impl<P> Default for Players<P> {
     fn default() -> Self {
         Self(Default::default())
+    }
+}
+
+impl<P> IntoIterator for Players<P> {
+    type Item = P;
+
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
@@ -753,6 +804,20 @@ mod tests {
     use super::*;
     use claim::*;
     use itertools::Itertools;
+
+    #[test]
+    fn market_condition_make_higher() {
+        assert_eq!(MarketCondition::Minus.make_higher(), MarketCondition::Zero);
+        assert_eq!(MarketCondition::Zero.make_higher(), MarketCondition::Plus);
+        assert_eq!(MarketCondition::Plus.make_higher(), MarketCondition::Plus);
+    }
+
+    #[test]
+    fn market_condition_make_lower() {
+        assert_eq!(MarketCondition::Minus.make_lower(), MarketCondition::Minus);
+        assert_eq!(MarketCondition::Zero.make_lower(), MarketCondition::Minus);
+        assert_eq!(MarketCondition::Plus.make_lower(), MarketCondition::Zero);
+    }
 
     #[test]
     fn all_unique_ids() {

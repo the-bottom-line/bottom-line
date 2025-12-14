@@ -564,6 +564,168 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
     }
 }
 
+pub fn minus_into_plus(
+    state: &mut GameState,
+    player_id: PlayerId,
+    color: Color,
+) -> Result<Response, GameError> {
+    let results = state.results_mut()?;
+
+    match results.toggle_minus_into_plus(player_id, color) {
+        Ok(new_market) => {
+            let player = results.player(player_id)?;
+            let new_score = player.score();
+
+            let internal = results
+                .players()
+                .iter()
+                .filter(|p| p.id() != player_id)
+                .map(|p| {
+                    let new_market = new_market.clone();
+                    (
+                        p.id(),
+                        vec![UniqueResponse::MinusedIntoPlus {
+                            player_id,
+                            new_market,
+                            new_score,
+                        }],
+                    )
+                })
+                .collect();
+
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouMinusedIntoPlus {
+                    color,
+                    new_market,
+                    new_score,
+                },
+            ))
+        }
+        Err(e) => Err(e),
+    }
+}
+
+pub fn silver_into_gold(
+    state: &mut GameState,
+    player_id: PlayerId,
+    asset_idx: usize,
+) -> Result<Response, GameError> {
+    let results = state.results_mut()?;
+
+    match results.toggle_silver_into_gold(player_id, asset_idx) {
+        Ok(ToggleSilverIntoGold {
+            old_asset_data,
+            new_asset_data,
+        }) => {
+            let player = results.player(player_id)?;
+            let new_score = player.score();
+
+            let internal = results
+                .players()
+                .iter()
+                .filter(|p| p.id() != player_id)
+                .map(|p| {
+                    (
+                        p.id(),
+                        vec![UniqueResponse::SilveredIntoGold {
+                            player_id,
+                            old_asset_data,
+                            new_asset_data,
+                            new_score,
+                        }],
+                    )
+                })
+                .collect();
+
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouSilveredIntoGold {
+                    old_asset_data,
+                    new_asset_data,
+                    new_score,
+                },
+            ))
+        }
+        Err(e) => Err(e),
+    }
+}
+
+pub fn change_asset_color(
+    state: &mut GameState,
+    player_id: PlayerId,
+    asset_idx: usize,
+    color: Color,
+) -> Result<Response, GameError> {
+    let results = state.results_mut()?;
+
+    match results.toggle_change_asset_color(player_id, asset_idx, color) {
+        Ok(ToggleChangeAssetColor {
+            old_asset_data,
+            new_asset_data,
+        }) => {
+            let player = results.player(player_id)?;
+            let new_score = player.score();
+
+            let internal = results
+                .players()
+                .iter()
+                .filter(|p| p.id() != player_id)
+                .map(|p| {
+                    (
+                        p.id(),
+                        vec![UniqueResponse::ChangedAssetColor {
+                            player_id,
+                            old_asset_data,
+                            new_asset_data,
+                            new_score,
+                        }],
+                    )
+                })
+                .collect();
+
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouChangedAssetColor {
+                    old_asset_data,
+                    new_asset_data,
+                    new_score,
+                },
+            ))
+        }
+        Err(e) => Err(e),
+    }
+}
+
+pub fn confirm_asset_ability(
+    state: &mut GameState,
+    player_id: PlayerId,
+    asset_idx: usize,
+) -> Result<Response, GameError> {
+    let results = state.results_mut()?;
+    results.confirm_asset_ability(player_id, asset_idx)?;
+
+    let internal = results
+        .players()
+        .iter()
+        .filter(|p| p.id() != player_id)
+        .map(|p| {
+            (
+                p.id(),
+                vec![UniqueResponse::ConfirmedAssetAbility {
+                    player_id,
+                    asset_idx,
+                }],
+            )
+        })
+        .collect();
+
+    Ok(Response(
+        InternalResponse(internal),
+        DirectResponse::YouConfirmedAssetAbility { asset_idx },
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

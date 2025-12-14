@@ -99,6 +99,22 @@ impl RoomState {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
                 end_turn(state, player_id)
             }
+            FrontendRequest::MinusIntoPlus { color } => {
+                let player_id = state.results()?.player_by_name(player_name)?.id();
+                minus_into_plus(state, player_id, color)
+            }
+            FrontendRequest::SilverIntoGold { asset_idx } => {
+                let player_id = state.results()?.player_by_name(player_name)?.id();
+                silver_into_gold(state, player_id, asset_idx)
+            }
+            FrontendRequest::ChangeAssetColor { asset_idx, color } => {
+                let player_id = state.results()?.player_by_name(player_name)?.id();
+                change_asset_color(state, player_id, asset_idx, color)
+            }
+            FrontendRequest::ConfirmAssetAbility { asset_idx } => {
+                let player_id = state.results()?.player_by_name(player_name)?.id();
+                confirm_asset_ability(state, player_id, asset_idx)
+            }
         }
     }
 }

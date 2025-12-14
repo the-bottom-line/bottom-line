@@ -2,7 +2,7 @@
 
 use std::any::Any;
 
-use either::Either;
+use either::Either::{self, Left};
 
 use crate::{errors::*, game::*, player::*};
 
@@ -13,7 +13,7 @@ use crate::{errors::*, game::*, player::*};
 #[derive(Debug, Clone, PartialEq)]
 pub struct Round {
     pub(super) current_player: PlayerId,
-    pub(super) players: Players<RoundPlayerState>,
+    pub(super) players: Players<Either<RoundPlayer, BankerTargetPlayer>>,
     pub(super) assets: Deck<Asset>,
     pub(super) liabilities: Deck<Liability>,
     pub(super) markets: Deck<Either<Market, Event>>,
@@ -31,8 +31,8 @@ impl Round {
     pub fn player(&self, id: PlayerId) -> Result<&RoundPlayer, GameError> {
         let player = self.players.player(id);
          match  player{
-            Ok(RoundPlayerState::RoundPlayer(p)) => Ok(p),
-            Ok(RoundPlayerState::BankerTargetPlayer(_)) => {
+            Ok(Either::Left(p)) => Ok(p),
+            Ok(Either::Right(_)) => {
                  return Err(GameError::NotRoundPlayerState)
             },
             Err(_) => Err(GameError::NotRoundPlayerState)
@@ -45,8 +45,8 @@ impl Round {
     pub fn player_mut(&mut self, id: PlayerId) -> Result<&mut RoundPlayer, GameError> {
         let player =self.players.player_mut(id);
         match  player{
-            Ok(RoundPlayerState::RoundPlayer(p)) => Ok(p),
-            Ok(RoundPlayerState::BankerTargetPlayer(_)) => {
+            Ok(Either::Right(p)) => Ok(p),
+            Ok(Either::Left(_)) => {
                  return Err(GameError::NotRoundPlayerState)
             },
             Err(_) => Err(GameError::NotRoundPlayerState)
@@ -59,8 +59,8 @@ impl Round {
         let player =  self.players().iter().find(|p| p.character() == character);
         match player {
             Some(p) => match p {
-                    RoundPlayerState::RoundPlayer(rp) => Some(rp),
-                    RoundPlayerState::BankerTargetPlayer(_) => None,
+                    Either::Right(rp) => Some(rp),
+                    Either::Left(_) => None,
                 }
             None => None
         }
@@ -114,8 +114,8 @@ impl Round {
 
     /// Gets a slice of all players in the lobby.
     /// See [`Players::players`] for further information
-    pub fn players(&self) -> Result<&[RoundPlayer],GameError> {
-        let players = self.players.players();
+    pub fn players(&self) -> Result<&Vec<RoundPlayer>,GameError> {
+        Ok(&self.players.players().iter().filter(|p| p.is_left()).map(|p| p.left().unwrap()).collect())
         
     }
 

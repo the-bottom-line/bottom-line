@@ -114,6 +114,17 @@ impl From<BankerTargetPlayer> for RoundPlayer {
     }
 }
 
+impl TryFrom<Either<RoundPlayer, BankerTargetPlayer>> for RoundPlayer {
+    type Error = GameError;
+
+    fn try_from(player: Either<RoundPlayer, BankerTargetPlayer>) ->  Result<Self, Self::Error> {
+        match player {
+            Either::Left(p) => Ok(p),
+            Either::Right(_) => Err(GameError::NotRoundPlayerState),
+        }
+    }
+}
+
 impl TryFrom<RoundPlayerState> for RoundPlayer {
     type Error = GameError;
 
@@ -124,7 +135,6 @@ impl TryFrom<RoundPlayerState> for RoundPlayer {
         }
     }
 }
-
 /// The player type that corresponds to the [`Round`](crate::game::Round) stage of the game. During
 /// the round stage, each player has selected a character.
 #[derive(Debug, Clone, PartialEq)]

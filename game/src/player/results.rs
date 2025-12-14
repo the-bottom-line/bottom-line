@@ -658,7 +658,7 @@ pub(super) mod tests {
 
         player.assets[0].ability = Some(AssetPowerup::SilverIntoGold);
         player.assets[1].silver_value = 4;
-        
+
         let (a1_g, a1_s) = (player.assets[0].gold_value, player.assets[0].silver_value);
         let (a2_g, a2_s) = (player.assets[1].gold_value, player.assets[1].silver_value);
 
@@ -704,7 +704,86 @@ pub(super) mod tests {
             player.toggle_silver_into_gold(34),
             Err(GameError::InvalidAssetIndex(34))
         );
-        
+
+        assert_ok!(player.confirm_asset_ability(0));
+
+        assert_ability_error(&mut player);
+    }
+
+    #[test]
+    fn toggle_asset_color() {
+        fn assert_ability_error(player: &mut ResultsPlayer) {
+            for asset_idx in 0..player.assets.len() {
+                for color in Color::COLORS {
+                    assert_matches!(
+                        player.toggle_change_asset_color(asset_idx, color),
+                        Err(GameError::CardAbility(
+                            AssetAbilityError::PlayerDoesNotHaveAbility(
+                                AssetPowerup::CountAsAnyColor
+                            )
+                        ))
+                    );
+                }
+            }
+        }
+
+        let mut player = results_player(
+            0,
+            vec![asset(Color::Purple), asset(Color::Green)],
+            vec![],
+            Market::default(),
+        );
+
+        assert_ability_error(&mut player);
+
+        player.assets[0].ability = Some(AssetPowerup::CountAsAnyColor);
+
+        let (color1, color2) = (player.assets[0].color, player.assets[1].color);
+
+        // Test with no old data
+        assert_eq!(
+            player.toggle_change_asset_color(0, Color::Blue),
+            Ok(ToggleChangeAssetColor::new(
+                None,
+                Some(ChangeAssetColorData::new(0, Color::Blue))
+            ))
+        );
+        assert_eq!(
+            player.old_change_asset_color,
+            Some(ChangeAssetColorData::new(0, color1))
+        );
+
+        // Test with old data and disjointed indices
+        assert_eq!(
+            player.toggle_change_asset_color(1, Color::Yellow),
+            Ok(ToggleChangeAssetColor::new(
+                Some(ChangeAssetColorData::new(0, color1)),
+                Some(ChangeAssetColorData::new(1, Color::Yellow))
+            ))
+        );
+        assert_eq!(
+            player.old_change_asset_color,
+            Some(ChangeAssetColorData::new(1, color2))
+        );
+
+        // Test with old data and same indices
+        assert_eq!(
+            player.toggle_change_asset_color(1, Color::Red),
+            Ok(ToggleChangeAssetColor::new(
+                Some(ChangeAssetColorData::new(1, Color::Yellow)),
+                Some(ChangeAssetColorData::new(1, Color::Red)),
+            ))
+        );
+        assert_eq!(
+            player.old_change_asset_color,
+            Some(ChangeAssetColorData::new(1, Color::Yellow))
+        );
+
+        assert_eq!(
+            player.toggle_change_asset_color(34, Color::Purple),
+            Err(GameError::InvalidAssetIndex(34))
+        );
+
         assert_ok!(player.confirm_asset_ability(0));
 
         assert_ability_error(&mut player);

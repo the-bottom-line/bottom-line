@@ -327,11 +327,7 @@ impl ResultsPlayer {
     pub fn fcf(&self) -> f64 {
         Color::COLORS
             .into_iter()
-            .map(|color| {
-                let color_value = self.color_value(color);
-                println!("{color:?}: {color_value}");
-                color_value
-            })
+            .map(|color| self.color_value(color))
             .sum()
     }
 
@@ -346,22 +342,9 @@ impl ResultsPlayer {
         let bonds = self.bonds() as f64;
         let debt = trade_credit + bank_loan + bonds;
 
-        println!(
-            r#"Name: {}
-Market: {:?}
-Cash: {cash}
-Gold: {gold}, Silver: {silver}
-TC: {trade_credit}, BL: {bank_loan}, BD: {bonds}
-Debt: {debt}"#,
-            self.name(),
-            self.market()
-        );
-
         if gold == 0.0 {
             // lim->inf fcf / wacc = 0
-            let score = (debt / 3.0) + cash;
-            println!("Score: {score}");
-            score
+            (debt / 3.0) + cash
         } else {
             let beta = silver / gold;
 
@@ -374,18 +357,7 @@ Debt: {debt}"#,
             let fcf = self.fcf();
             let wacc = rfr + drp + beta * mrp;
 
-            let score = (fcf / (0.1 * wacc)) + (debt / 3.0) + cash;
-
-            println!(
-                r#"Beta: {beta}
-DRP: {drp}
-FCF: {fcf}
-WACC: {wacc}
-Score: {score}
-"#
-            );
-
-            score
+            (fcf / (0.1 * wacc)) + (debt / 3.0) + cash
         }
     }
 }

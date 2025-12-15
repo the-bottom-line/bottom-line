@@ -1,5 +1,7 @@
 //! This file contains the implementation of [`ResultsPlayer`].
 
+use std::collections::HashSet;
+
 use either::Either;
 use itertools::Itertools;
 
@@ -20,6 +22,7 @@ pub struct ResultsPlayer {
     old_silver_into_gold: Option<SilverIntoGoldData>,
     old_change_asset_color: Option<ChangeAssetColorData>,
     confirmed_asset_ability_idxs: Vec<usize>,
+    was_first_to_six_assets: bool,
 }
 
 impl ResultsPlayer {
@@ -39,6 +42,7 @@ impl ResultsPlayer {
             old_silver_into_gold: None,
             old_change_asset_color: None,
             confirmed_asset_ability_idxs: vec![],
+            was_first_to_six_assets: player.was_first_to_six_assets,
         }
     }
 
@@ -269,6 +273,33 @@ impl ResultsPlayer {
         }
     }
 
+    /// Returns 5 if this player has bought assets of each of the 5 colors, 0 otherwise.
+    pub fn all_five_colors_bonus(&self) -> u8 {
+        let unique_colors = self
+            .assets()
+            .iter()
+            .map(|a| a.color)
+            .collect::<HashSet<_>>();
+
+        match unique_colors.len() >= 5 {
+            true => 5,
+            false => 0,
+        }
+    }
+
+    /// Returns 4 if this player was the first to reach 6 assets, even if they were forced to
+    /// divest that asset afterwards. Returns 2 if this player owns 6 or more assets and was not
+    /// the first to reach 6 assets. Returns 0 otherwise.
+    pub fn six_assets_bonus(&self) -> u8 {
+        match self.was_first_to_six_assets {
+            true => 4,
+            false => match self.assets.len() >= 6 {
+                true => 2,
+                false => 0,
+            },
+        }
+    }
+
     /// Gets tho total gold value of all assets this player owns
     pub fn total_gold(&self) -> u8 {
         self.assets.iter().map(|a| a.gold_value).sum()
@@ -317,8 +348,9 @@ impl ResultsPlayer {
             .filter_map(|a| {
                 color
                     .eq(&a.color)
-                    .then_some(a.gold_value as f64 + (a.silver_value as f64) * mul)
+                    .then_some((a.gold_value as f64, a.silver_value as f64))
             })
+            .map(|(gold, silver)| gold + silver * mul)
             .sum()
     }
 
@@ -341,14 +373,18 @@ impl ResultsPlayer {
         let bonds = self.bonds() as f64;
         let debt = trade_credit + bank_loan + bonds;
 
+        let asset_count_bonus = self.six_assets_bonus() as f64;
+        let all_five_colors_bonus = self.all_five_colors_bonus() as f64;
+        let bonuses = asset_count_bonus + all_five_colors_bonus;
+
         if gold == 0.0 {
             // lim->inf fcf / wacc = 0
-            (debt / 3.0) + cash
+            (debt / 3.0) + cash + bonuses
         } else {
             let beta = silver / gold;
 
             // TODO: end of game bonuses
-            let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / gold + cash;
+            let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / (gold + cash);
 
             let rfr = self.market.rfr as f64;
             let mrp = self.market.mrp as f64;
@@ -356,7 +392,7 @@ impl ResultsPlayer {
             let fcf = self.fcf();
             let wacc = rfr + drp + beta * mrp;
 
-            (fcf / (10.0 * wacc)) + (debt / 3.0) + cash
+            (fcf / (0.1 * wacc)) + (debt / 3.0) + cash + bonuses
         }
     }
 }
@@ -556,6 +592,7 @@ pub(super) mod tests {
             old_silver_into_gold: None,
             old_change_asset_color: None,
             confirmed_asset_ability_idxs: vec![],
+            was_first_to_six_assets: false,
         }
     }
 
@@ -869,6 +906,65 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn all_five_colors_bonus() {
+        let market = Market::default();
+
+        (0..=8).for_each(|n| {
+            std::iter::repeat_n(Color::COLORS, n)
+                .multi_cartesian_product()
+                .map(|colors| {
+                    let mut player = results_player(10, vec![], vec![], market.clone());
+                    for &c in colors.iter() {
+                        player.assets.push(asset(c));
+                    }
+                    player
+                })
+                .for_each(|player| {
+                    let unique_colors = player
+                        .assets()
+                        .iter()
+                        .map(|a| a.color)
+                        .collect::<HashSet<_>>();
+
+                    let bonus = match unique_colors.len() >= 5 {
+                        true => 5,
+                        false => 0,
+                    };
+                    assert_eq!(bonus, player.all_five_colors_bonus());
+                })
+        })
+    }
+
+    #[test]
+    fn asset_count_bonus() {
+        let market = Market::default();
+
+        (0..=8).for_each(|n| {
+            std::iter::repeat_n(Color::COLORS, n)
+                .multi_cartesian_product()
+                .cartesian_product([true, false])
+                .map(|(colors, was_first_to_six)| {
+                    let mut player = results_player(10, vec![], vec![], market.clone());
+                    player.was_first_to_six_assets = was_first_to_six;
+                    for &c in colors.iter() {
+                        player.assets.push(asset(c));
+                    }
+                    player
+                })
+                .for_each(|player| {
+                    let bonus = match player.was_first_to_six_assets {
+                        true => 4,
+                        false => match player.assets.len() >= 6 {
+                            true => 2,
+                            false => 0,
+                        },
+                    };
+                    assert_eq!(bonus, player.six_assets_bonus());
+                })
+        })
+    }
+
+    #[test]
     fn color_value() {
         let market_conditions = [
             MarketCondition::Minus,
@@ -932,14 +1028,16 @@ pub(super) mod tests {
             LiabilityType::Bonds,
         ];
 
-        std::iter::repeat_n(market_conditions, 5)
+        let base_assets = vec![asset(Color::Red), asset(Color::Blue)];
+
+        std::iter::repeat_n(market_conditions, 3)
             .multi_cartesian_product()
-            .cartesian_product(std::iter::repeat_n(Color::COLORS, 3).multi_cartesian_product())
+            .cartesian_product(std::iter::repeat_n(Color::COLORS, 4).multi_cartesian_product())
             .cartesian_product(std::iter::repeat_n(loans, 3).multi_cartesian_product())
-            .cartesian_product(0..3)
+            .cartesian_product(3..5)
             .map(|(((m, colors), rfr_types), cash)| {
-                let market = market(m[0], m[1], m[2], m[3], m[4], 1, 1);
-                let mut player = results_player(cash, vec![], vec![], market);
+                let market = market(m[0], m[1], m[2], m[1], m[0], cash, cash * 2);
+                let mut player = results_player(cash, base_assets.clone(), vec![], market);
                 for c in colors.into_iter().take(cash as usize) {
                     player.assets.push(asset(c));
                 }
@@ -958,14 +1056,18 @@ pub(super) mod tests {
                 let bonds = player.bonds() as f64;
                 let debt = trade_credit + bank_loan + bonds;
 
+                let asset_count_bonus = player.six_assets_bonus() as f64;
+                let all_five_colors_bonus = player.all_five_colors_bonus() as f64;
+                let bonuses = asset_count_bonus + all_five_colors_bonus;
+
                 let score = if gold == 0.0 {
                     // lim->inf fcf / wacc = 0
-                    (debt / 3.0) + cash
+                    (debt / 3.0) + cash + bonuses
                 } else {
                     let beta = silver / gold;
 
                     // TODO: end of game bonuses
-                    let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / gold + cash;
+                    let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / (gold + cash);
 
                     let rfr = player.market.rfr as f64;
                     let mrp = player.market.mrp as f64;
@@ -980,7 +1082,7 @@ pub(super) mod tests {
 
                     let fcf = red + green + yellow + purple + blue;
 
-                    (fcf / (10.0 * wacc)) + (debt / 3.0) + cash
+                    (fcf / (0.1 * wacc)) + (debt / 3.0) + cash + bonuses
                 };
 
                 assert_approx_eq!(score, player.score());

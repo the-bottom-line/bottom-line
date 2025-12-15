@@ -398,6 +398,8 @@ pub struct PlayerPlayedCard {
     /// The card that was played
     #[serde(with = "serde_asset_liability::value")]
     pub used_card: Either<Asset, Liability>,
+    /// Whether or not playing this asset means it is now the final round (6th asset)
+    pub is_final_round: bool,
 }
 
 /// Data used when a turn ends

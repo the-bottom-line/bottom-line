@@ -902,6 +902,65 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn all_five_colors_bonus() {
+        let market = Market::default();
+
+        (0..=8).for_each(|n| {
+            std::iter::repeat_n(Color::COLORS, n)
+                .multi_cartesian_product()
+                .map(|colors| {
+                    let mut player = results_player(10, vec![], vec![], market.clone());
+                    for &c in colors.iter() {
+                        player.assets.push(asset(c));
+                    }
+                    player
+                })
+                .for_each(|player| {
+                    let unique_colors = player
+                        .assets()
+                        .iter()
+                        .map(|a| a.color)
+                        .collect::<HashSet<_>>();
+
+                    let bonus = match unique_colors.len() >= 5 {
+                        true => 5,
+                        false => 0,
+                    };
+                    assert_eq!(bonus, player.all_five_colors_bonus());
+                })
+        })
+    }
+
+    #[test]
+    fn asset_count_bonus() {
+        let market = Market::default();
+
+        (0..=8).for_each(|n| {
+            std::iter::repeat_n(Color::COLORS, n)
+                .multi_cartesian_product()
+                .cartesian_product([true, false])
+                .map(|(colors, was_first_to_six)| {
+                    let mut player = results_player(10, vec![], vec![], market.clone());
+                    player.was_first_to_six_assets = was_first_to_six;
+                    for &c in colors.iter() {
+                        player.assets.push(asset(c));
+                    }
+                    player
+                })
+                .for_each(|player| {
+                    let bonus = match player.was_first_to_six_assets {
+                        true => 4,
+                        false => match player.assets.len() >= 6 {
+                            true => 2,
+                            false => 0,
+                        },
+                    };
+                    assert_eq!(bonus, player.six_assets_bonus());
+                })
+        })
+    }
+
+    #[test]
     fn color_value() {
         let market_conditions = [
             MarketCondition::Minus,

@@ -123,7 +123,7 @@ impl SelectingCharacters {
                     let current_events = std::mem::take(&mut self.current_events);
                     let open_characters = self.characters.open_characters().to_vec();
                     let fired_characters: Vec<Character> = vec![];
-
+                    let banker_target = None;
                     let players = players
                         .0
                         .into_iter()
@@ -143,6 +143,7 @@ impl SelectingCharacters {
                         current_events,
                         open_characters,
                         fired_characters,
+                        banker_target,
                     };
 
                     round

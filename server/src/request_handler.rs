@@ -302,8 +302,10 @@ fn turn_starts(round: &Round) -> UniqueResponse {
         playable_assets: current_player.playable_assets(),
         playable_liabilities: current_player.playable_liabilities(),
         skipped_characters: round.skipped_characters(),
+        banker_target: false,
     }
 }
+
 
 pub fn select_character(
     state: &mut GameState,
@@ -314,6 +316,7 @@ pub fn select_character(
         Ok(_) => {
             match state {
                 GameState::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
+                GameState::BankerTarget(_) => Err(GameError::NotAvailableInBankerTargetState),
                 GameState::SelectingCharacters(selecting) => {
                     let internal = selecting
                         .players()
@@ -390,6 +393,47 @@ pub fn fire_character(
         Err(e) => Err(e),
     }
 }
+
+pub fn terminate_credit_character(
+    state: &mut GameState,
+    player_id: PlayerId,
+    character: Character,
+) -> Result<Response, GameError> {
+    let round = state.round_mut()?;
+
+    match round.player_terminate_credit_character(player_id, character) {
+        Ok(_c) => {
+            let internal = round
+                .players()
+                .iter()
+                .filter(|p| p.id() != player_id)
+                .map(|p| {
+                    (
+                        p.id(),
+                        vec![UniqueResponse::TerminatedCreditCharacter {
+                            player_id,
+                            character,
+                        }],
+                    )
+                })
+                .collect();
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouTerminateCreditCharacter { character },
+            ))
+        }
+        Err(e) => Err(e),
+    }
+}
+
+pub fn pay_banker(
+state: &mut GameState,
+    player_id: PlayerId,
+    cash: usize,
+) -> Result<Response,GameError>{
+    Ok(Response(InternalResponse(HashMap::new()), DirectResponse::YouPaidBanker { cash: cash }))
+}
+
 
 pub fn swap_with_deck(
     state: &mut GameState,
@@ -503,6 +547,7 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
 
     match state {
         GameState::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
+        GameState::BankerTarget(_) => Err(GameError::NotAvailableInBankerTargetState),
         GameState::SelectingCharacters(selecting) => {
             let internal = selecting
                 .players()

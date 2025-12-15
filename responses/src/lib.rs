@@ -77,6 +77,16 @@ pub enum FrontendRequest {
         /// The character that is to be fired.
         character: Character,
     },
+    /// Tries toterminate credit from particular character by this player.
+    TerminateCreditCharacter {
+        /// The character who's credit line will be terminated.
+        character: Character,
+    },
+    /// Tries to send cash to the banker when player is targeted
+    PayBanker {
+        /// The amount of cash to pay
+        cash: usize,
+    },
     /// Tries to swap a list of card indices with the deck for this player.
     SwapWithDeck {
         /// The list of card indices to be swapped with the deck.
@@ -146,6 +156,16 @@ pub enum DirectResponse {
     YouFiredCharacter {
         /// The character that was fired.
         character: Character,
+    },
+    /// Confirmation that this character's credit line is terminated.
+    YouTerminateCreditCharacter {
+        /// The character who's credit line was terminated.
+        character: Character,
+    },
+    /// Confirmation that you paid some gold to the banker.
+    YouPaidBanker {
+        /// The amount of gold paid
+        cash: usize,
     },
     /// Confirmation that this player was succesful in getting regulator options
     YouRegulatorOptions {
@@ -367,6 +387,8 @@ pub enum UniqueResponse {
         player_character: Character,
         /// A list of characters which were called but were not available.
         skipped_characters: Vec<Character>,
+        /// Indicates if the current player is targeted by the banker
+        banker_target: bool,
     },
     /// Sent when someone drew a card.
     DrewCard {
@@ -413,6 +435,13 @@ pub enum UniqueResponse {
         /// The id of the player who fired someone.
         player_id: PlayerId,
         /// The character which was fired.
+        character: Character,
+    },
+    /// sent when a characters credit line has been terminated
+    TerminatedCreditCharacter {
+        /// The id of the player who teminated the credit line someone.
+        player_id: PlayerId,
+        /// The character who's credit line was terminated.
         character: Character,
     },
     /// Sent when the regulator swapped their hand with this player.

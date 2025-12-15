@@ -357,7 +357,7 @@ Debt: {debt}"#, self.name(), self.market());
             let beta = silver / gold;
 
             // TODO: end of game bonuses
-            let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / gold + cash;
+            let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / (gold + cash);
 
             let rfr = self.market.rfr as f64;
             let mrp = self.market.mrp as f64;

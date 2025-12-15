@@ -306,7 +306,6 @@ fn turn_starts(round: &Round) -> UniqueResponse {
     }
 }
 
-
 pub fn select_character(
     state: &mut GameState,
     player_id: PlayerId,
@@ -427,13 +426,15 @@ pub fn terminate_credit_character(
 }
 
 pub fn pay_banker(
-state: &mut GameState,
+    state: &mut GameState,
     player_id: PlayerId,
     cash: usize,
-) -> Result<Response,GameError>{
-    Ok(Response(InternalResponse(HashMap::new()), DirectResponse::YouPaidBanker { cash: cash }))
+) -> Result<Response, GameError> {
+    Ok(Response(
+        InternalResponse(HashMap::new()),
+        DirectResponse::YouPaidBanker { cash: cash },
+    ))
 }
-
 
 pub fn swap_with_deck(
     state: &mut GameState,

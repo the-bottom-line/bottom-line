@@ -260,7 +260,6 @@ impl Round {
         Ok(character)
     }
 
-    
     /// This allows player with id `id` to fire a player who has character `character` if they are
     /// the shareholder. If this is successful, the player who got fired will not play their turn
     /// this round.

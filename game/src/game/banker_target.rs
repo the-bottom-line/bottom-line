@@ -18,9 +18,8 @@ pub struct BankerTargetRound {
     pub(super) fired_characters: Vec<Character>,
 }
 
-impl BankerTargetRound{
-
-      /// Get a reference to the [`BankerTargetPlayer`] whose turn it is.
+impl BankerTargetRound {
+    /// Get a reference to the [`BankerTargetPlayer`] whose turn it is.
     pub fn current_player(&self) -> &BankerTargetPlayer {
         // PANIC: This is an invariant that holds because `self.current_player` is only assigned by
         // in Round::end_player_turn() and relies on Round::next_player() which is safe. Therefore,
@@ -28,8 +27,8 @@ impl BankerTargetRound{
         self.player(self.current_player)
             .expect("self.current_player went out of bounds")
     }
-    
-   pub fn player(&self, id: PlayerId) -> Result<&BankerTargetPlayer, GameError> {
+
+    pub fn player(&self, id: PlayerId) -> Result<&BankerTargetPlayer, GameError> {
         self.players.player(id)
     }
 
@@ -38,7 +37,7 @@ impl BankerTargetRound{
     pub fn players(&self) -> &[BankerTargetPlayer] {
         self.players.players()
     }
-        /// Get a reference to a [`BankerTargetPlayer`] based on a specific `name`.
+    /// Get a reference to a [`BankerTargetPlayer`] based on a specific `name`.
     pub fn player_by_name(&self, name: &str) -> Result<&BankerTargetPlayer, GameError> {
         self.players()
             .iter()

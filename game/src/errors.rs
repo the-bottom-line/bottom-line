@@ -42,7 +42,7 @@ pub enum GameError {
     /// Errors related to the action of firing a character
     #[error(transparent)]
     FireCharacter(#[from] FireCharacterError),
-    
+
     /// Errors related to the action of terminating a characters credit line
     #[error(transparent)]
     TerminateCreditCharacter(#[from] TerminateCreditCharacterError),

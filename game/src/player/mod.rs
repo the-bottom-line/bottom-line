@@ -1,17 +1,17 @@
 //! This file contains all four player states, as well as functionality for those players and ways
 //! to interact with them.
 
+mod banker_target;
 mod lobby;
 mod results;
 mod round;
 mod selecting_characters;
-mod banker_target;
 
+pub use banker_target::*;
 pub use lobby::*;
 pub use results::*;
 pub use round::*;
 pub use selecting_characters::*;
-pub use banker_target::*;
 
 use either::Either;
 use serde::{Deserialize, Serialize};

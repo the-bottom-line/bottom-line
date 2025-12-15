@@ -86,7 +86,7 @@ impl RoomState {
             }
             FrontendRequest::PayBanker { cash } => {
                 let player_id = state.bankertarget()?.player_by_name(player_name)?.id();
-                pay_banker(state,player_id,cash)
+                pay_banker(state, player_id, cash)
             }
             FrontendRequest::SwapWithDeck { card_idxs } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();

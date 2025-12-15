@@ -159,7 +159,8 @@ impl RoundPlayer {
     ) -> Result<Character, TerminateCreditCharacterError> {
         if self.character == Character::Shareholder {
             if !self.has_used_ability {
-                if character.can_be_fired() { // list of firable characters is the same for the banker
+                if character.can_be_fired() {
+                    // list of firable characters is the same for the banker
                     self.has_used_ability = true;
                     Ok(character)
                 } else {
@@ -538,8 +539,6 @@ impl From<&RoundPlayer> for PlayerInfo {
         }
     }
 }
-
-
 
 #[cfg(test)]
 pub(super) mod tests {

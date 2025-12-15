@@ -60,4 +60,3 @@ impl From<BankerTargetPlayer> for RoundPlayer {
         }
     }
 }
-

@@ -1,16 +1,16 @@
 //! This is where the game logic, excluding the player-specific logic, is located.
 
+mod banker_target;
 mod lobby;
 mod results;
 mod round;
 mod selecting_characters;
-mod banker_target;
 
+pub use banker_target::*;
 pub use lobby::*;
 pub use results::*;
 pub use round::*;
 pub use selecting_characters::*;
-pub use banker_target::*;
 
 use either::Either;
 use serde::{Deserialize, Serialize};
@@ -714,7 +714,7 @@ impl GameState {
         }
     }
 
-        /// Tries to get a `&`[`Round`] state. Returns an error if the game is not in a round state.
+    /// Tries to get a `&`[`Round`] state. Returns an error if the game is not in a round state.
     ///
     /// # Examples
     ///
@@ -729,7 +729,6 @@ impl GameState {
             _ => Err(GameError::NotAvailableInBankerTargetState),
         }
     }
-
 
     /// Tries to get a `&`[`Results`] state. Returns an error if the game is not in a results state.
     ///

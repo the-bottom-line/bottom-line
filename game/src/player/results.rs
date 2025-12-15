@@ -373,9 +373,13 @@ impl ResultsPlayer {
         let bonds = self.bonds() as f64;
         let debt = trade_credit + bank_loan + bonds;
 
+        let asset_count_bonus = self.six_assets_bonus() as f64;
+        let all_five_colors_bonus = self.all_five_colors_bonus() as f64;
+        let bonuses = asset_count_bonus + all_five_colors_bonus;
+
         if gold == 0.0 {
             // lim->inf fcf / wacc = 0
-            (debt / 3.0) + cash
+            (debt / 3.0) + cash + bonuses
         } else {
             let beta = silver / gold;
 
@@ -1024,14 +1028,16 @@ pub(super) mod tests {
             LiabilityType::Bonds,
         ];
 
-        std::iter::repeat_n(market_conditions, 5)
+        let base_assets = vec![asset(Color::Red), asset(Color::Blue)];
+
+        std::iter::repeat_n(market_conditions, 3)
             .multi_cartesian_product()
-            .cartesian_product(std::iter::repeat_n(Color::COLORS, 3).multi_cartesian_product())
+            .cartesian_product(std::iter::repeat_n(Color::COLORS, 4).multi_cartesian_product())
             .cartesian_product(std::iter::repeat_n(loans, 3).multi_cartesian_product())
-            .cartesian_product(0..3)
+            .cartesian_product(3..5)
             .map(|(((m, colors), rfr_types), cash)| {
-                let market = market(m[0], m[1], m[2], m[3], m[4], 1, 1);
-                let mut player = results_player(cash, vec![], vec![], market);
+                let market = market(m[0], m[1], m[2], m[1], m[0], cash, cash * 2);
+                let mut player = results_player(cash, base_assets.clone(), vec![], market);
                 for c in colors.into_iter().take(cash as usize) {
                     player.assets.push(asset(c));
                 }
@@ -1050,9 +1056,13 @@ pub(super) mod tests {
                 let bonds = player.bonds() as f64;
                 let debt = trade_credit + bank_loan + bonds;
 
+                let asset_count_bonus = player.six_assets_bonus() as f64;
+                let all_five_colors_bonus = player.all_five_colors_bonus() as f64;
+                let bonuses = asset_count_bonus + all_five_colors_bonus;
+
                 let score = if gold == 0.0 {
                     // lim->inf fcf / wacc = 0
-                    (debt / 3.0) + cash
+                    (debt / 3.0) + cash + bonuses
                 } else {
                     let beta = silver / gold;
 
@@ -1072,7 +1082,7 @@ pub(super) mod tests {
 
                     let fcf = red + green + yellow + purple + blue;
 
-                    (fcf / (0.1 * wacc)) + (debt / 3.0) + cash
+                    (fcf / (0.1 * wacc)) + (debt / 3.0) + cash + bonuses
                 };
 
                 assert_approx_eq!(score, player.score());

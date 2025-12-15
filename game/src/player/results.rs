@@ -1,5 +1,7 @@
 //! This file contains the implementation of [`ResultsPlayer`].
 
+use std::collections::HashSet;
+
 use either::Either;
 use itertools::Itertools;
 
@@ -271,6 +273,33 @@ impl ResultsPlayer {
         }
     }
 
+    /// Returns 5 if this player has bought assets of each of the 5 colors, 0 otherwise.
+    pub fn all_five_colors_bonus(&self) -> u8 {
+        let unique_colors = self
+            .assets()
+            .iter()
+            .map(|a| a.color)
+            .collect::<HashSet<_>>();
+
+        match unique_colors.len() >= 5 {
+            true => 5,
+            false => 0,
+        }
+    }
+
+    /// Returns 4 if this player was the first to reach 6 assets, even if they were forced to
+    /// divest that asset afterwards. Returns 2 if this player owns 6 or more assets and was not
+    /// the first to reach 6 assets. Returns 0 otherwise.
+    pub fn six_assets_bonus(&self) -> u8 {
+        match self.was_first_to_six_assets {
+            true => 4,
+            false => match self.assets.len() >= 6 {
+                true => 2,
+                false => 0,
+            },
+        }
+    }
+
     /// Gets tho total gold value of all assets this player owns
     pub fn total_gold(&self) -> u8 {
         self.assets.iter().map(|a| a.gold_value).sum()
@@ -359,7 +388,7 @@ impl ResultsPlayer {
             let fcf = self.fcf();
             let wacc = rfr + drp + beta * mrp;
 
-            (fcf / (0.1 * wacc)) + (debt / 3.0) + cash
+            (fcf / (0.1 * wacc)) + (debt / 3.0) + cash + bonuses
         }
     }
 }

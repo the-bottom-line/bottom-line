@@ -319,7 +319,6 @@ impl ResultsPlayer {
                     .eq(&a.color)
                     .then_some((a.gold_value as f64, a.silver_value as f64))
             })
-            .inspect(|(gold, silver)| println!("Asset gold: {gold}, {silver}"))
             .map(|(gold, silver)| gold + silver * mul)
             .sum()
     }
@@ -328,7 +327,11 @@ impl ResultsPlayer {
     pub fn fcf(&self) -> f64 {
         Color::COLORS
             .into_iter()
-            .map(|color| self.color_value(color))
+            .map(|color| {
+                let color_value = self.color_value(color);
+                println!("{color:?}: {color_value}");
+                color_value
+            })
             .sum()
     }
 

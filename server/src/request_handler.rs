@@ -302,7 +302,6 @@ fn turn_starts(round: &Round) -> UniqueResponse {
         playable_assets: current_player.playable_assets(),
         playable_liabilities: current_player.playable_liabilities(),
         skipped_characters: round.skipped_characters(),
-        banker_target: false,
     }
 }
 
@@ -428,12 +427,38 @@ pub fn terminate_credit_character(
 pub fn pay_banker(
     state: &mut GameState,
     player_id: PlayerId,
-    cash: usize,
+    cash: u8,
 ) -> Result<Response, GameError> {
-    Ok(Response(
-        InternalResponse(HashMap::new()),
-        DirectResponse::YouPaidBanker { cash: cash },
-    ))
+    let btround = state.bankertarget_mut()?;
+
+    match btround.player_pay_banker(player_id, cash) {
+        Ok(pbp) => {
+
+            let internal = btround
+                .players()
+                .iter()
+                .filter(|p| p.id() != player_id)
+                .map(|p| {
+                    (
+                        p.id(),
+                        vec![UniqueResponse::PlayerPayedBanker {
+                            banker_id: pbp.banker_id,
+                            player_id: pbp.target_id,
+                            cash: pbp.cash,
+                        }],
+                    )
+                })
+                .collect();
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouPaidBanker {
+                    cash: cash,
+                    banker_id: pbp.banker_id,
+                },
+            ))
+        }
+        Err(e) => Err(e),
+    }
 }
 
 pub fn swap_with_deck(

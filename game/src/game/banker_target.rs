@@ -16,6 +16,7 @@ pub struct BankerTargetRound {
     pub(super) current_events: Vec<Event>,
     pub(super) open_characters: Vec<Character>,
     pub(super) fired_characters: Vec<Character>,
+    pub(super) gold_to_be_paid: u8,
 }
 
 impl BankerTargetRound {
@@ -43,5 +44,48 @@ impl BankerTargetRound {
             .iter()
             .find(|p| p.name() == name)
             .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
+    }
+
+    /// Internally used function that checks whether a player with such an `id` exists, and whether
+    /// that player is actually the current player. If this is the case, a mutable reference to the
+    /// player is returned.
+    fn player_as_current_mut(
+        &mut self,
+        id: PlayerId,
+    ) -> Result<&mut BankerTargetPlayer, GameError> {
+        match self.players.player_mut(id) {
+            Ok(player) if player.id() == self.current_player => Ok(player),
+            Ok(_) => Err(GameError::NotPlayersTurn),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// function to pay the banker and switch game back to a normal round state
+    pub fn player_pay_banker(
+        &mut self,
+        player_id: PlayerId,
+        cash: u8,
+    ) -> Result<PayBankerPlayer, GameError> {
+        let banker_id = self
+            .players()
+            .iter()
+            .find(|p| p.character() == Character::Banker)
+            .ok_or(PayBankerError::NoBankerPlayer)?
+            .id();
+        match self
+            .players
+            .get_disjoint_mut([usize::from(player_id), usize::from(banker_id)])
+        {
+            Ok([player, banker]) => {
+                if cash == self.gold_to_be_paid {
+                    let pbp = player.pay_banker(cash, banker)?;
+                    return Ok(pbp)
+                }else{
+                    Err(PayBankerError::NotRightCashAmount.into())
+                }
+                
+            }
+            Err(_) => Err(PayBankerError::NoBankerPlayer.into()),
+        }
     }
 }

@@ -36,6 +36,25 @@ impl BankerTargetPlayer {
     pub fn character(&self) -> Character {
         self.character
     }
+
+    /// Pays the banker in the round the requested amount of gold
+    pub fn pay_banker(
+        &mut self,
+        cash: u8,
+        banker: &mut BankerTargetPlayer,
+    ) -> Result<PayBankerPlayer, PayBankerError> {
+        if self.cash >= cash {
+            banker.cash += cash;
+            self.cash -= cash;
+            Ok(PayBankerPlayer {
+                cash: cash,
+                target_id: self.id,
+                banker_id: banker.id,
+            })
+        } else {
+            Err(PayBankerError::NotEnoughCash)
+        }
+    }
 }
 
 impl From<BankerTargetPlayer> for RoundPlayer {

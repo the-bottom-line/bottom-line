@@ -726,7 +726,23 @@ impl GameState {
     pub fn bankertarget(&self) -> Result<&BankerTargetRound, GameError> {
         match self {
             Self::BankerTarget(r) => Ok(r),
-            _ => Err(GameError::NotAvailableInBankerTargetState),
+            _ => Err(GameError::NotbankerTargetState),
+        }
+    }
+
+    /// Tries to get a `&mut`[`Round`] state. Returns an error if the game is not in a round state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::{GameState, Lobby}};
+    /// let mut game = GameState::Lobby(Lobby::default());
+    /// assert_eq!(game.round_mut(), Err(GameError::NotRoundState));
+    /// ```
+    pub fn bankertarget_mut(&mut self) -> Result<&mut BankerTargetRound, GameError> {
+        match self {
+            Self::BankerTarget(r) => Ok(r),
+            _ => Err(GameError::NotbankerTargetState),
         }
     }
 

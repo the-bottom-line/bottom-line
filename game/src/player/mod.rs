@@ -246,6 +246,15 @@ pub struct RegulatorSwapPlayer {
     pub liability_count: usize,
 }
 
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PayBankerPlayer {
+    pub cash: u8,
+    pub target_id: PlayerId,
+    pub banker_id: PlayerId,
+}
+
 /// Utility struct used to represent each asset that can be divested from a player including the
 /// cost of doing so.
 #[cfg_attr(feature = "ts", derive(TS))]

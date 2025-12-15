@@ -317,8 +317,10 @@ impl ResultsPlayer {
             .filter_map(|a| {
                 color
                     .eq(&a.color)
-                    .then_some(a.gold_value as f64 + (a.silver_value as f64) * mul)
+                    .then_some((a.gold_value as f64, a.silver_value as f64))
             })
+            .inspect(|(gold, silver)| println!("Asset gold: {gold}, {silver}"))
+            .map(|(gold, silver)| gold + silver * mul)
             .sum()
     }
 
@@ -341,13 +343,17 @@ impl ResultsPlayer {
         let bonds = self.bonds() as f64;
         let debt = trade_credit + bank_loan + bonds;
 
-        println!(r#"Name: {}
+        println!(
+            r#"Name: {}
 Market: {:?}
 Cash: {cash}
 Gold: {gold}, Silver: {silver}
 TC: {trade_credit}, BL: {bank_loan}, BD: {bonds}
-Debt: {debt}"#, self.name(), self.market());
-        
+Debt: {debt}"#,
+            self.name(),
+            self.market()
+        );
+
         if gold == 0.0 {
             // lim->inf fcf / wacc = 0
             let score = (debt / 3.0) + cash;
@@ -366,14 +372,16 @@ Debt: {debt}"#, self.name(), self.market());
             let wacc = rfr + drp + beta * mrp;
 
             let score = (fcf / (10.0 * wacc)) + (debt / 3.0) + cash;
-            
-            println!(r#"Beta: {beta}
+
+            println!(
+                r#"Beta: {beta}
 DRP: {drp}
 FCF: {fcf}
 WACC: {wacc}
 Score: {score}
-"#);
-            
+"#
+            );
+
             score
         }
     }

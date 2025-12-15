@@ -374,7 +374,7 @@ Debt: {debt}"#,
             let fcf = self.fcf();
             let wacc = rfr + drp + beta * mrp;
 
-            let score = (fcf / (10.0 * wacc)) + (debt / 3.0) + cash;
+            let score = (fcf / (0.1 * wacc)) + (debt / 3.0) + cash;
 
             println!(
                 r#"Beta: {beta}

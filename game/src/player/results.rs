@@ -20,6 +20,7 @@ pub struct ResultsPlayer {
     old_silver_into_gold: Option<SilverIntoGoldData>,
     old_change_asset_color: Option<ChangeAssetColorData>,
     confirmed_asset_ability_idxs: Vec<usize>,
+    was_first_to_six_assets: bool,
 }
 
 impl ResultsPlayer {
@@ -39,6 +40,7 @@ impl ResultsPlayer {
             old_silver_into_gold: None,
             old_change_asset_color: None,
             confirmed_asset_ability_idxs: vec![],
+            was_first_to_six_assets: player.was_first_to_six_assets,
         }
     }
 
@@ -557,6 +559,7 @@ pub(super) mod tests {
             old_silver_into_gold: None,
             old_change_asset_color: None,
             confirmed_asset_ability_idxs: vec![],
+            was_first_to_six_assets: false,
         }
     }
 

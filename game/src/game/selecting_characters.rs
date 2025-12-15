@@ -143,6 +143,7 @@ impl SelectingCharacters {
                         current_events,
                         open_characters,
                         fired_characters,
+                        is_final_round: false,
                     };
 
                     round

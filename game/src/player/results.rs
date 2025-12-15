@@ -332,31 +332,49 @@ impl ResultsPlayer {
 
     /// Gets the final score for this player
     pub fn score(&self) -> f64 {
-        let cash = dbg!(self.cash() as f64);
-        let gold = dbg!(self.total_gold() as f64);
-        let silver = dbg!(self.total_silver() as f64);
+        let cash = self.cash() as f64;
+        let gold = self.total_gold() as f64;
+        let silver = self.total_silver() as f64;
 
-        let trade_credit = dbg!(self.trade_credit() as f64);
-        let bank_loan = dbg!(self.bank_loan() as f64);
-        let bonds = dbg!(self.bonds() as f64);
+        let trade_credit = self.trade_credit() as f64;
+        let bank_loan = self.bank_loan() as f64;
+        let bonds = self.bonds() as f64;
         let debt = trade_credit + bank_loan + bonds;
 
+        println!(r#"Name: {}
+Market: {:?}
+Cash: {cash}
+Gold: {gold}, Silver: {silver}
+TC: {trade_credit}, BL: {bank_loan}, BD: {bonds}
+Debt: {debt}"#, self.name(), self.market());
+        
         if gold == 0.0 {
             // lim->inf fcf / wacc = 0
-            (debt / 3.0) + cash
+            let score = (debt / 3.0) + cash;
+            println!("Score: {score}");
+            score
         } else {
             let beta = silver / gold;
 
             // TODO: end of game bonuses
-            let drp = dbg!((trade_credit + bank_loan * 2.0 + bonds * 3.0) / gold + cash);
+            let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / gold + cash;
 
-            let rfr = dbg!(self.market.rfr) as f64;
-            let mrp = dbg!(self.market.mrp) as f64;
+            let rfr = self.market.rfr as f64;
+            let mrp = self.market.mrp as f64;
 
-            let fcf = dbg!(self.fcf());
+            let fcf = self.fcf();
             let wacc = rfr + drp + beta * mrp;
 
-            (fcf / (10.0 * dbg!(wacc))) + (dbg!(debt) / 3.0) + cash
+            let score = (fcf / (10.0 * wacc)) + (debt / 3.0) + cash;
+            
+            println!(r#"Beta: {beta}
+DRP: {drp}
+FCF: {fcf}
+WACC: {wacc}
+Score: {score}
+"#);
+            
+            score
         }
     }
 }

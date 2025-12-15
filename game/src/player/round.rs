@@ -72,6 +72,11 @@ impl RoundPlayer {
         &self.hand
     }
 
+    /// The first player to get six assets gets a cash bonus of 2.
+    pub(crate) fn enable_first_to_six_assets_bonus(&mut self) {
+        self.was_first_to_six_assets = true;
+    }
+
     /// Adds a new `card_idx` to the list of cards drawn this round.
     fn update_cards_drawn(&mut self, card_idx: usize) {
         self.cards_drawn = self
@@ -498,7 +503,7 @@ impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
                     bonus_draw_cards: 0,
                     total_cards_given_back: 0,
                     has_used_ability: false,
-                    was_first_to_six_assets: player.was_first_to_six_assets,
+                    was_first_to_six_assets: false,
                 })
             }
             None => Err(GameError::PlayerMissingCharacter),

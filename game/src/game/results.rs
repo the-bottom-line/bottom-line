@@ -7,7 +7,6 @@ use crate::{errors::*, game::*, player::*};
 #[derive(Debug, Clone, PartialEq)]
 pub struct Results {
     pub(super) players: Players<ResultsPlayer>,
-    pub(super) final_market: Market,
     // TODO: implement events
     pub(super) final_events: Vec<Event>,
 }
@@ -50,11 +49,6 @@ impl Results {
             .filter(|p| p.id() != id)
             .map(Into::into)
             .collect()
-    }
-
-    /// Gets the final market of the game
-    pub fn final_market(&self) -> &Market {
-        &self.final_market
     }
 
     /// Gets the list of events that happened over the course of the game

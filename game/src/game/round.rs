@@ -459,7 +459,6 @@ impl Round {
 
                 Ok(Either::Right(state))
             } else {
-                let final_market = std::mem::take(&mut self.current_market);
                 let final_events = std::mem::take(&mut self.current_events);
                 let players = std::mem::take(&mut self.players);
 
@@ -472,7 +471,6 @@ impl Round {
 
                 let state = GameState::Results(Results {
                     players,
-                    final_market,
                     final_events,
                 });
 

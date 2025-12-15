@@ -95,7 +95,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     Err(error) => {
                         tracing::error!(%error);
                         let _ = send_external(
-                            DirectResponse::Error(ResponseError::InvalidData),
+                            DirectResponse::from(ResponseError::InvalidData),
                             sender.clone(),
                         )
                         .await;
@@ -124,7 +124,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                             }
                             Err(e) => DirectResponse::from(GameError::from(e)),
                         },
-                        _ => DirectResponse::Error(ResponseError::GameAlreadyStarted),
+                        _ => DirectResponse::from(ResponseError::GameAlreadyStarted),
                     }
                 };
 

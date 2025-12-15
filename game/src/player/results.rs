@@ -966,7 +966,7 @@ pub(super) mod tests {
                     let beta = silver / gold;
 
                     // TODO: end of game bonuses
-                    let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / gold + cash;
+                    let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / (gold + cash);
 
                     let rfr = player.market.rfr as f64;
                     let mrp = player.market.mrp as f64;
@@ -981,7 +981,7 @@ pub(super) mod tests {
 
                     let fcf = red + green + yellow + purple + blue;
 
-                    (fcf / (10.0 * wacc)) + (debt / 3.0) + cash
+                    (fcf / (0.1 * wacc)) + (debt / 3.0) + cash
                 };
 
                 assert_approx_eq!(score, player.score());

@@ -9,17 +9,17 @@ use crate::{game::*, player::*};
 /// During the results stage, each player can calculate and see their score.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ResultsPlayer {
-    id: PlayerId,
-    name: String,
-    cash: u8,
-    assets: Vec<Asset>,
-    liabilities: Vec<Liability>,
-    hand: Vec<Either<Asset, Liability>>,
-    market: Market,
-    final_market: Market,
-    old_silver_into_gold: Option<SilverIntoGoldData>,
-    old_change_asset_color: Option<ChangeAssetColorData>,
-    confirmed_asset_ability_idxs: Vec<usize>,
+    pub id: PlayerId,
+    pub name: String,
+    pub cash: u8,
+    pub assets: Vec<Asset>,
+    pub liabilities: Vec<Liability>,
+    pub hand: Vec<Either<Asset, Liability>>,
+    pub market: Market,
+    pub final_market: Market,
+    pub old_silver_into_gold: Option<SilverIntoGoldData>,
+    pub old_change_asset_color: Option<ChangeAssetColorData>,
+    pub confirmed_asset_ability_idxs: Vec<usize>,
 }
 
 impl ResultsPlayer {

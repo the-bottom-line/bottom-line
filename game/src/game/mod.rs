@@ -567,6 +567,12 @@ impl<P> Default for Players<P> {
     }
 }
 
+impl<P> From<Vec<P>> for Players<P> {
+    fn from(players: Vec<P>) -> Self {
+        Self(players)
+    }
+}
+
 impl<P> IntoIterator for Players<P> {
     type Item = P;
 

@@ -1,16 +1,12 @@
-use game::{errors::GameError, game::GameState};
+use game::{errors::GameError, game::*, player::*};
 use responses::*;
 
 use crate::{request_handler::Response, rooms::RoomState};
 
 use axum::{
-    Router,
-    extract::{
-        State,
-        ws::{Message, WebSocket, WebSocketUpgrade},
-    },
-    response::IntoResponse,
-    routing::get,
+    body::Body, extract::{
+        ws::{Message, WebSocket, WebSocketUpgrade}, Path, State
+    }, response::IntoResponse, routing::get, Router
 };
 use futures_util::{
     sink::SinkExt,
@@ -52,6 +48,7 @@ pub async fn setupsocket() {
 
     let app = Router::new()
         .route("/websocket", get(websocket_handler))
+        .route("/websocket/results/{player_count}", get(results_screen))
         .with_state(app_state);
 
     // PANIC: this crashes if the port is not available. Since we control the server, we know it is
@@ -275,6 +272,135 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             });
         }
     }
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct SmallNumber(u8);
+
+impl std::str::FromStr for SmallNumber {
+    type Err = SmallNumber;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.parse::<u8>() {
+            Ok(n @ 4..=7) => Ok(SmallNumber(n)),
+            _ => Err(SmallNumber(0)),
+        }
+    }
+}
+
+// Optional: nicer error instead of generic 404
+impl IntoResponse for SmallNumber {
+    fn into_response(self) -> axum::http::Response<Body> {
+        axum::http::StatusCode::NOT_FOUND.into_response()
+    }
+}
+
+async fn results_screen(
+    ws: WebSocketUpgrade,
+    Path(player_count): Path<SmallNumber>,
+    State(state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    ws.on_upgrade(move |socket| websocket_results(socket, state, player_count.0))
+}
+
+fn set_up_room(state: &mut GameState, player_count: u8) -> Result<(), GameError> {
+    let market = Market {
+        title: "Volatile Market".into(),
+        rfr: 5,
+        mrp: 6,
+        yellow: MarketCondition::Minus,
+        blue: MarketCondition::Plus,
+        green: MarketCondition::Zero,
+        purple: MarketCondition::Zero,
+        red: MarketCondition::Minus,
+    };
+    
+    let players = (0..player_count)
+        .map(|i| ResultsPlayer {
+            id: PlayerId(i),
+            name: format!("Player {}", i + 1),
+            cash: 67,
+            assets: vec![
+                Asset { title: "R&D Lab".into(), gold_value: 3, silver_value: 1, color: Color::Purple, ability: Some(AssetPowerup::MinusIntoPlus), image_front_url: "assets/rndLab_3-1.webp".into(), image_back_url: Arc::new("asset_back.webp".into()) },
+                Asset { title: "Application Lab".into(), gold_value: 4, silver_value: 1, color: Color::Purple, ability: Some(AssetPowerup::SilverIntoGold), image_front_url: "assets/applicationLab_4-1.webp".into(), image_back_url: Arc::new("asset_back.webp".into()) },
+                Asset { title: "Pilot Plant".into(), gold_value: 5, silver_value: 1, color: Color::Purple, ability: Some(AssetPowerup::MinusIntoPlus), image_front_url: "assets/pilotPlant_5-1.webp".into(), image_back_url: Arc::new("asset_back.webp".into()) },
+                Asset { title: "Carbon Certificate".into(), gold_value: 1, silver_value: 2, color: Color::Green, ability: None, image_front_url: "assets/carbonCertificate_1-2.webp".into(), image_back_url: Arc::new("asset_back.webp".into()) },
+                Asset { title: "Accounts Receivable".into(), gold_value: 1, silver_value: 2, color: Color::Blue, ability: None, image_front_url: "assets/accountsReceivable_1-2.webp".into(), image_back_url: Arc::new("asset_back.webp".into()) },
+                Asset { title: "Warehouse".into(), gold_value: 4, silver_value: 1, color: Color::Yellow, ability: None, image_front_url: "assets/warehouse_4-1.webp".into(), image_back_url: Arc::new("asset_back.webp".into()) },
+                Asset { title: "Human Resources".into(), gold_value: 3, silver_value: 1, color: Color::Red, ability: None, image_front_url: "assets/humanResources_3-1.webp".into(), image_back_url: Arc::new("asset_back.webp".into()) },
+            ],
+            liabilities: vec![
+                Liability { value: 3, rfr_type: LiabilityType::BankLoan, image_front_url: "liabilities/bankLoan_3.webp".into(), image_back_url: Arc::new("liability_back.webp".into()) }
+            ],
+            hand: vec![],
+            final_market: market.clone(),
+            market: market.clone(),
+            old_silver_into_gold: None,
+            old_change_asset_color: None,
+            confirmed_asset_ability_idxs: vec![],
+        })
+        .collect::<Vec<_>>();
+    *state = GameState::Results(Results {
+        players: players.into(),
+        final_market: market,
+        final_events: vec![],
+    });
+    Ok(())
+}
+
+async fn websocket_results(stream: WebSocket, state: Arc<AppState>, player_count: u8) {
+    // split sink + stream
+    let (sender, mut receiver) = stream.split();
+    // wrap sink in an async mutex so multiple tasks can send safely
+    let sender = Arc::new(TokioMutex::new(sender));
+
+    let username = "Test user".to_string();
+    let channel = "123456test".to_string();
+
+    let room = {
+        let mut rooms = state.rooms.lock().unwrap();
+        let room = rooms
+            .entry(channel.clone())
+            .or_insert_with(|| Arc::new(RoomState::new()));
+        {
+            let state = &mut *room.game.lock().unwrap();
+            set_up_room(state, player_count).unwrap();
+        }
+        room.clone()
+    };
+
+    // task: read client messages, broadcast them, and send a custom reply to the sender only
+    let _ = {
+        let sender = sender.clone();
+        let name = username.clone();
+        let room = room.clone();
+
+        tokio::spawn(async move {
+            while let Some(Ok(message)) = receiver.next().await {
+                match message {
+                    Message::Text(text) => {
+                        if let Ok(json) = serde_json::from_str::<FrontendRequest>(&text) {
+                            tracing::debug!("incoming request: {json:?}");
+
+                            let direct = match room.handle_request(json, &name) {
+                                Ok(Response(_, direct)) => {
+                                    direct
+                                }
+                                Err(e) => e.into(),
+                            };
+                            tracing::debug!("direct response: {direct:?}");
+
+                            if send_external(direct, sender.clone()).await.is_err() {
+                                break;
+                            }
+                        }
+                    }
+                    Message::Close(_) => break,
+                    _ => continue,
+                }
+            }
+        })
+    };
 }
 
 #[cfg(test)]

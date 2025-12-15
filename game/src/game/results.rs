@@ -6,10 +6,10 @@ use crate::{errors::*, game::*, player::*};
 /// players can see their scores.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Results {
-    pub(super) players: Players<ResultsPlayer>,
-    pub(super) final_market: Market,
+    pub players: Players<ResultsPlayer>,
+    pub final_market: Market,
     // TODO: implement events
-    pub(super) final_events: Vec<Event>,
+    pub final_events: Vec<Event>,
 }
 
 impl Results {

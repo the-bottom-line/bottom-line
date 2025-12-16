@@ -86,7 +86,7 @@ impl BankerTargetPlayer {
     ) -> Result<SelectedAssetsAndLiabilities, BankerTargetSelectError> {
         if let Some(asset) = self.assets.get(asset_id) {
             if !selected.assets.contains_key(&asset_id) {
-                if asset.market_value(market) <= 0 {
+                if asset.market_value(market) > 0 {
                     let v = asset.market_value(market);
                     selected.assets.insert(asset_id, v as u8);
                     Ok(selected.clone())

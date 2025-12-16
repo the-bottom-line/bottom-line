@@ -84,11 +84,17 @@ pub enum FrontendRequest {
         /// The character who's credit line will be terminated.
         character: Character,
     },
-    SelectAssetToDivest{
-        asset_id: usize
+    SelectAssetToDivest {
+        asset_id: usize,
     },
-    UnselectAssetToDivest{
-        asset_id: usize
+    UnselectAssetToDivest {
+        asset_id: usize,
+    },
+    SelectLiabilityToIssue {
+        liability_id: usize,
+    },
+    UnselectLiabilityToIssue {
+        liability_id: usize,
     },
     /// Tries to send cash to the banker when player is targeted
     PayBanker {
@@ -407,13 +413,11 @@ pub enum UniqueResponse {
         /// Id of the player whose turn it is
         player_turn: PlayerId,
         /// Amount of Cash to be paid to Banker
-        cash_to_be_paid: u8
-
+        cash_to_be_paid: u8,
     },
     SelectedCardsBankerTarget {
         assets: HashMap<usize, u8>,
         liability_count: usize,
-
     },
     /// Sent when someone drew a card.
     DrewCard {

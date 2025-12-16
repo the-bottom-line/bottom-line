@@ -230,7 +230,6 @@ pub enum FireCharacterError {
     AlreadyFiredThisTurn,
 }
 
-
 /// Errors related to paying the banker on the targets turn
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
@@ -277,6 +276,14 @@ pub enum BankerTargetSelectError {
     AssetNotSelected,
     #[error("Asset not in players asset list")]
     InvalidAssetId,
+    #[error("Liability not found in players hand at id")]
+    InvalidLiabilityId,
+    #[error("Liability not in selected liability list")]
+    LiabilityNotSelected,
+    #[error("Liability is already in selected liability list")]
+    LiabilityAlreadySelected,
+    #[error("Only the CFO can issue a liability when targeted by the banker")]
+    NotCFO,
 }
 
 /// Errors related to swapping hands/cards.

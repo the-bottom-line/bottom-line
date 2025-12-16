@@ -554,10 +554,9 @@ pub struct HandsAfterSwap {
     pub target_new_hand: Vec<Either<Asset, Liability>>,
 }
 
-
 impl From<&mut round::BankerTargetRound> for Round {
     fn from(btround: &mut BankerTargetRound) -> Self {
-        Self { 
+        Self {
             current_player: btround.current_player,
             players: Players(btround.players.iter().map(Into::into).collect()),
             assets: btround.assets.clone(),
@@ -565,7 +564,7 @@ impl From<&mut round::BankerTargetRound> for Round {
             markets: btround.markets.clone(),
             chairman: btround.chairman,
             current_market: btround.current_market.clone(),
-            current_events: btround.current_events.clone(), 
+            current_events: btround.current_events.clone(),
             open_characters: btround.open_characters.clone(),
             fired_characters: btround.fired_characters.clone(),
             banker_target: None,

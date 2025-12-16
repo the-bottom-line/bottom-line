@@ -2,7 +2,11 @@
 
 use either::Either;
 
-use crate::{errors::*, game::*, player::{self, *}};
+use crate::{
+    errors::*,
+    game::*,
+    player::{self, *},
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BankerTargetRound {
@@ -84,11 +88,10 @@ impl BankerTargetRound {
             Ok([player, banker]) => {
                 if cash == self.gold_to_be_paid {
                     let pbp = player.pay_banker(cash, &self.selected_cards, banker)?;
-                    return Ok(pbp)
-                }else{
+                    return Ok(pbp);
+                } else {
                     Err(PayBankerError::NotRightCashAmount.into())
                 }
-                
             }
             Err(_) => Err(PayBankerError::NoBankerPlayer.into()),
         }
@@ -108,7 +111,7 @@ impl BankerTargetRound {
     }
 
     ///function to unselect an asset for divesting when targeted by the banker
-     pub fn player_unselect_divest_asset(
+    pub fn player_unselect_divest_asset(
         &mut self,
         player_id: PlayerId,
         asset_id: usize,
@@ -118,15 +121,42 @@ impl BankerTargetRound {
         self.selected_cards = player.unselect_divest_asset(asset_id, selected)?;
         Ok(self.selected_cards.clone())
     }
+
+    ///function to select an liability to issue when targeted by the banker
+    pub fn player_select_issue_liability(
+        &mut self,
+        player_id: PlayerId,
+        liability_id: usize,
+    ) -> Result<SelectedAssetsAndLiabilities, GameError> {
+        let selected = self.selected_cards.clone();
+        let player = self.player_as_current_mut(player_id)?;
+        self.selected_cards = player.select_issue_iability(liability_id, selected)?;
+        Ok(self.selected_cards.clone())
+    }
+
+    ///function to unselect an asset for divesting when targeted by the banker
+    pub fn player_unselect_issue_liability(
+        &mut self,
+        player_id: PlayerId,
+        liability_id: usize,
+    ) -> Result<SelectedAssetsAndLiabilities, GameError> {
+        let selected = self.selected_cards.clone();
+        let player = self.player_as_current_mut(player_id)?;
+        self.selected_cards = player.unselect_issue_iability(liability_id, selected)?;
+        Ok(self.selected_cards.clone())
+    }
 }
-
-
 
 impl From<&mut round::Round> for BankerTargetRound {
     fn from(round: &mut Round) -> Self {
-        let color_array: Vec<Color> = round.current_player().assets().iter().map(|a| a.color).collect();
+        let color_array: Vec<Color> = round
+            .current_player()
+            .assets()
+            .iter()
+            .map(|a| a.color)
+            .collect();
         let gtbp = color_array.iter().collect::<HashSet<_>>().len() as u8 + 1;
-        Self { 
+        Self {
             current_player: round.current_player,
             players: Players(round.players.iter().map(Into::into).collect()),
             assets: round.assets.clone(),
@@ -134,11 +164,14 @@ impl From<&mut round::Round> for BankerTargetRound {
             markets: round.markets.clone(),
             chairman: round.chairman,
             current_market: round.current_market.clone(),
-            current_events: round.current_events.clone(), 
+            current_events: round.current_events.clone(),
             open_characters: round.open_characters.clone(),
             fired_characters: round.fired_characters.clone(),
             gold_to_be_paid: gtbp,
-            selected_cards: SelectedAssetsAndLiabilities { assets: HashMap::new(), liabilities: HashMap::new() }
+            selected_cards: SelectedAssetsAndLiabilities {
+                assets: HashMap::new(),
+                liabilities: HashMap::new(),
+            },
         }
     }
 }

@@ -92,6 +92,14 @@ impl RoomState {
                 let player_id = state.bankertarget()?.player_by_name(player_name)?.id();
                 unselect_divest_asset(state, player_id, asset_id)
             }
+            FrontendRequest::SelectLiabilityToIssue { liability_id } => {
+                let player_id = state.bankertarget()?.player_by_name(player_name)?.id();
+                select_issue_liability(state, player_id, liability_id)
+            }
+            FrontendRequest::UnselectLiabilityToIssue { liability_id } => {
+                let player_id = state.bankertarget()?.player_by_name(player_name)?.id();
+                unselect_issue_liability(state, player_id, liability_id)
+            }
             FrontendRequest::PayBanker { cash } => {
                 let player_id = state.bankertarget()?.player_by_name(player_name)?.id();
                 pay_banker(state, player_id, cash)

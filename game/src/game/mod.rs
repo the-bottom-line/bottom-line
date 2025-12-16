@@ -17,7 +17,12 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "ts")]
 use ts_rs::TS;
 
-use std::{collections::{HashMap, HashSet}, path::Path, sync::Arc, vec};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+    sync::Arc,
+    vec,
+};
 
 use crate::{errors::*, player::*, utility::serde_asset_liability};
 
@@ -402,13 +407,11 @@ pub struct PlayerPlayedCard {
     pub used_card: Either<Asset, Liability>,
 }
 
-
-#[derive(Debug, Clone,PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SelectedAssetsAndLiabilities {
     pub assets: HashMap<usize, u8>,
     pub liabilities: HashMap<usize, u8>,
 }
-
 
 /// Data used when a turn ends
 #[derive(Debug, Clone, Serialize, Deserialize)]

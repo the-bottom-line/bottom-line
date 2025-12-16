@@ -542,39 +542,38 @@ impl From<&RoundPlayer> for PlayerInfo {
 
 impl From<&RoundPlayer> for BankerTargetPlayer {
     fn from(player: &RoundPlayer) -> Self {
-        Self{
-        id: player.id(),
-        name: player.name().into(),
-        cash: player.cash(),
-        assets: player.assets.clone(),
-        liabilities: player.liabilities.clone(),
-        character: player.character(),
-        hand: player.hand.clone(),
-        liabilities_to_play: player.liabilities_to_play,
+        Self {
+            id: player.id(),
+            name: player.name().into(),
+            cash: player.cash(),
+            assets: player.assets.clone(),
+            liabilities: player.liabilities.clone(),
+            character: player.character(),
+            hand: player.hand.clone(),
+            liabilities_to_play: player.liabilities_to_play,
         }
     }
 }
 
-
 impl From<&BankerTargetPlayer> for RoundPlayer {
     fn from(player: &BankerTargetPlayer) -> Self {
         let playable_assets = player.character.playable_assets();
-        Self { 
-        id: player.id(),
-        name: player.name().into(),
-        cash: player.cash,
-        assets: player.assets.clone(),
-        liabilities: player.liabilities.clone(),
-        character: player.character,
-        hand: player.hand.clone(),
-        cards_drawn: vec![],
-        bonus_draw_cards: 0,
-        assets_to_play: playable_assets.total(),
-        playable_assets: playable_assets, 
-        liabilities_to_play: player.liabilities_to_play,
-        total_cards_drawn: 0,
-        total_cards_given_back: 0,
-        has_used_ability: false,
+        Self {
+            id: player.id(),
+            name: player.name().into(),
+            cash: player.cash,
+            assets: player.assets.clone(),
+            liabilities: player.liabilities.clone(),
+            character: player.character,
+            hand: player.hand.clone(),
+            cards_drawn: vec![],
+            bonus_draw_cards: 0,
+            assets_to_play: playable_assets.total(),
+            playable_assets: playable_assets,
+            liabilities_to_play: player.liabilities_to_play,
+            total_cards_drawn: 0,
+            total_cards_given_back: 0,
+            has_used_ability: false,
         }
     }
 }

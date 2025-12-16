@@ -284,6 +284,8 @@ pub enum BankerTargetSelectError {
     LiabilityAlreadySelected,
     #[error("Only the CFO can issue a liability when targeted by the banker")]
     NotCFO,
+    #[error("Can only select up to 3 liabilities when targeted by the banker as the CFO")]
+    AlreadySelected3Liabilities,
 }
 
 /// Errors related to swapping hands/cards.

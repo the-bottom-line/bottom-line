@@ -127,15 +127,19 @@ impl BankerTargetPlayer {
     ) -> Result<SelectedAssetsAndLiabilities, BankerTargetSelectError> {
         if self.character == Character::CFO {
             if let Some(liability) = self.hand.get(liability_id) {
-                if !selected.assets.contains_key(&liability_id) {
-                    if let Some(l) = liability.clone().right() {
-                        selected.liabilities.insert(liability_id, l.value);
-                        Ok(selected.clone())
+                if selected.liabilities.len() < 3 {
+                    if !selected.liabilities.contains_key(&liability_id) {
+                        if let Some(l) = liability.clone().right() {
+                            selected.liabilities.insert(liability_id, l.value);
+                            Ok(selected.clone())
+                        } else {
+                            Err(BankerTargetSelectError::InvalidLiabilityId)
+                        }
                     } else {
-                        Err(BankerTargetSelectError::InvalidLiabilityId)
+                        Err(BankerTargetSelectError::LiabilityAlreadySelected)
                     }
                 } else {
-                    Err(BankerTargetSelectError::LiabilityAlreadySelected)
+                    Err(BankerTargetSelectError::AlreadySelected3Liabilities)
                 }
             } else {
                 Err(BankerTargetSelectError::InvalidLiabilityId)

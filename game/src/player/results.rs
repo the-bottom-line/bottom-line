@@ -377,20 +377,21 @@ impl ResultsPlayer {
         let all_five_colors_bonus = self.all_five_colors_bonus() as f64;
         let bonuses = asset_count_bonus + all_five_colors_bonus;
 
-        if gold == 0.0 {
-            // lim->inf fcf / wacc = 0
+        let rfr = self.market.rfr as f64;
+        let mrp = self.market.mrp as f64;
+
+        let beta = silver / gold;
+
+        let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / (gold + cash);
+
+        let wacc = rfr + drp + beta * mrp;
+
+        // beta == inf || fcf / wacc == inf
+        if gold == 0.0 || wacc == 0.0 {
+            // lim_wacc->inf fcf / wacc = 0 || fcf / 0 = inf
             (debt / 3.0) + cash + bonuses
         } else {
-            let beta = silver / gold;
-
-            // TODO: end of game bonuses
-            let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / (gold + cash);
-
-            let rfr = self.market.rfr as f64;
-            let mrp = self.market.mrp as f64;
-
             let fcf = self.fcf();
-            let wacc = rfr + drp + beta * mrp;
 
             (fcf / (0.1 * wacc)) + (debt / 3.0) + cash + bonuses
         }

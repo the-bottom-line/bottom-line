@@ -2,6 +2,8 @@
 
 #![warn(missing_docs)]
 
+use std::collections::HashMap;
+
 use either::Either;
 use game::{
     errors::GameError,
@@ -81,6 +83,12 @@ pub enum FrontendRequest {
     TerminateCreditCharacter {
         /// The character who's credit line will be terminated.
         character: Character,
+    },
+    SelectAssetToDivest{
+        asset_id: usize
+    },
+    UnselectAssetToDivest{
+        asset_id: usize
     },
     /// Tries to send cash to the banker when player is targeted
     PayBanker {
@@ -167,6 +175,11 @@ pub enum DirectResponse {
         /// The amount of gold paid
         cash: u8,
         banker_id: PlayerId,
+    },
+    YouSelectCardBankerTarget {
+        /// The amount of gold paid
+        assets: HashMap<usize, u8>,
+        liabilities: HashMap<usize, u8>,
     },
     /// Confirmation that this player was succesful in getting regulator options
     YouRegulatorOptions {
@@ -394,6 +407,11 @@ pub enum UniqueResponse {
         player_turn: PlayerId,
         /// Amount of Cash to be paid to Banker
         cash_to_be_paid: u8
+
+    },
+    SelectedCardsBankerTarget {
+        assets: HashMap<usize, u8>,
+        liability_count: usize,
 
     },
     /// Sent when someone drew a card.

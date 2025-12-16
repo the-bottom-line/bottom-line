@@ -5,7 +5,7 @@ use itertools::Itertools;
 
 use crate::{
     errors::*,
-    game::{Deck, Market, MarketCondition},
+    game::{self, Deck, Market, MarketCondition},
     player::*,
 };
 
@@ -53,6 +53,46 @@ impl BankerTargetPlayer {
             })
         } else {
             Err(PayBankerError::NotEnoughCash)
+        }
+    }
+
+    pub fn select_divest_asset(
+        &mut self,
+        asset_id: usize,
+        market: &Market,
+        mut selected: SelectedAssetsAndLiabilities,
+    ) -> Result<SelectedAssetsAndLiabilities, BankerTargetSelectError> {
+        if let Some(asset) = self.assets.get(asset_id){
+            if !selected.assets.contains_key(&asset_id){
+                if asset.market_value(market) <= 0 {
+                    let v = asset.market_value(market);
+                    selected.assets.insert(asset_id,v as u8);
+                    Ok(selected.clone())
+                }else{
+                    Err(BankerTargetSelectError::AssetValueToLow)
+                }
+            }else{
+                Err(BankerTargetSelectError::AssetAlreadySelected)
+            }
+        }else{
+            Err(BankerTargetSelectError::InvalidAssetId)
+        }
+    }
+
+    pub fn unselect_divest_asset(
+        &mut self,
+        asset_id: usize,
+        mut selected: SelectedAssetsAndLiabilities,
+    ) -> Result<SelectedAssetsAndLiabilities, BankerTargetSelectError> {
+        if self.assets.get(asset_id).is_some(){
+            if selected.assets.contains_key(&asset_id){
+                selected.assets.remove(&asset_id);
+                Ok(selected.clone())
+            }else{
+                Err(BankerTargetSelectError::AssetNotSelected)
+            }
+        }else{
+            Err(BankerTargetSelectError::InvalidAssetId)
         }
     }
 }

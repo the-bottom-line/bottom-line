@@ -424,6 +424,76 @@ pub fn terminate_credit_character(
     }
 }
 
+pub fn select_divest_asset(
+    state: &mut GameState,
+    player_id: PlayerId,
+    asset_id: usize,
+) -> Result<Response, GameError> {
+    let btround = state.bankertarget_mut()?;
+    match btround.player_select_divest_asset(player_id, asset_id) {
+        Ok(selected) => {
+            let internal = 
+            btround
+                .players()
+                .iter()
+                .filter(|p| p.id() != player_id)
+                .map(|p| {
+                    (
+                        p.id(),
+                        vec![UniqueResponse::SelectedCardsBankerTarget { 
+                            assets: selected.assets.clone(),
+                            liability_count: selected.liabilities.iter().count(),
+                        }],
+                    )
+                })
+                .collect();
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouSelectCardBankerTarget { 
+                    assets: selected.assets.clone(),
+                    liabilities: selected.liabilities,
+                },
+            ))
+        }
+        Err(e) => Err(e)
+    }
+}
+
+pub fn unselect_divest_asset(
+    state: &mut GameState,
+    player_id: PlayerId,
+    asset_id: usize,
+) -> Result<Response, GameError> {
+    let btround = state.bankertarget_mut()?;
+    match btround.player_unselect_divest_asset(player_id, asset_id) {
+        Ok(selected) => {
+            let internal = 
+            btround
+                .players()
+                .iter()
+                .filter(|p| p.id() != player_id)
+                .map(|p| {
+                    (
+                        p.id(),
+                        vec![UniqueResponse::SelectedCardsBankerTarget { 
+                            assets: selected.assets.clone(),
+                            liability_count: selected.liabilities.iter().count(),
+                        }],
+                    )
+                })
+                .collect();
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouSelectCardBankerTarget { 
+                    assets: selected.assets.clone(),
+                    liabilities: selected.liabilities,
+                },
+            ))
+        }
+        Err(e) => Err(e)
+    }
+}
+
 pub fn pay_banker(
     state: &mut GameState,
     player_id: PlayerId,

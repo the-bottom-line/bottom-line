@@ -17,6 +17,7 @@ pub struct BankerTargetRound {
     pub(super) open_characters: Vec<Character>,
     pub(super) fired_characters: Vec<Character>,
     pub(super) gold_to_be_paid: u8,
+    pub(super) selected_cards: SelectedAssetsAndLiabilities,
 }
 
 impl BankerTargetRound {
@@ -92,7 +93,34 @@ impl BankerTargetRound {
             Err(_) => Err(PayBankerError::NoBankerPlayer.into()),
         }
     }
+
+    ///function to select an asset for divesting when targeted by the banker
+    pub fn player_select_divest_asset(
+        &mut self,
+        player_id: PlayerId,
+        asset_id: usize,
+    ) -> Result<SelectedAssetsAndLiabilities, GameError> {
+        let selected = self.selected_cards.clone();
+        let market = self.current_market.clone();
+        let player = self.player_as_current_mut(player_id)?;
+        self.selected_cards = player.select_divest_asset(asset_id, &market, selected)?;
+        Ok(self.selected_cards.clone())
+    }
+
+    ///function to unselect an asset for divesting when targeted by the banker
+     pub fn player_unselect_divest_asset(
+        &mut self,
+        player_id: PlayerId,
+        asset_id: usize,
+    ) -> Result<SelectedAssetsAndLiabilities, GameError> {
+        let selected = self.selected_cards.clone();
+        let player = self.player_as_current_mut(player_id)?;
+        self.selected_cards = player.unselect_divest_asset(asset_id, selected)?;
+        Ok(self.selected_cards.clone())
+    }
 }
+
+
 
 impl From<&mut round::Round> for BankerTargetRound {
     fn from(round: &mut Round) -> Self {
@@ -110,6 +138,7 @@ impl From<&mut round::Round> for BankerTargetRound {
             open_characters: round.open_characters.clone(),
             fired_characters: round.fired_characters.clone(),
             gold_to_be_paid: gtbp,
+            selected_cards: SelectedAssetsAndLiabilities { assets: HashMap::new(), liabilities: HashMap::new() }
         }
     }
 }

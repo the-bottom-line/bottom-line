@@ -47,6 +47,11 @@ pub enum GameError {
     #[error(transparent)]
     PayBanker(#[from] PayBankerError),
 
+    /// Errors related to the action of selecting and unselecting assets and liabilities
+    /// when targeted by the banker ability
+    #[error(transparent)]
+    BankerTargetSelect(#[from] BankerTargetSelectError),
+
     /// Errors related to the action of terminating a characters credit line
     #[error(transparent)]
     TerminateCreditCharacter(#[from] TerminateCreditCharacterError),
@@ -258,6 +263,20 @@ pub enum TerminateCreditCharacterError {
     /// Player has already fired a character this turn.
     #[error("Player has already fired a character this turn")]
     AlreadyFiredThisTurn,
+}
+
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
+pub enum BankerTargetSelectError {
+    #[error("Asset is not worth anything in the current market")]
+    AssetValueToLow,
+    #[error("Asset is already in selected asset list")]
+    AssetAlreadySelected,
+    #[error("Asset is not in selected asset list")]
+    AssetNotSelected,
+    #[error("Asset not in players asset list")]
+    InvalidAssetId,
 }
 
 /// Errors related to swapping hands/cards.

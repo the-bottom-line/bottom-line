@@ -100,6 +100,10 @@ impl Round {
     pub fn open_characters(&self) -> &[Character] {
         &self.open_characters
     }
+    ///Gets the character who is currently targeted by the banker if one is available
+    pub fn banker_target(&self) -> Option<Character> {
+        self.banker_target
+    }
 
     /// Gets the [`PlayerInfo`] for each player, excluding the player that has the same id as `id`.
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
@@ -548,4 +552,23 @@ pub struct HandsAfterSwap {
     pub regulator_new_hand: Vec<Either<Asset, Liability>>,
     /// The new hand for the regulator's target
     pub target_new_hand: Vec<Either<Asset, Liability>>,
+}
+
+
+impl From<&mut round::BankerTargetRound> for Round {
+    fn from(btround: &mut BankerTargetRound) -> Self {
+        Self { 
+            current_player: btround.current_player,
+            players: Players(btround.players.iter().map(Into::into).collect()),
+            assets: btround.assets.clone(),
+            liabilities: btround.liabilities.clone(),
+            markets: btround.markets.clone(),
+            chairman: btround.chairman,
+            current_market: btround.current_market.clone(),
+            current_events: btround.current_events.clone(), 
+            open_characters: btround.open_characters.clone(),
+            fired_characters: btround.fired_characters.clone(),
+            banker_target: None,
+        }
+    }
 }

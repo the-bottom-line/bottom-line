@@ -430,10 +430,8 @@ pub fn pay_banker(
     cash: u8,
 ) -> Result<Response, GameError> {
     let btround = state.bankertarget_mut()?;
-
     match btround.player_pay_banker(player_id, cash) {
         Ok(pbp) => {
-
             let internal = btround
                 .players()
                 .iter()
@@ -449,6 +447,7 @@ pub fn pay_banker(
                     )
                 })
                 .collect();
+            *state = GameState::Round(btround.into());
             Ok(Response(
                 InternalResponse(internal),
                 DirectResponse::YouPaidBanker {
@@ -600,11 +599,22 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
             ))
         }
         GameState::Round(round) => {
-            let internal = round
+            let mut internal:HashMap<PlayerId, Vec<UniqueResponse>> = round
                 .players()
                 .iter()
                 .map(|p| (p.id(), vec![turn_starts(round)]))
                 .collect();
+
+            if round.banker_target() == Some(round.current_player().character()){
+                    *state = GameState::BankerTarget(round.into());
+                    for value in internal.values_mut(){
+                        value.push(UniqueResponse::PlayerTargetedByBanker { 
+                            player_turn: state.bankertarget()?.current_player().id(),
+                            cash_to_be_paid: state.bankertarget()?.gold_to_be_paid()
+                        });
+                    }
+            }
+            
 
             Ok(Response(
                 InternalResponse(internal),

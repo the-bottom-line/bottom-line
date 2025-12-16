@@ -815,7 +815,6 @@ impl GameState {
     /// [`Results`]
     pub fn end_player_turn(&mut self, id: PlayerId) -> Result<TurnEnded, GameError> {
         let round = self.round_mut()?;
-
         match round.end_player_turn(id)? {
             Either::Left(te) => Ok(te),
             Either::Right(state) => {

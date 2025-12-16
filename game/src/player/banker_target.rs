@@ -11,14 +11,14 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BankerTargetPlayer {
-    id: PlayerId,
-    name: String,
-    cash: u8,
-    assets: Vec<Asset>,
-    liabilities: Vec<Liability>,
-    character: Character,
-    hand: Vec<Either<Asset, Liability>>,
-    liabilities_to_play: u8,
+    pub (super) id: PlayerId,
+    pub (super) name: String,
+    pub (super) cash: u8,
+    pub (super) assets: Vec<Asset>,
+    pub (super) liabilities: Vec<Liability>,
+    pub (super) character: Character,
+    pub (super) hand: Vec<Either<Asset, Liability>>,
+    pub (super) liabilities_to_play: u8,
 }
 
 impl BankerTargetPlayer {

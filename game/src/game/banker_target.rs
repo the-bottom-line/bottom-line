@@ -2,7 +2,7 @@
 
 use either::Either;
 
-use crate::{errors::*, game::*, player::*};
+use crate::{errors::*, game::*, player::{self, *}};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BankerTargetRound {
@@ -31,6 +31,10 @@ impl BankerTargetRound {
 
     pub fn player(&self, id: PlayerId) -> Result<&BankerTargetPlayer, GameError> {
         self.players.player(id)
+    }
+
+    pub fn gold_to_be_paid(&self) -> u8 {
+        self.gold_to_be_paid
     }
 
     /// Gets a slice of all players in the lobby.
@@ -86,6 +90,26 @@ impl BankerTargetRound {
                 
             }
             Err(_) => Err(PayBankerError::NoBankerPlayer.into()),
+        }
+    }
+}
+
+impl From<&mut round::Round> for BankerTargetRound {
+    fn from(round: &mut Round) -> Self {
+        let color_array: Vec<Color> = round.current_player().assets().iter().map(|a| a.color).collect();
+        let gtbp = color_array.iter().collect::<HashSet<_>>().len() as u8 + 1;
+        Self { 
+            current_player: round.current_player,
+            players: Players(round.players.iter().map(Into::into).collect()),
+            assets: round.assets.clone(),
+            liabilities: round.liabilities.clone(),
+            markets: round.markets.clone(),
+            chairman: round.chairman,
+            current_market: round.current_market.clone(),
+            current_events: round.current_events.clone(), 
+            open_characters: round.open_characters.clone(),
+            fired_characters: round.fired_characters.clone(),
+            gold_to_be_paid: gtbp,
         }
     }
 }

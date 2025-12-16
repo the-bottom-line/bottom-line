@@ -407,6 +407,8 @@ pub struct PlayerPlayedCard {
     pub used_card: Either<Asset, Liability>,
 }
 
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SelectedAssetsAndLiabilities {
     pub assets: HashMap<usize, u8>,

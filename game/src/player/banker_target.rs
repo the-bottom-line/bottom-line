@@ -125,7 +125,7 @@ impl BankerTargetPlayer {
         liability_id: usize,
         mut selected: SelectedAssetsAndLiabilities,
     ) -> Result<SelectedAssetsAndLiabilities, BankerTargetSelectError> {
-        if self.character != Character::CFO {
+        if self.character == Character::CFO {
             if let Some(liability) = self.hand.get(liability_id) {
                 if !selected.assets.contains_key(&liability_id) {
                     if let Some(l) = liability.clone().right() {

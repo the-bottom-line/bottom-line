@@ -83,7 +83,7 @@ impl BankerTargetRound {
         {
             Ok([player, banker]) => {
                 if cash == self.gold_to_be_paid {
-                    let pbp = player.pay_banker(cash, banker)?;
+                    let pbp = player.pay_banker(cash, &self.selected_cards, banker)?;
                     return Ok(pbp)
                 }else{
                     Err(PayBankerError::NotRightCashAmount.into())

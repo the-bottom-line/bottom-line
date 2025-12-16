@@ -41,15 +41,23 @@ impl BankerTargetPlayer {
     pub fn pay_banker(
         &mut self,
         cash: u8,
+        selected_cards: &SelectedAssetsAndLiabilities,
         banker: &mut BankerTargetPlayer,
     ) -> Result<PayBankerPlayer, PayBankerError> {
-        if self.cash >= cash {
+        let extra_asset_cash: u8 = selected_cards.assets.iter().map(|a| a.1).sum();
+        let extra_liability_cash: u8 = selected_cards.liabilities.iter().map(|l| l.1).sum();
+        if self.cash + extra_asset_cash + extra_liability_cash >= cash {
             banker.cash += cash;
+            self.cash += extra_asset_cash + extra_liability_cash;
             self.cash -= cash;
+            
             Ok(PayBankerPlayer {
-                cash: cash,
+                new_banker_cash: banker.cash,
+                new_target_cash: self.cash,
                 target_id: self.id,
                 banker_id: banker.id,
+                selected_cards: selected_cards.clone()
+
             })
         } else {
             Err(PayBankerError::NotEnoughCash)

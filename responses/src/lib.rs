@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use either::Either;
 use game::{
     errors::GameError,
-    game::{Market, MarketChange, PlayerScore},
+    game::{Market, MarketChange, PlayerScore, SelectedAssetsAndLiabilities},
     player::*,
     utility::serde_asset_liability,
 };
@@ -173,11 +173,12 @@ pub enum DirectResponse {
     /// Confirmation that you paid some gold to the banker.
     YouPaidBanker {
         /// The amount of gold paid
-        cash: u8,
         banker_id: PlayerId,
+        new_banker_cash: u8,
+        your_new_cash: u8,
+        selected_cards: SelectedAssetsAndLiabilities,
     },
     YouSelectCardBankerTarget {
-        /// The amount of gold paid
         assets: HashMap<usize, u8>,
         liabilities: HashMap<usize, u8>,
     },
@@ -471,7 +472,9 @@ pub enum UniqueResponse {
     PlayerPayedBanker {
         banker_id: PlayerId,
         player_id: PlayerId,
-        cash: u8,
+        new_banker_cash: u8,
+        new_target_cash: u8,
+        selected_cards: SelectedAssetsAndLiabilities,
     },
     /// Sent when the regulator swapped their hand with this player.
     RegulatorSwapedYourCards {

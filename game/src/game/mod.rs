@@ -88,7 +88,7 @@ impl MarketCondition {
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(rename = "MarketCard"))]
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Market {
     /// The title of the market
     pub title: String,
@@ -122,6 +122,21 @@ impl Market {
             Color::Purple => self.purple,
             Color::Yellow => self.yellow,
             Color::Blue => self.blue,
+        }
+    }
+}
+
+impl Default for Market {
+    fn default() -> Self {
+        Self {
+            title: "Stable Market".to_string(),
+            rfr: 1,
+            mrp: 1,
+            red: MarketCondition::default(),
+            green: MarketCondition::default(),
+            purple: MarketCondition::default(),
+            yellow: MarketCondition::default(),
+            blue: MarketCondition::default(),
         }
     }
 }

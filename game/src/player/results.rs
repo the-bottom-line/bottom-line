@@ -106,7 +106,6 @@ impl ResultsPlayer {
     pub fn toggle_minus_into_plus(&mut self, color: Color) -> Result<&Market, GameError> {
         self.check_has_ability(AssetPowerup::MinusIntoPlus)?;
 
-        // TODO: handle confirmation for this action
         self.market = self.final_market.clone();
 
         match color {
@@ -377,20 +376,21 @@ impl ResultsPlayer {
         let all_five_colors_bonus = self.all_five_colors_bonus() as f64;
         let bonuses = asset_count_bonus + all_five_colors_bonus;
 
-        if gold == 0.0 {
-            // lim->inf fcf / wacc = 0
+        let rfr = self.market.rfr as f64;
+        let mrp = self.market.mrp as f64;
+
+        let beta = silver / gold;
+
+        let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / (gold + cash);
+
+        let wacc = rfr + drp + beta * mrp;
+
+        // beta == inf || fcf / wacc == inf
+        if gold == 0.0 || wacc == 0.0 {
+            // lim_wacc->inf fcf / wacc = 0 || fcf / 0 = inf
             (debt / 3.0) + cash + bonuses
         } else {
-            let beta = silver / gold;
-
-            // TODO: end of game bonuses
-            let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / (gold + cash);
-
-            let rfr = self.market.rfr as f64;
-            let mrp = self.market.mrp as f64;
-
             let fcf = self.fcf();
-            let wacc = rfr + drp + beta * mrp;
 
             (fcf / (0.1 * wacc)) + (debt / 3.0) + cash + bonuses
         }
@@ -628,6 +628,10 @@ pub(super) mod tests {
         }
 
         let mut player = default_results_player();
+        for (i, card_color) in Color::COLORS.into_iter().enumerate() {
+            player.assets.push(asset(card_color));
+            player.assets[i].silver_value = i as u8 * 2 + 1;
+        }
 
         assert_eq!(player.market, player.final_market);
 
@@ -638,12 +642,18 @@ pub(super) mod tests {
             player.assets[card_idx].ability = Some(AssetPowerup::MinusIntoPlus);
 
             for color in Color::COLORS {
+                let old_score = player.score();
                 let market = player
                     .toggle_minus_into_plus(color)
                     .expect("Could not perform ability")
                     .clone();
 
                 assert_eq!(player.market, market);
+                if card_idx == 0 {
+                    // Score won't change in some cases if changing minus into plus for an already
+                    // plus value, so this only makes sense to test the first loop around.
+                    assert_ne!(old_score, player.score());
+                }
 
                 for color_check in Color::COLORS {
                     let market_condition = player.market.color_condition(color_check);
@@ -704,6 +714,7 @@ pub(super) mod tests {
 
         for _ in 0..3 {
             // Test with no old data
+            let old_score = player.score();
             assert_eq!(
                 player.toggle_silver_into_gold(0),
                 Ok(ToggleSilverIntoGold::new(
@@ -715,8 +726,12 @@ pub(super) mod tests {
                 player.old_silver_into_gold,
                 Some(SilverIntoGoldData::new(0, a1_g, a1_s))
             );
+            assert_eq!(player.assets[0].gold_value, 2);
+            assert_eq!(player.assets[0].silver_value, 0);
+            assert_ne!(old_score, player.score());
 
             // Test with old data and disjointed indices
+            let old_score = player.score();
             assert_eq!(
                 player.toggle_silver_into_gold(1),
                 Ok(ToggleSilverIntoGold::new(
@@ -728,8 +743,14 @@ pub(super) mod tests {
                 player.old_silver_into_gold,
                 Some(SilverIntoGoldData::new(1, a2_g, a2_s))
             );
+            assert_eq!(player.assets[0].gold_value, a1_g);
+            assert_eq!(player.assets[0].silver_value, a1_s);
+            assert_eq!(player.assets[1].gold_value, a2_g + a2_s);
+            assert_eq!(player.assets[1].silver_value, 0);
+            assert_ne!(old_score, player.score());
 
             // Test with old data and same indices
+            let old_score = player.score();
             assert_eq!(
                 player.toggle_silver_into_gold(1),
                 Ok(ToggleSilverIntoGold::new(
@@ -738,6 +759,7 @@ pub(super) mod tests {
                 ))
             );
             assert_eq!(player.old_silver_into_gold, None);
+            assert_ne!(old_score, player.score());
         }
 
         assert_eq!(
@@ -771,16 +793,25 @@ pub(super) mod tests {
             0,
             vec![asset(Color::Purple), asset(Color::Green)],
             vec![],
-            Market::default(),
+            Market {
+                yellow: MarketCondition::Minus,
+                green: MarketCondition::Zero,
+                blue: MarketCondition::Plus,
+                purple: MarketCondition::Zero,
+                red: MarketCondition::Plus,
+                ..Default::default()
+            },
         );
 
         assert_ability_error(&mut player);
 
         player.assets[0].ability = Some(AssetPowerup::CountAsAnyColor);
+        player.assets[0].silver_value = 3;
 
         let (color1, color2) = (player.assets[0].color, player.assets[1].color);
 
         // Test with no old data
+        let old_score = player.score();
         assert_eq!(
             player.toggle_change_asset_color(0, Color::Blue),
             Ok(ToggleChangeAssetColor::new(
@@ -792,8 +823,10 @@ pub(super) mod tests {
             player.old_change_asset_color,
             Some(ChangeAssetColorData::new(0, color1))
         );
+        assert_ne!(old_score, player.score());
 
         // Test with old data and disjointed indices
+        let old_score = player.score();
         assert_eq!(
             player.toggle_change_asset_color(1, Color::Yellow),
             Ok(ToggleChangeAssetColor::new(
@@ -805,8 +838,10 @@ pub(super) mod tests {
             player.old_change_asset_color,
             Some(ChangeAssetColorData::new(1, color2))
         );
+        assert_ne!(old_score, player.score());
 
         // Test with old data and same indices
+        let old_score = player.score();
         assert_eq!(
             player.toggle_change_asset_color(1, Color::Red),
             Ok(ToggleChangeAssetColor::new(
@@ -818,6 +853,7 @@ pub(super) mod tests {
             player.old_change_asset_color,
             Some(ChangeAssetColorData::new(1, Color::Yellow))
         );
+        assert_ne!(old_score, player.score());
 
         assert_eq!(
             player.toggle_change_asset_color(34, Color::Purple),
@@ -1066,7 +1102,6 @@ pub(super) mod tests {
                 } else {
                     let beta = silver / gold;
 
-                    // TODO: end of game bonuses
                     let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / (gold + cash);
 
                     let rfr = player.market.rfr as f64;

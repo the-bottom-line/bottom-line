@@ -71,6 +71,38 @@ impl CreateRequest {
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
+    #[wasm_bindgen(js_name = terminateCreditCharacter)]
+    pub fn terminate_credit_character(character: JsValue) -> Result<String, JsValue> {
+        let character: Character = serde_wasm_bindgen::from_value(character)?;
+        serde_json::to_string(&responses::FrontendRequest::TerminateCreditCharacter { character })
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+    #[wasm_bindgen(js_name = payBanker)]
+    pub fn pay_banker(cash: u8) -> Result<String, JsValue> {
+        serde_json::to_string(&responses::FrontendRequest::PayBanker { cash })
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+    #[wasm_bindgen(js_name = selectAssetToDivest)]
+    pub fn select_asset_to_divest(asset_id: usize) -> Result<String, JsValue> {
+        serde_json::to_string(&responses::FrontendRequest::SelectAssetToDivest { asset_id})
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+    #[wasm_bindgen(js_name = unselectAssetToDivest)]
+    pub fn unselect_asset_to_divest(asset_id: usize) -> Result<String, JsValue> {
+        serde_json::to_string(&responses::FrontendRequest::UnselectAssetToDivest { asset_id })
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+    #[wasm_bindgen(js_name = selectLiabilityToIssue)]
+    pub fn select_liability_to_issue(liability_id: usize) -> Result<String, JsValue> {
+        serde_json::to_string(&responses::FrontendRequest::SelectLiabilityToIssue { liability_id })
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+    #[wasm_bindgen(js_name = unselectLiabilityToIssue)]
+    pub fn unselect_liability_to_issue(liability_id: usize) -> Result<String, JsValue> {
+        serde_json::to_string(&responses::FrontendRequest::UnselectLiabilityToIssue { liability_id })
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
     #[wasm_bindgen(js_name = swapWithDeck)]
     pub fn swap_with_deck(card_idxs: Vec<usize>) -> Result<String, JsValue> {
         serde_json::to_string(&responses::FrontendRequest::SwapWithDeck { card_idxs })
@@ -150,6 +182,14 @@ impl CreateRequest {
             responses::FrontendRequest::FireCharacter { .. } => {
                 Self::fire_character(JsValue::null())
             }
+            responses::FrontendRequest::TerminateCreditCharacter { .. } => {
+                Self::terminate_credit_character(JsValue::null())
+            }
+            responses::FrontendRequest::PayBanker { cash } => Self::pay_banker(cash),
+            responses::FrontendRequest::SelectAssetToDivest { asset_id } => Self::select_asset_to_divest(asset_id),
+            responses::FrontendRequest::UnselectAssetToDivest { asset_id } => Self::unselect_asset_to_divest(asset_id),
+            responses::FrontendRequest::SelectLiabilityToIssue { liability_id } => Self::select_liability_to_issue(liability_id),
+            responses::FrontendRequest::UnselectLiabilityToIssue { liability_id } => Self::unselect_liability_to_issue(liability_id),
             responses::FrontendRequest::SwapWithDeck { card_idxs } => {
                 Self::swap_with_deck(card_idxs)
             }

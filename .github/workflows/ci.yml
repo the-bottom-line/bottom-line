@@ -42,3 +42,6 @@ jobs:
 
       - name: Run server tests
         run: cargo test-server
+        
+      - name: Run typescript export
+        run: cargo export-ts

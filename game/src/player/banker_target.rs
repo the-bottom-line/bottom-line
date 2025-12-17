@@ -1,5 +1,7 @@
 //! This file contains the implementation of [`BankerTargetPlayer`].
 
+use std::collections::HashMap;
+
 use either::Either;
 use itertools::Itertools;
 
@@ -36,6 +38,38 @@ impl BankerTargetPlayer {
     /// Gets the character for this player
     pub fn character(&self) -> Character {
         self.character
+    }
+
+    /// Pays the banker in the round with everything the player can afford
+    pub fn go_bankrupt_for_banker(
+        &mut self,
+        cash: u8,
+        selected_cards: &SelectedAssetsAndLiabilities,
+        banker: &mut BankerTargetPlayer,
+        market: Market
+    ) -> Result<PayBankerPlayer, PayBankerError> {
+        let mut new_selected_cards= SelectedAssetsAndLiabilities{assets:HashMap::new() ,liabilities: HashMap::new()};
+        for (index, asset) in  self.assets.clone().into_iter().enumerate() {
+            if asset.market_value(&market) > 0 {
+                new_selected_cards.assets.insert(index, asset.market_value(&market) as u8);
+            }
+        }
+        //TODO get top 3 most valueble liabilities if player is CFO
+        //TODO Sell assets and libilities for targeted player 
+        //TODO Pay banker the maximum amount target can affort after selling 
+        //TODO remove cash from targeted player
+
+
+        
+
+            Ok(PayBankerPlayer {
+                paid_amount: cash,
+                new_banker_cash: banker.cash,
+                new_target_cash: self.cash,
+                target_id: self.id,
+                banker_id: banker.id,
+                selected_cards: selected_cards.clone(),
+            })
     }
 
     /// Pays the banker in the round the requested amount of gold

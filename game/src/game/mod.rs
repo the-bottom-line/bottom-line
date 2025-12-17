@@ -90,7 +90,7 @@ impl MarketCondition {
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(rename = "MarketCard"))]
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Market {
     /// The title of the market
     pub title: String,
@@ -124,6 +124,21 @@ impl Market {
             Color::Purple => self.purple,
             Color::Yellow => self.yellow,
             Color::Blue => self.blue,
+        }
+    }
+}
+
+impl Default for Market {
+    fn default() -> Self {
+        Self {
+            title: "Stable Market".to_string(),
+            rfr: 1,
+            mrp: 1,
+            red: MarketCondition::default(),
+            green: MarketCondition::default(),
+            purple: MarketCondition::default(),
+            yellow: MarketCondition::default(),
+            blue: MarketCondition::default(),
         }
     }
 }
@@ -400,6 +415,8 @@ pub struct PlayerPlayedCard {
     /// The card that was played
     #[serde(with = "serde_asset_liability::value")]
     pub used_card: Either<Asset, Liability>,
+    /// Whether or not playing this asset means it is now the final round (6th asset)
+    pub is_final_round: bool,
 }
 
 /// Data used when a turn ends

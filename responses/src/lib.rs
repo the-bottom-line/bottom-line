@@ -144,7 +144,12 @@ pub enum FrontendRequest {
 #[serde(tag = "action", content = "data")]
 pub enum DirectResponse {
     /// An error returned when the action was not succesful.
-    Error(ResponseError),
+    Error {
+        /// The error message.
+        message: String,
+        /// The error type.
+        source: ResponseError,
+    },
     /// Confirmation that this player started the game.
     YouStartedGame,
     /// Confirmation that this player selected a character.
@@ -307,9 +312,21 @@ pub enum DirectResponse {
     },
 }
 
+impl From<ResponseError> for DirectResponse {
+    fn from(error: ResponseError) -> Self {
+        DirectResponse::Error {
+            message: error.to_string(),
+            source: error,
+        }
+    }
+}
+
 impl From<GameError> for DirectResponse {
     fn from(error: GameError) -> Self {
-        DirectResponse::Error(error.into())
+        DirectResponse::Error {
+            message: error.to_string(),
+            source: error.into(),
+        }
     }
 }
 

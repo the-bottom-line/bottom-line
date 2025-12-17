@@ -28,6 +28,7 @@ pub struct RoundPlayer {
     pub(super) total_cards_drawn: u8,
     pub(super) total_cards_given_back: u8,
     pub(super) has_used_ability: bool,
+    pub(super) was_first_to_six_assets: bool,
 }
 
 impl RoundPlayer {
@@ -69,6 +70,11 @@ impl RoundPlayer {
     /// Gets the hand of this player.
     pub fn hand(&self) -> &[Either<Asset, Liability>] {
         &self.hand
+    }
+
+    /// The first player to get six assets gets a cash bonus of 2.
+    pub(crate) fn enable_first_to_six_assets_bonus(&mut self) {
+        self.was_first_to_six_assets = true;
     }
 
     /// Adds a new `card_idx` to the list of cards drawn this round.
@@ -518,6 +524,7 @@ impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
                     bonus_draw_cards: 0,
                     total_cards_given_back: 0,
                     has_used_ability: false,
+                    was_first_to_six_assets: false,
                 })
             }
             None => Err(GameError::PlayerMissingCharacter),
@@ -576,18 +583,31 @@ pub(super) mod tests {
         vec![Either::Right(liability(value))]
     }
 
+    fn selecting_characters_player(
+        character: Option<Character>,
+        cash: u8,
+    ) -> SelectingCharactersPlayer {
+        SelectingCharactersPlayer {
+            id: Default::default(),
+            name: Default::default(),
+            assets: Default::default(),
+            liabilities: Default::default(),
+            cash,
+            character,
+            hand: Default::default(),
+        }
+    }
+
+    fn round_player(character: Character, cash: u8) -> RoundPlayer {
+        selecting_characters_player(Some(character), cash)
+            .try_into()
+            .unwrap()
+    }
+
     #[test]
     fn select_character() {
         for character in Character::CHARACTERS {
-            let mut player = SelectingCharactersPlayer {
-                id: Default::default(),
-                name: Default::default(),
-                assets: Default::default(),
-                liabilities: Default::default(),
-                cash: Default::default(),
-                character: None,
-                hand: Default::default(),
-            };
+            let mut player = selecting_characters_player(None, 0);
 
             assert_ok!(player.select_character(character));
             assert_eq!(player.character, Some(character));
@@ -605,16 +625,7 @@ pub(super) mod tests {
     fn draw_cards_head_rnd() {
         let liability_value = 10;
 
-        let selecting_player = SelectingCharactersPlayer {
-            id: Default::default(),
-            name: Default::default(),
-            assets: Default::default(),
-            liabilities: Default::default(),
-            cash: Default::default(),
-            character: Some(Character::HeadRnD),
-            hand: Default::default(),
-        };
-        let round_player = RoundPlayer::try_from(selecting_player).unwrap();
+        let round_player = round_player(Character::HeadRnD, 0);
 
         std::iter::repeat_n([CardType::Asset, CardType::Liability], 7)
             .multi_cartesian_product()
@@ -680,16 +691,7 @@ pub(super) mod tests {
             .into_iter()
             .filter(|c| *c != Character::HeadRnD)
         {
-            let selecting_player = SelectingCharactersPlayer {
-                id: Default::default(),
-                name: Default::default(),
-                assets: Default::default(),
-                liabilities: Default::default(),
-                cash: Default::default(),
-                character: Some(character),
-                hand: Default::default(),
-            };
-            let round_player = RoundPlayer::try_from(selecting_player).unwrap();
+            let round_player = round_player(character, 0);
 
             std::iter::repeat_n([CardType::Asset, CardType::Liability], 4)
                 .multi_cartesian_product()
@@ -748,16 +750,7 @@ pub(super) mod tests {
     fn fire_character_shareholder() {
         const CHARACTER: Character = Character::Shareholder;
 
-        let selecting_player = SelectingCharactersPlayer {
-            id: Default::default(),
-            name: Default::default(),
-            assets: Default::default(),
-            liabilities: Default::default(),
-            cash: Default::default(),
-            character: Some(CHARACTER),
-            hand: Default::default(),
-        };
-        let mut player = RoundPlayer::try_from(selecting_player).unwrap();
+        let mut player = round_player(CHARACTER, 0);
 
         //test firing unfireable characters
         assert_matches!(
@@ -793,17 +786,7 @@ pub(super) mod tests {
             .into_iter()
             .filter(|c| *c != Character::Shareholder)
         {
-            let selecting_player = SelectingCharactersPlayer {
-                id: Default::default(),
-                name: Default::default(),
-                assets: Default::default(),
-                liabilities: Default::default(),
-                cash: Default::default(),
-                character: Some(character),
-                hand: Default::default(),
-            };
-
-            let mut player = RoundPlayer::try_from(selecting_player).unwrap();
+            let mut player = round_player(character, 0);
 
             //test firing unfireable characters
             assert_matches!(
@@ -817,16 +800,7 @@ pub(super) mod tests {
     fn give_back_cards_head_rnd() {
         const CHARACTER: Character = Character::HeadRnD;
 
-        let selecting_player = SelectingCharactersPlayer {
-            id: Default::default(),
-            name: Default::default(),
-            assets: Default::default(),
-            liabilities: Default::default(),
-            cash: Default::default(),
-            character: Some(CHARACTER),
-            hand: Default::default(),
-        };
-        let mut player = RoundPlayer::try_from(selecting_player).unwrap();
+        let mut player = round_player(CHARACTER, 0);
 
         let asset_vec = std::iter::repeat_with(|| asset(Color::Blue))
             .take(6)
@@ -866,16 +840,7 @@ pub(super) mod tests {
             .into_iter()
             .filter(|c| *c != Character::HeadRnD)
         {
-            let selecting_player = SelectingCharactersPlayer {
-                id: Default::default(),
-                name: Default::default(),
-                assets: Default::default(),
-                liabilities: Default::default(),
-                cash: Default::default(),
-                character: Some(character),
-                hand: Default::default(),
-            };
-            let mut player = RoundPlayer::try_from(selecting_player).unwrap();
+            let mut player = round_player(character, 0);
 
             let asset_vec = std::iter::repeat_with(|| asset(Color::Blue))
                 .take(3)
@@ -906,16 +871,7 @@ pub(super) mod tests {
 
     #[test]
     fn should_give_back_cards() {
-        let selecting_player = SelectingCharactersPlayer {
-            id: Default::default(),
-            name: Default::default(),
-            assets: Default::default(),
-            liabilities: Default::default(),
-            cash: Default::default(),
-            character: Some(Character::HeadRnD),
-            hand: Default::default(),
-        };
-        let mut round_player = RoundPlayer::try_from(selecting_player).unwrap();
+        let mut round_player = round_player(Character::HeadRnD, 0);
 
         for total_cards_drawn in 0..100u8 {
             for total_cards_given_back in 0..33u8 {
@@ -940,17 +896,8 @@ pub(super) mod tests {
                     .into_iter()
                     .find(|c| color.ne(c) && Some(*c).ne(&character.color()))
                     .unwrap();
-                let assets = vec![asset(color), asset(color), asset(different_color)];
-                let selecting_player = SelectingCharactersPlayer {
-                    id: Default::default(),
-                    name: Default::default(),
-                    assets,
-                    liabilities: Default::default(),
-                    cash: 100,
-                    character: Some(character),
-                    hand: Default::default(),
-                };
-                let round_player = RoundPlayer::try_from(selecting_player).unwrap();
+                let mut round_player = round_player(character, 100);
+                round_player.assets = vec![asset(color), asset(color), asset(different_color)];
 
                 match character.color() {
                     Some(character_color) if character_color == color => {
@@ -969,16 +916,7 @@ pub(super) mod tests {
 
         for character in Character::CHARACTERS {
             for condition in [Minus, Zero, Plus] {
-                let selecting_player = SelectingCharactersPlayer {
-                    id: Default::default(),
-                    name: Default::default(),
-                    assets: Default::default(),
-                    liabilities: Default::default(),
-                    cash: 100,
-                    character: Some(character),
-                    hand: Default::default(),
-                };
-                let round_player = RoundPlayer::try_from(selecting_player).unwrap();
+                let round_player = round_player(character, 100);
 
                 let mut market = Market::default();
 
@@ -1023,16 +961,7 @@ pub(super) mod tests {
             .into_iter()
             .filter(|c| ![Character::CEO, Character::CSO].contains(c))
         {
-            let selecting_player = SelectingCharactersPlayer {
-                id: Default::default(),
-                name: Default::default(),
-                assets: Default::default(),
-                liabilities: Default::default(),
-                cash: STARTING_CASH,
-                character: Some(character),
-                hand: vec![],
-            };
-            let round_player = RoundPlayer::try_from(selecting_player).unwrap();
+            let round_player = round_player(character, STARTING_CASH);
 
             // All permutations of any 2 colors
             std::iter::repeat_n(Color::COLORS, 2)
@@ -1067,16 +996,7 @@ pub(super) mod tests {
     fn playable_assets_ceo() {
         const STARTING_CASH: u8 = 100;
 
-        let selecting_player = SelectingCharactersPlayer {
-            id: Default::default(),
-            name: Default::default(),
-            assets: Default::default(),
-            liabilities: Default::default(),
-            cash: 100,
-            character: Some(Character::CEO),
-            hand: vec![],
-        };
-        let round_player = RoundPlayer::try_from(selecting_player).unwrap();
+        let round_player = round_player(Character::CEO, STARTING_CASH);
 
         // All permutations of 4 colors
         std::iter::repeat_n(Color::COLORS, 4)
@@ -1108,16 +1028,7 @@ pub(super) mod tests {
     fn playable_assets_cso() {
         const STARTING_CASH: u8 = 100;
 
-        let selecting_player = SelectingCharactersPlayer {
-            id: Default::default(),
-            name: Default::default(),
-            assets: Default::default(),
-            liabilities: Default::default(),
-            cash: 100,
-            character: Some(Character::CSO),
-            hand: vec![],
-        };
-        let round_player = RoundPlayer::try_from(selecting_player).unwrap();
+        let round_player = round_player(Character::CSO, STARTING_CASH);
 
         // All permutations of 3 red/green colors
         std::iter::repeat_n([Color::Red, Color::Green], 3)
@@ -1254,16 +1165,8 @@ pub(super) mod tests {
             .into_iter()
             .filter(|c| *c != Character::CFO)
         {
-            let selecting_player = SelectingCharactersPlayer {
-                id: Default::default(),
-                name: Default::default(),
-                assets: Default::default(),
-                liabilities: Default::default(),
-                cash: 100,
-                character: Some(character),
-                hand: hand_liability(LIABILITY_VALUE),
-            };
-            let mut player = RoundPlayer::try_from(selecting_player).unwrap();
+            let mut player = round_player(character, 100);
+            player.hand = hand_liability(LIABILITY_VALUE);
 
             let player_cash = player.cash;
             let hand_len = player.hand.len();

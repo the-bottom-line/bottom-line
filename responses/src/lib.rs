@@ -2,10 +2,12 @@
 
 #![warn(missing_docs)]
 
+use std::collections::HashMap;
+
 use either::Either;
 use game::{
     errors::GameError,
-    game::{Market, MarketChange, PlayerScore},
+    game::{Market, MarketChange, PlayerScore, SelectedAssetsAndLiabilities},
     player::*,
     utility::serde_asset_liability,
 };
@@ -82,10 +84,22 @@ pub enum FrontendRequest {
         /// The character who's credit line will be terminated.
         character: Character,
     },
+    SelectAssetToDivest {
+        asset_id: usize,
+    },
+    UnselectAssetToDivest {
+        asset_id: usize,
+    },
+    SelectLiabilityToIssue {
+        liability_id: usize,
+    },
+    UnselectLiabilityToIssue {
+        liability_id: usize,
+    },
     /// Tries to send cash to the banker when player is targeted
     PayBanker {
         /// The amount of cash to pay
-        cash: usize,
+        cash: u8,
     },
     /// Tries to swap a list of card indices with the deck for this player.
     SwapWithDeck {
@@ -170,7 +184,14 @@ pub enum DirectResponse {
     /// Confirmation that you paid some gold to the banker.
     YouPaidBanker {
         /// The amount of gold paid
-        cash: usize,
+        banker_id: PlayerId,
+        new_banker_cash: u8,
+        your_new_cash: u8,
+        selected_cards: SelectedAssetsAndLiabilities,
+    },
+    YouSelectCardBankerTarget {
+        assets: HashMap<usize, u8>,
+        liabilities: HashMap<usize, u8>,
     },
     /// Confirmation that this player was succesful in getting regulator options
     YouRegulatorOptions {
@@ -404,8 +425,16 @@ pub enum UniqueResponse {
         player_character: Character,
         /// A list of characters which were called but were not available.
         skipped_characters: Vec<Character>,
-        /// Indicates if the current player is targeted by the banker
-        banker_target: bool,
+    },
+    PlayerTargetedByBanker {
+        /// Id of the player whose turn it is
+        player_turn: PlayerId,
+        /// Amount of Cash to be paid to Banker
+        cash_to_be_paid: u8,
+    },
+    SelectedCardsBankerTarget {
+        assets: HashMap<usize, u8>,
+        liability_count: usize,
     },
     /// Sent when someone drew a card.
     DrewCard {
@@ -460,6 +489,13 @@ pub enum UniqueResponse {
         player_id: PlayerId,
         /// The character who's credit line was terminated.
         character: Character,
+    },
+    PlayerPayedBanker {
+        banker_id: PlayerId,
+        player_id: PlayerId,
+        new_banker_cash: u8,
+        new_target_cash: u8,
+        selected_cards: SelectedAssetsAndLiabilities,
     },
     /// Sent when the regulator swapped their hand with this player.
     RegulatorSwapedYourCards {

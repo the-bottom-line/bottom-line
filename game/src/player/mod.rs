@@ -1,17 +1,17 @@
 //! This file contains all four player states, as well as functionality for those players and ways
 //! to interact with them.
 
+mod banker_target;
 mod lobby;
 mod results;
 mod round;
 mod selecting_characters;
-mod banker_target;
 
+pub use banker_target::*;
 pub use lobby::*;
 pub use results::*;
 pub use round::*;
 pub use selecting_characters::*;
-pub use banker_target::*;
 
 use either::Either;
 use serde::{Deserialize, Serialize};
@@ -244,6 +244,15 @@ pub struct RegulatorSwapPlayer {
     pub asset_count: usize,
     /// The amount of liability cards this player has.
     pub liability_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PayBankerPlayer {
+    pub new_banker_cash: u8,
+    pub new_target_cash: u8,
+    pub target_id: PlayerId,
+    pub banker_id: PlayerId,
+    pub selected_cards: SelectedAssetsAndLiabilities,
 }
 
 /// Utility struct used to represent each asset that can be divested from a player including the

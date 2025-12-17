@@ -1,5 +1,9 @@
 use either::Either;
-use game::{errors::GameError, game::*, player::*};
+use game::{
+    errors::GameError,
+    game::*,
+    player::{self, *},
+};
 use responses::*;
 
 use std::{collections::HashMap, path::PathBuf};
@@ -302,10 +306,8 @@ fn turn_starts(round: &Round) -> UniqueResponse {
         playable_assets: current_player.playable_assets(),
         playable_liabilities: current_player.playable_liabilities(),
         skipped_characters: round.skipped_characters(),
-        banker_target: false,
     }
 }
-
 
 pub fn select_character(
     state: &mut GameState,
@@ -426,14 +428,121 @@ pub fn terminate_credit_character(
     }
 }
 
-pub fn pay_banker(
-state: &mut GameState,
+pub fn select_divest_asset(
+    state: &mut GameState,
     player_id: PlayerId,
-    cash: usize,
-) -> Result<Response,GameError>{
-    Ok(Response(InternalResponse(HashMap::new()), DirectResponse::YouPaidBanker { cash: cash }))
+    asset_id: usize,
+) -> Result<Response, GameError> {
+    let btround = state.bankertarget_mut()?;
+    match btround.player_select_divest_asset(player_id, asset_id) {
+        Ok(selected) => Ok(create_selected_cards_response(btround, selected, player_id)),
+        Err(e) => Err(e),
+    }
 }
 
+pub fn unselect_divest_asset(
+    state: &mut GameState,
+    player_id: PlayerId,
+    asset_id: usize,
+) -> Result<Response, GameError> {
+    let btround = state.bankertarget_mut()?;
+    match btround.player_unselect_divest_asset(player_id, asset_id) {
+        Ok(selected) => Ok(create_selected_cards_response(btround, selected, player_id)),
+        Err(e) => Err(e),
+    }
+}
+
+pub fn select_issue_liability(
+    state: &mut GameState,
+    player_id: PlayerId,
+    liability_id: usize,
+) -> Result<Response, GameError> {
+    let btround = state.bankertarget_mut()?;
+    match btround.player_select_issue_liability(player_id, liability_id) {
+        Ok(selected) => Ok(create_selected_cards_response(btround, selected, player_id)),
+        Err(e) => Err(e),
+    }
+}
+
+pub fn unselect_issue_liability(
+    state: &mut GameState,
+    player_id: PlayerId,
+    liability_id: usize,
+) -> Result<Response, GameError> {
+    let btround = state.bankertarget_mut()?;
+    match btround.player_unselect_issue_liability(player_id, liability_id) {
+        Ok(selected) => Ok(create_selected_cards_response(btround, selected, player_id)),
+        Err(e) => Err(e),
+    }
+}
+
+fn create_selected_cards_response(
+    btround: &mut BankerTargetRound,
+    selected: SelectedAssetsAndLiabilities,
+    player_id: PlayerId,
+) -> Response {
+    let internal = btround
+        .players()
+        .iter()
+        .filter(|p| p.id() != player_id)
+        .map(|p| {
+            (
+                p.id(),
+                vec![UniqueResponse::SelectedCardsBankerTarget {
+                    assets: selected.assets.clone(),
+                    liability_count: selected.liabilities.iter().count(),
+                }],
+            )
+        })
+        .collect();
+    Response(
+        InternalResponse(internal),
+        DirectResponse::YouSelectCardBankerTarget {
+            assets: selected.assets,
+            liabilities: selected.liabilities,
+        },
+    )
+}
+
+pub fn pay_banker(
+    state: &mut GameState,
+    player_id: PlayerId,
+    cash: u8,
+) -> Result<Response, GameError> {
+    let btround = state.bankertarget_mut()?;
+    match btround.player_pay_banker(player_id, cash) {
+        Ok(pbp) => {
+            let internal = btround
+                .players()
+                .iter()
+                .filter(|p| p.id() != player_id)
+                .map(|p| {
+                    (
+                        p.id(),
+                        vec![UniqueResponse::PlayerPayedBanker {
+                            banker_id: pbp.banker_id,
+                            player_id: pbp.target_id,
+                            new_banker_cash: pbp.new_banker_cash,
+                            new_target_cash: pbp.new_target_cash,
+                            selected_cards: pbp.selected_cards.clone(),
+                        }],
+                    )
+                })
+                .collect();
+            *state = GameState::Round(btround.into());
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouPaidBanker {
+                    banker_id: pbp.banker_id,
+                    new_banker_cash: pbp.new_banker_cash,
+                    your_new_cash: pbp.new_target_cash,
+                    selected_cards: pbp.selected_cards.clone(),
+                },
+            ))
+        }
+        Err(e) => Err(e),
+    }
+}
 
 pub fn swap_with_deck(
     state: &mut GameState,
@@ -574,11 +683,21 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
             ))
         }
         GameState::Round(round) => {
-            let internal = round
+            let mut internal: HashMap<PlayerId, Vec<UniqueResponse>> = round
                 .players()
                 .iter()
                 .map(|p| (p.id(), vec![turn_starts(round)]))
                 .collect();
+
+            if round.banker_target() == Some(round.current_player().character()) {
+                *state = GameState::BankerTarget(round.into());
+                for value in internal.values_mut() {
+                    value.push(UniqueResponse::PlayerTargetedByBanker {
+                        player_turn: state.bankertarget()?.current_player().id(),
+                        cash_to_be_paid: state.bankertarget()?.gold_to_be_paid(),
+                    });
+                }
+            }
 
             Ok(Response(
                 InternalResponse(internal),

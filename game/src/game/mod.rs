@@ -1,23 +1,28 @@
 //! This is where the game logic, excluding the player-specific logic, is located.
 
+mod banker_target;
 mod lobby;
 mod results;
 mod round;
 mod selecting_characters;
-mod banker_target;
 
+pub use banker_target::*;
 pub use lobby::*;
 pub use results::*;
 pub use round::*;
 pub use selecting_characters::*;
-pub use banker_target::*;
 
 use either::Either;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "ts")]
 use ts_rs::TS;
 
-use std::{collections::HashSet, path::Path, sync::Arc, vec};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+    sync::Arc,
+    vec,
+};
 
 use crate::{errors::*, player::*, utility::serde_asset_liability};
 
@@ -419,6 +424,14 @@ pub struct PlayerPlayedCard {
     pub is_final_round: bool,
 }
 
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SelectedAssetsAndLiabilities {
+    pub assets: HashMap<usize, u8>,
+    pub liabilities: HashMap<usize, u8>,
+}
+
 /// Data used when a turn ends
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TurnEnded {
@@ -731,7 +744,7 @@ impl GameState {
         }
     }
 
-        /// Tries to get a `&`[`Round`] state. Returns an error if the game is not in a round state.
+    /// Tries to get a `&`[`Round`] state. Returns an error if the game is not in a round state.
     ///
     /// # Examples
     ///
@@ -743,10 +756,25 @@ impl GameState {
     pub fn bankertarget(&self) -> Result<&BankerTargetRound, GameError> {
         match self {
             Self::BankerTarget(r) => Ok(r),
-            _ => Err(GameError::NotAvailableInBankerTargetState),
+            _ => Err(GameError::NotbankerTargetState),
         }
     }
 
+    /// Tries to get a `&mut`[`Round`] state. Returns an error if the game is not in a round state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::{GameState, Lobby}};
+    /// let mut game = GameState::Lobby(Lobby::default());
+    /// assert_eq!(game.round_mut(), Err(GameError::NotRoundState));
+    /// ```
+    pub fn bankertarget_mut(&mut self) -> Result<&mut BankerTargetRound, GameError> {
+        match self {
+            Self::BankerTarget(r) => Ok(r),
+            _ => Err(GameError::NotbankerTargetState),
+        }
+    }
 
     /// Tries to get a `&`[`Results`] state. Returns an error if the game is not in a results state.
     ///
@@ -817,7 +845,6 @@ impl GameState {
     /// [`Results`]
     pub fn end_player_turn(&mut self, id: PlayerId) -> Result<TurnEnded, GameError> {
         let round = self.round_mut()?;
-
         match round.end_player_turn(id)? {
             Either::Left(te) => Ok(te),
             Either::Right(state) => {

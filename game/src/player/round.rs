@@ -163,9 +163,10 @@ impl RoundPlayer {
         &mut self,
         character: Character,
     ) -> Result<Character, TerminateCreditCharacterError> {
-        if self.character == Character::Shareholder {
+        if self.character == Character::Banker {
             if !self.has_used_ability {
-                if character.can_be_fired() { // list of firable characters is the same for the banker
+                if character.can_be_fired() {
+                    // list of firable characters is the same for the banker
                     self.has_used_ability = true;
                     Ok(character)
                 } else {
@@ -546,8 +547,43 @@ impl From<&RoundPlayer> for PlayerInfo {
     }
 }
 
+impl From<&RoundPlayer> for BankerTargetPlayer {
+    fn from(player: &RoundPlayer) -> Self {
+        Self {
+            id: player.id(),
+            name: player.name().into(),
+            cash: player.cash(),
+            assets: player.assets.clone(),
+            liabilities: player.liabilities.clone(),
+            character: player.character(),
+            hand: player.hand.clone(),
+            liabilities_to_play: player.liabilities_to_play,
+        }
+    }
+}
 
-
+impl From<&BankerTargetPlayer> for RoundPlayer {
+    fn from(player: &BankerTargetPlayer) -> Self {
+        let playable_assets = player.character.playable_assets();
+        Self {
+            id: player.id(),
+            name: player.name().into(),
+            cash: player.cash,
+            assets: player.assets.clone(),
+            liabilities: player.liabilities.clone(),
+            character: player.character,
+            hand: player.hand.clone(),
+            cards_drawn: vec![],
+            bonus_draw_cards: 0,
+            assets_to_play: playable_assets.total(),
+            playable_assets: playable_assets,
+            liabilities_to_play: player.liabilities_to_play,
+            total_cards_drawn: 0,
+            total_cards_given_back: 0,
+            has_used_ability: false,
+        }
+    }
+}
 #[cfg(test)]
 pub(super) mod tests {
     use super::*;

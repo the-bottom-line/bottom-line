@@ -2,6 +2,7 @@
 
 use crate::{errors::*, game::*, player::*};
 use either::Either;
+use std::collections::hash_map::Entry;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BankerTargetPlayer {
@@ -81,10 +82,10 @@ impl BankerTargetPlayer {
         mut selected: SelectedAssetsAndLiabilities,
     ) -> Result<SelectedAssetsAndLiabilities, BankerTargetSelectError> {
         if let Some(asset) = self.assets.get(asset_id) {
-            if !selected.assets.contains_key(&asset_id) {
+            if let Entry::Vacant(entry) = selected.assets.entry(asset_id) {
                 if asset.market_value(market) > 0 {
                     let v = asset.market_value(market);
-                    selected.assets.insert(asset_id, v as u8);
+                    entry.insert(v as u8);
                     Ok(selected.clone())
                 } else {
                     Err(BankerTargetSelectError::AssetValueToLow)
@@ -124,9 +125,9 @@ impl BankerTargetPlayer {
         if self.character == Character::CFO {
             if let Some(liability) = self.hand.get(liability_id) {
                 if selected.liabilities.len() < 3 {
-                    if !selected.liabilities.contains_key(&liability_id) {
+                    if let Entry::Vacant(entry) = selected.liabilities.entry(liability_id) {
                         if let Some(l) = liability.clone().right() {
-                            selected.liabilities.insert(liability_id, l.value);
+                            entry.insert(l.value);
                             Ok(selected.clone())
                         } else {
                             Err(BankerTargetSelectError::InvalidLiabilityId)

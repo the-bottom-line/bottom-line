@@ -573,7 +573,7 @@ impl From<&BankerTargetPlayer> for RoundPlayer {
             cards_drawn: vec![],
             bonus_draw_cards: 0,
             assets_to_play: playable_assets.total(),
-            playable_assets: playable_assets,
+            playable_assets,
             liabilities_to_play: player.liabilities_to_play,
             total_cards_drawn: 0,
             total_cards_given_back: 0,

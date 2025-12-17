@@ -486,7 +486,7 @@ fn create_selected_cards_response(
                 p.id(),
                 vec![UniqueResponse::SelectedCardsBankerTarget {
                     assets: selected.assets.clone(),
-                    liability_count: selected.liabilities.iter().count(),
+                    liability_count: selected.liabilities.len(),
                 }],
             )
         })

@@ -23,6 +23,7 @@ pub struct BankerTargetRound {
     pub(super) gold_to_be_paid: u8,
     pub(super) can_pay_banker: bool,
     pub(super) selected_cards: SelectedAssetsAndLiabilities,
+    pub(super) is_final_round: bool,
 }
 
 impl BankerTargetRound {
@@ -152,6 +153,7 @@ impl BankerTargetRound {
     }
 }
 
+// TODO: use separate function that uses std::mem::take rather than clones
 impl From<&mut round::Round> for BankerTargetRound {
     fn from(round: &mut Round) -> Self {
         let color_array: Vec<Color> = round
@@ -160,6 +162,7 @@ impl From<&mut round::Round> for BankerTargetRound {
             .iter()
             .map(|a| a.color)
             .collect();
+
         let gtbp = color_array.iter().collect::<HashSet<_>>().len() as u8 + 1;
         let asset_values: Vec<u8> = round
             .current_player()
@@ -203,6 +206,7 @@ impl From<&mut round::Round> for BankerTargetRound {
             current_events: round.current_events.clone(),
             open_characters: round.open_characters.clone(),
             fired_characters: round.fired_characters.clone(),
+            is_final_round: round.is_final_round,
             gold_to_be_paid: gtbp,
             can_pay_banker: gtbp
                 <= total_libility_value + total_asset_value + round.current_player().cash(),

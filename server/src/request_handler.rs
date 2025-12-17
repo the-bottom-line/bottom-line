@@ -519,11 +519,12 @@ pub fn pay_banker(
                 .map(|p| {
                     (
                         p.id(),
-                        vec![UniqueResponse::PlayerPayedBanker {
+                        vec![UniqueResponse::PlayerPaidBanker {
                             banker_id: pbp.banker_id,
                             player_id: pbp.target_id,
                             new_banker_cash: pbp.new_banker_cash,
                             new_target_cash: pbp.new_target_cash,
+                            paid_amount: pbp.paid_amount,
                             selected_cards: pbp.selected_cards.clone(),
                         }],
                     )
@@ -536,6 +537,7 @@ pub fn pay_banker(
                     banker_id: pbp.banker_id,
                     new_banker_cash: pbp.new_banker_cash,
                     your_new_cash: pbp.new_target_cash,
+                    paid_amount: pbp.paid_amount,
                     selected_cards: pbp.selected_cards.clone(),
                 },
             ))

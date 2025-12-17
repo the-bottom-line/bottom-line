@@ -187,6 +187,7 @@ pub enum DirectResponse {
         banker_id: PlayerId,
         new_banker_cash: u8,
         your_new_cash: u8,
+        paid_amount: u8,
         selected_cards: SelectedAssetsAndLiabilities,
     },
     YouSelectCardBankerTarget {
@@ -492,11 +493,12 @@ pub enum UniqueResponse {
         /// The character who's credit line was terminated.
         character: Character,
     },
-    PlayerPayedBanker {
+    PlayerPaidBanker {
         banker_id: PlayerId,
         player_id: PlayerId,
         new_banker_cash: u8,
         new_target_cash: u8,
+        paid_amount: u8,
         selected_cards: SelectedAssetsAndLiabilities,
     },
     /// Sent when the regulator swapped their hand with this player.

@@ -558,6 +558,7 @@ impl From<&RoundPlayer> for BankerTargetPlayer {
             character: player.character(),
             hand: player.hand.clone(),
             liabilities_to_play: player.liabilities_to_play,
+            was_first_to_six_assets: player.was_first_to_six_assets,
         }
     }
 }
@@ -581,6 +582,7 @@ impl From<&BankerTargetPlayer> for RoundPlayer {
             total_cards_drawn: 0,
             total_cards_given_back: 0,
             has_used_ability: false,
+            was_first_to_six_assets: player.was_first_to_six_assets,
         }
     }
 }

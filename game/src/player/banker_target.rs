@@ -19,6 +19,7 @@ pub struct BankerTargetPlayer {
     pub(super) character: Character,
     pub(super) hand: Vec<Either<Asset, Liability>>,
     pub(super) liabilities_to_play: u8,
+    pub(super) was_first_to_six_assets: bool,
 }
 
 impl BankerTargetPlayer {
@@ -66,6 +67,7 @@ impl BankerTargetPlayer {
             }
 
             Ok(PayBankerPlayer {
+                paid_amount: cash,
                 new_banker_cash: banker.cash,
                 new_target_cash: self.cash,
                 target_id: self.id,
@@ -191,6 +193,7 @@ impl From<BankerTargetPlayer> for RoundPlayer {
             total_cards_drawn: 0,
             total_cards_given_back: 0,
             has_used_ability: false,
+            was_first_to_six_assets: false,
         }
     }
 }

@@ -1,5 +1,7 @@
 //! This file contains the implementation of [`ResultsPlayer`].
 
+use std::collections::HashSet;
+
 use either::Either;
 use itertools::Itertools;
 
@@ -20,6 +22,7 @@ pub struct ResultsPlayer {
     old_silver_into_gold: Option<SilverIntoGoldData>,
     old_change_asset_color: Option<ChangeAssetColorData>,
     confirmed_asset_ability_idxs: Vec<usize>,
+    was_first_to_six_assets: bool,
 }
 
 impl ResultsPlayer {
@@ -39,6 +42,7 @@ impl ResultsPlayer {
             old_silver_into_gold: None,
             old_change_asset_color: None,
             confirmed_asset_ability_idxs: vec![],
+            was_first_to_six_assets: player.was_first_to_six_assets,
         }
     }
 
@@ -102,7 +106,6 @@ impl ResultsPlayer {
     pub fn toggle_minus_into_plus(&mut self, color: Color) -> Result<&Market, GameError> {
         self.check_has_ability(AssetPowerup::MinusIntoPlus)?;
 
-        // TODO: handle confirmation for this action
         self.market = self.final_market.clone();
 
         match color {
@@ -269,6 +272,33 @@ impl ResultsPlayer {
         }
     }
 
+    /// Returns 5 if this player has bought assets of each of the 5 colors, 0 otherwise.
+    pub fn all_five_colors_bonus(&self) -> u8 {
+        let unique_colors = self
+            .assets()
+            .iter()
+            .map(|a| a.color)
+            .collect::<HashSet<_>>();
+
+        match unique_colors.len() >= 5 {
+            true => 5,
+            false => 0,
+        }
+    }
+
+    /// Returns 4 if this player was the first to reach 6 assets, even if they were forced to
+    /// divest that asset afterwards. Returns 2 if this player owns 6 or more assets and was not
+    /// the first to reach 6 assets. Returns 0 otherwise.
+    pub fn six_assets_bonus(&self) -> u8 {
+        match self.was_first_to_six_assets {
+            true => 4,
+            false => match self.assets.len() >= 6 {
+                true => 2,
+                false => 0,
+            },
+        }
+    }
+
     /// Gets tho total gold value of all assets this player owns
     pub fn total_gold(&self) -> u8 {
         self.assets.iter().map(|a| a.gold_value).sum()
@@ -317,8 +347,9 @@ impl ResultsPlayer {
             .filter_map(|a| {
                 color
                     .eq(&a.color)
-                    .then_some(a.gold_value as f64 + (a.silver_value as f64) * mul)
+                    .then_some((a.gold_value as f64, a.silver_value as f64))
             })
+            .map(|(gold, silver)| gold + silver * mul)
             .sum()
     }
 
@@ -341,22 +372,27 @@ impl ResultsPlayer {
         let bonds = self.bonds() as f64;
         let debt = trade_credit + bank_loan + bonds;
 
-        if gold == 0.0 {
-            // lim->inf fcf / wacc = 0
-            (debt / 3.0) + cash
+        let asset_count_bonus = self.six_assets_bonus() as f64;
+        let all_five_colors_bonus = self.all_five_colors_bonus() as f64;
+        let bonuses = asset_count_bonus + all_five_colors_bonus;
+
+        let rfr = self.market.rfr as f64;
+        let mrp = self.market.mrp as f64;
+
+        let beta = silver / gold;
+
+        let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / (gold + cash);
+
+        let wacc = rfr + drp + beta * mrp;
+
+        // beta == inf || fcf / wacc == inf
+        if gold == 0.0 || wacc == 0.0 {
+            // lim_wacc->inf fcf / wacc = 0 || fcf / 0 = inf
+            (debt / 3.0) + cash + bonuses
         } else {
-            let beta = silver / gold;
-
-            // TODO: end of game bonuses
-            let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / gold + cash;
-
-            let rfr = self.market.rfr as f64;
-            let mrp = self.market.mrp as f64;
-
             let fcf = self.fcf();
-            let wacc = rfr + drp + beta * mrp;
 
-            (fcf / (10.0 * wacc)) + (debt / 3.0) + cash
+            (fcf / (0.1 * wacc)) + (debt / 3.0) + cash + bonuses
         }
     }
 }
@@ -556,6 +592,7 @@ pub(super) mod tests {
             old_silver_into_gold: None,
             old_change_asset_color: None,
             confirmed_asset_ability_idxs: vec![],
+            was_first_to_six_assets: false,
         }
     }
 
@@ -591,6 +628,10 @@ pub(super) mod tests {
         }
 
         let mut player = default_results_player();
+        for (i, card_color) in Color::COLORS.into_iter().enumerate() {
+            player.assets.push(asset(card_color));
+            player.assets[i].silver_value = i as u8 * 2 + 1;
+        }
 
         assert_eq!(player.market, player.final_market);
 
@@ -601,12 +642,18 @@ pub(super) mod tests {
             player.assets[card_idx].ability = Some(AssetPowerup::MinusIntoPlus);
 
             for color in Color::COLORS {
+                let old_score = player.score();
                 let market = player
                     .toggle_minus_into_plus(color)
                     .expect("Could not perform ability")
                     .clone();
 
                 assert_eq!(player.market, market);
+                if card_idx == 0 {
+                    // Score won't change in some cases if changing minus into plus for an already
+                    // plus value, so this only makes sense to test the first loop around.
+                    assert_ne!(old_score, player.score());
+                }
 
                 for color_check in Color::COLORS {
                     let market_condition = player.market.color_condition(color_check);
@@ -667,6 +714,7 @@ pub(super) mod tests {
 
         for _ in 0..3 {
             // Test with no old data
+            let old_score = player.score();
             assert_eq!(
                 player.toggle_silver_into_gold(0),
                 Ok(ToggleSilverIntoGold::new(
@@ -678,8 +726,12 @@ pub(super) mod tests {
                 player.old_silver_into_gold,
                 Some(SilverIntoGoldData::new(0, a1_g, a1_s))
             );
+            assert_eq!(player.assets[0].gold_value, 2);
+            assert_eq!(player.assets[0].silver_value, 0);
+            assert_ne!(old_score, player.score());
 
             // Test with old data and disjointed indices
+            let old_score = player.score();
             assert_eq!(
                 player.toggle_silver_into_gold(1),
                 Ok(ToggleSilverIntoGold::new(
@@ -691,8 +743,14 @@ pub(super) mod tests {
                 player.old_silver_into_gold,
                 Some(SilverIntoGoldData::new(1, a2_g, a2_s))
             );
+            assert_eq!(player.assets[0].gold_value, a1_g);
+            assert_eq!(player.assets[0].silver_value, a1_s);
+            assert_eq!(player.assets[1].gold_value, a2_g + a2_s);
+            assert_eq!(player.assets[1].silver_value, 0);
+            assert_ne!(old_score, player.score());
 
             // Test with old data and same indices
+            let old_score = player.score();
             assert_eq!(
                 player.toggle_silver_into_gold(1),
                 Ok(ToggleSilverIntoGold::new(
@@ -701,6 +759,7 @@ pub(super) mod tests {
                 ))
             );
             assert_eq!(player.old_silver_into_gold, None);
+            assert_ne!(old_score, player.score());
         }
 
         assert_eq!(
@@ -734,16 +793,25 @@ pub(super) mod tests {
             0,
             vec![asset(Color::Purple), asset(Color::Green)],
             vec![],
-            Market::default(),
+            Market {
+                yellow: MarketCondition::Minus,
+                green: MarketCondition::Zero,
+                blue: MarketCondition::Plus,
+                purple: MarketCondition::Zero,
+                red: MarketCondition::Plus,
+                ..Default::default()
+            },
         );
 
         assert_ability_error(&mut player);
 
         player.assets[0].ability = Some(AssetPowerup::CountAsAnyColor);
+        player.assets[0].silver_value = 3;
 
         let (color1, color2) = (player.assets[0].color, player.assets[1].color);
 
         // Test with no old data
+        let old_score = player.score();
         assert_eq!(
             player.toggle_change_asset_color(0, Color::Blue),
             Ok(ToggleChangeAssetColor::new(
@@ -755,8 +823,10 @@ pub(super) mod tests {
             player.old_change_asset_color,
             Some(ChangeAssetColorData::new(0, color1))
         );
+        assert_ne!(old_score, player.score());
 
         // Test with old data and disjointed indices
+        let old_score = player.score();
         assert_eq!(
             player.toggle_change_asset_color(1, Color::Yellow),
             Ok(ToggleChangeAssetColor::new(
@@ -768,8 +838,10 @@ pub(super) mod tests {
             player.old_change_asset_color,
             Some(ChangeAssetColorData::new(1, color2))
         );
+        assert_ne!(old_score, player.score());
 
         // Test with old data and same indices
+        let old_score = player.score();
         assert_eq!(
             player.toggle_change_asset_color(1, Color::Red),
             Ok(ToggleChangeAssetColor::new(
@@ -781,6 +853,7 @@ pub(super) mod tests {
             player.old_change_asset_color,
             Some(ChangeAssetColorData::new(1, Color::Yellow))
         );
+        assert_ne!(old_score, player.score());
 
         assert_eq!(
             player.toggle_change_asset_color(34, Color::Purple),
@@ -869,6 +942,65 @@ pub(super) mod tests {
     }
 
     #[test]
+    fn all_five_colors_bonus() {
+        let market = Market::default();
+
+        (0..=8).for_each(|n| {
+            std::iter::repeat_n(Color::COLORS, n)
+                .multi_cartesian_product()
+                .map(|colors| {
+                    let mut player = results_player(10, vec![], vec![], market.clone());
+                    for &c in colors.iter() {
+                        player.assets.push(asset(c));
+                    }
+                    player
+                })
+                .for_each(|player| {
+                    let unique_colors = player
+                        .assets()
+                        .iter()
+                        .map(|a| a.color)
+                        .collect::<HashSet<_>>();
+
+                    let bonus = match unique_colors.len() >= 5 {
+                        true => 5,
+                        false => 0,
+                    };
+                    assert_eq!(bonus, player.all_five_colors_bonus());
+                })
+        })
+    }
+
+    #[test]
+    fn asset_count_bonus() {
+        let market = Market::default();
+
+        (0..=8).for_each(|n| {
+            std::iter::repeat_n(Color::COLORS, n)
+                .multi_cartesian_product()
+                .cartesian_product([true, false])
+                .map(|(colors, was_first_to_six)| {
+                    let mut player = results_player(10, vec![], vec![], market.clone());
+                    player.was_first_to_six_assets = was_first_to_six;
+                    for &c in colors.iter() {
+                        player.assets.push(asset(c));
+                    }
+                    player
+                })
+                .for_each(|player| {
+                    let bonus = match player.was_first_to_six_assets {
+                        true => 4,
+                        false => match player.assets.len() >= 6 {
+                            true => 2,
+                            false => 0,
+                        },
+                    };
+                    assert_eq!(bonus, player.six_assets_bonus());
+                })
+        })
+    }
+
+    #[test]
     fn color_value() {
         let market_conditions = [
             MarketCondition::Minus,
@@ -932,14 +1064,16 @@ pub(super) mod tests {
             LiabilityType::Bonds,
         ];
 
-        std::iter::repeat_n(market_conditions, 5)
+        let base_assets = vec![asset(Color::Red), asset(Color::Blue)];
+
+        std::iter::repeat_n(market_conditions, 3)
             .multi_cartesian_product()
-            .cartesian_product(std::iter::repeat_n(Color::COLORS, 3).multi_cartesian_product())
+            .cartesian_product(std::iter::repeat_n(Color::COLORS, 4).multi_cartesian_product())
             .cartesian_product(std::iter::repeat_n(loans, 3).multi_cartesian_product())
-            .cartesian_product(0..3)
+            .cartesian_product(3..5)
             .map(|(((m, colors), rfr_types), cash)| {
-                let market = market(m[0], m[1], m[2], m[3], m[4], 1, 1);
-                let mut player = results_player(cash, vec![], vec![], market);
+                let market = market(m[0], m[1], m[2], m[1], m[0], cash, cash * 2);
+                let mut player = results_player(cash, base_assets.clone(), vec![], market);
                 for c in colors.into_iter().take(cash as usize) {
                     player.assets.push(asset(c));
                 }
@@ -958,14 +1092,17 @@ pub(super) mod tests {
                 let bonds = player.bonds() as f64;
                 let debt = trade_credit + bank_loan + bonds;
 
+                let asset_count_bonus = player.six_assets_bonus() as f64;
+                let all_five_colors_bonus = player.all_five_colors_bonus() as f64;
+                let bonuses = asset_count_bonus + all_five_colors_bonus;
+
                 let score = if gold == 0.0 {
                     // lim->inf fcf / wacc = 0
-                    (debt / 3.0) + cash
+                    (debt / 3.0) + cash + bonuses
                 } else {
                     let beta = silver / gold;
 
-                    // TODO: end of game bonuses
-                    let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / gold + cash;
+                    let drp = (trade_credit + bank_loan * 2.0 + bonds * 3.0) / (gold + cash);
 
                     let rfr = player.market.rfr as f64;
                     let mrp = player.market.mrp as f64;
@@ -980,7 +1117,7 @@ pub(super) mod tests {
 
                     let fcf = red + green + yellow + purple + blue;
 
-                    (fcf / (10.0 * wacc)) + (debt / 3.0) + cash
+                    (fcf / (0.1 * wacc)) + (debt / 3.0) + cash + bonuses
                 };
 
                 assert_approx_eq!(score, player.score());

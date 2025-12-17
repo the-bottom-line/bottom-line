@@ -144,6 +144,7 @@ impl SelectingCharacters {
                         open_characters,
                         fired_characters,
                         banker_target,
+                        is_final_round: false,
                     };
 
                     round

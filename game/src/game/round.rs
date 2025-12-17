@@ -21,6 +21,7 @@ pub struct Round {
     pub(super) open_characters: Vec<Character>,
     pub(super) fired_characters: Vec<Character>,
     pub(super) banker_target: Option<Character>,
+    pub(super) is_final_round: bool,
 }
 
 impl Round {
@@ -119,6 +120,11 @@ impl Round {
         &self.current_market
     }
 
+    /// Gets whether or not this is the final round
+    pub fn is_final_round(&self) -> bool {
+        self.is_final_round
+    }
+
     /// Internally used function that checks whether a player with such an `id` exists, and whether
     /// that player is actually the current player. If this is the case, a mutable reference to the
     /// player is returned.
@@ -173,17 +179,37 @@ impl Round {
 
         match player.play_card(card_idx)? {
             Either::Left(asset) => {
+                if !self.is_final_round() && self.check_is_final_round() {
+                    // Keep the borrow checker happy
+                    let player = self.player_as_current_mut(id)?;
+                    player.enable_first_to_six_assets_bonus();
+                }
+
+                self.is_final_round = self.check_is_final_round();
+
                 let market = match self.should_refresh_market(old_max_bought_assets) {
                     true => Some(self.refresh_market()),
                     false => None,
                 };
-                let used_card = Either::Left(asset.clone());
-                Ok(PlayerPlayedCard { market, used_card })
+                let used_card = Either::Left(asset);
+                let is_final_round = self.is_final_round;
+
+                Ok(PlayerPlayedCard {
+                    market,
+                    used_card,
+                    is_final_round,
+                })
             }
             Either::Right(liability) => {
                 let market = None;
                 let used_card = Either::Right(liability);
-                Ok(PlayerPlayedCard { market, used_card })
+                let is_final_round = self.is_final_round;
+
+                Ok(PlayerPlayedCard {
+                    market,
+                    used_card,
+                    is_final_round,
+                })
             }
         }
     }
@@ -448,7 +474,7 @@ impl Round {
                 };
 
                 Ok(Either::Left(turn_ended))
-            } else if !self.is_last_round() {
+            } else if !self.is_final_round() {
                 let maybe_ceo = self.player_from_character(Character::CEO);
                 let chairman_id = match maybe_ceo.map(|p| p.id()) {
                     Some(id) => id,
@@ -478,7 +504,6 @@ impl Round {
 
                 Ok(Either::Right(state))
             } else {
-                let final_market = std::mem::take(&mut self.current_market);
                 let final_events = std::mem::take(&mut self.current_events);
                 let players = std::mem::take(&mut self.players);
 
@@ -491,7 +516,6 @@ impl Round {
 
                 let state = GameState::Results(Results {
                     players,
-                    final_market,
                     final_events,
                 });
 
@@ -500,6 +524,12 @@ impl Round {
         } else {
             Err(GameError::PlayerShouldGiveBackCard)
         }
+    }
+
+    /// Checks whether someone has bought equal to or more assets than [`ASSETS_FOR_END_OF_GAME`].
+    /// If so, this should be the final round.
+    fn check_is_final_round(&self) -> bool {
+        self.max_bought_assets() >= ASSETS_FOR_END_OF_GAME
     }
 
     /// Returns the highest amount of assets of any player.
@@ -536,12 +566,6 @@ impl Round {
                 }
             }
         }
-    }
-
-    /// Checks whether someone has bought equal to or more assets than [`ASSETS_FOR_END_OF_GAME`].
-    /// If so, this should be the final round.
-    fn is_last_round(&self) -> bool {
-        self.max_bought_assets() >= ASSETS_FOR_END_OF_GAME
     }
 }
 

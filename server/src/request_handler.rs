@@ -695,6 +695,7 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
                     value.push(UniqueResponse::PlayerTargetedByBanker {
                         player_turn: state.bankertarget()?.current_player().id(),
                         cash_to_be_paid: state.bankertarget()?.gold_to_be_paid(),
+                        is_possible_to_pay_banker: state.bankertarget()?.can_pay_banker(),
                     });
                 }
             }

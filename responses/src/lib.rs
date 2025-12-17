@@ -414,6 +414,8 @@ pub enum UniqueResponse {
         player_turn: PlayerId,
         /// Amount of Cash to be paid to Banker
         cash_to_be_paid: u8,
+        /// Amount of Cash to be paid to Banker
+        is_possible_to_pay_banker: bool,
     },
     SelectedCardsBankerTarget {
         assets: HashMap<usize, u8>,

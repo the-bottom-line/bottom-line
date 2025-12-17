@@ -84,7 +84,7 @@ impl CreateRequest {
     }
     #[wasm_bindgen(js_name = selectAssetToDivest)]
     pub fn select_asset_to_divest(asset_id: usize) -> Result<String, JsValue> {
-        serde_json::to_string(&responses::FrontendRequest::SelectAssetToDivest { asset_id})
+        serde_json::to_string(&responses::FrontendRequest::SelectAssetToDivest { asset_id })
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
     #[wasm_bindgen(js_name = unselectAssetToDivest)]
@@ -99,8 +99,10 @@ impl CreateRequest {
     }
     #[wasm_bindgen(js_name = unselectLiabilityToIssue)]
     pub fn unselect_liability_to_issue(liability_id: usize) -> Result<String, JsValue> {
-        serde_json::to_string(&responses::FrontendRequest::UnselectLiabilityToIssue { liability_id })
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+        serde_json::to_string(&responses::FrontendRequest::UnselectLiabilityToIssue {
+            liability_id,
+        })
+        .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     #[wasm_bindgen(js_name = swapWithDeck)]
@@ -186,10 +188,18 @@ impl CreateRequest {
                 Self::terminate_credit_character(JsValue::null())
             }
             responses::FrontendRequest::PayBanker { cash } => Self::pay_banker(cash),
-            responses::FrontendRequest::SelectAssetToDivest { asset_id } => Self::select_asset_to_divest(asset_id),
-            responses::FrontendRequest::UnselectAssetToDivest { asset_id } => Self::unselect_asset_to_divest(asset_id),
-            responses::FrontendRequest::SelectLiabilityToIssue { liability_id } => Self::select_liability_to_issue(liability_id),
-            responses::FrontendRequest::UnselectLiabilityToIssue { liability_id } => Self::unselect_liability_to_issue(liability_id),
+            responses::FrontendRequest::SelectAssetToDivest { asset_id } => {
+                Self::select_asset_to_divest(asset_id)
+            }
+            responses::FrontendRequest::UnselectAssetToDivest { asset_id } => {
+                Self::unselect_asset_to_divest(asset_id)
+            }
+            responses::FrontendRequest::SelectLiabilityToIssue { liability_id } => {
+                Self::select_liability_to_issue(liability_id)
+            }
+            responses::FrontendRequest::UnselectLiabilityToIssue { liability_id } => {
+                Self::unselect_liability_to_issue(liability_id)
+            }
             responses::FrontendRequest::SwapWithDeck { card_idxs } => {
                 Self::swap_with_deck(card_idxs)
             }

@@ -427,6 +427,22 @@ pub struct PlayerPlayedCard {
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SoldAssetToPayBanker {
+    pub asset_idx: usize,
+    pub market_value: u8,
+}
+
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct IssuedLiabilityToPayBanker {
+    pub card_idx: usize,
+    pub liability: Liability,
+}
+
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SelectedAssetsAndLiabilities {
     pub assets: HashMap<usize, u8>,
     pub liabilities: HashMap<usize, u8>,

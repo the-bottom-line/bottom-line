@@ -17,6 +17,7 @@ pub struct BankerTargetRound {
     pub(super) open_characters: Vec<Character>,
     pub(super) fired_characters: Vec<Character>,
     pub(super) gold_to_be_paid: u8,
+    pub(super) can_pay_banker: bool,
     pub(super) selected_cards: SelectedAssetsAndLiabilities,
     pub(super) is_final_round: bool,
 }
@@ -37,6 +38,10 @@ impl BankerTargetRound {
 
     pub fn gold_to_be_paid(&self) -> u8 {
         self.gold_to_be_paid
+    }
+
+    pub fn can_pay_banker(&self) -> bool {
+        self.can_pay_banker
     }
 
     /// Gets a slice of all players in the lobby.
@@ -156,6 +161,36 @@ impl From<&mut Round> for BankerTargetRound {
             .collect();
 
         let gtbp = color_array.iter().collect::<HashSet<_>>().len() as u8 + 1;
+        let asset_values: Vec<u8> = round
+            .current_player()
+            .assets()
+            .iter()
+            .map(|a| {
+                if a.market_value(&round.current_market) > 0 {
+                    a.market_value(&round.current_market) as u8
+                } else {
+                    0 as u8
+                }
+            })
+            .collect();
+        let total_asset_value: u8 = asset_values.iter().sum();
+        let mut total_libility_value: u8 = 0;
+        if round.current_player().character() == Character::CFO {
+            let liability_values: Vec<u8> = round
+                .current_player()
+                .hand()
+                .iter()
+                .filter(|c| c.is_right())
+                .map(|l| l.clone().right().unwrap().value)
+                .collect();
+            if liability_values.len() <= 3 {
+                total_libility_value = liability_values.iter().sum();
+            } else {
+                let mut lvs = liability_values.clone();
+                lvs.sort();
+                total_libility_value = lvs[0] + lvs[1] + lvs[2];
+            }
+        }
 
         Self {
             current_player: round.current_player,
@@ -170,6 +205,8 @@ impl From<&mut Round> for BankerTargetRound {
             fired_characters: round.fired_characters.clone(),
             is_final_round: round.is_final_round,
             gold_to_be_paid: gtbp,
+            can_pay_banker: gtbp
+                <= total_libility_value + total_asset_value + round.current_player().cash(),
             selected_cards: SelectedAssetsAndLiabilities {
                 assets: HashMap::new(),
                 liabilities: HashMap::new(),

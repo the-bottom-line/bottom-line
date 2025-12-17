@@ -406,7 +406,7 @@ impl ObtainingCharacters {
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MarketChange {
-    /// A list of events encountered in search for a market card
+    /// A list of evenOts encountered in search for a market card
     pub events: Vec<Event>,
     /// The new market card
     pub new_market: Market,

@@ -68,7 +68,7 @@ impl BankerTargetPlayer {
             .enumerate()
         {
             if let Some(lib) = liability.right() {
-                new_selected_cards.liabilities.insert(index, lib.value)
+                new_selected_cards.liabilities.insert(index, lib.value);
             }
         }
         let mut len = new_selected_cards.liabilities.iter().count();
@@ -80,15 +80,15 @@ impl BankerTargetPlayer {
         }
         //remove smallest libilities if there are more as 3 in hand
         for i in 0..len {
-            let mut smallest_k: u8 = 100;
-            let mut smallest_k = 0;
-            for (k, v) in new_selected_cards.liabilities {
-                if smallest_v < v {
-                    smallest_v = v;
-                    smallest_k = k;
+            let mut smallest_k: usize = 100;
+            let mut smallest_v = 0;
+            for (k, v) in &new_selected_cards.liabilities {
+                if smallest_v < *v {
+                    smallest_v = *v;
+                    smallest_k = *k;
                 }
             }
-            new_selected_cards.liabilities.remove(&smallest_k)
+            new_selected_cards.liabilities.remove(&smallest_k);
         }
 
         // Sell assets and libilities for targeted player

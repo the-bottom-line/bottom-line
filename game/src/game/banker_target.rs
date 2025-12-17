@@ -93,7 +93,11 @@ impl BankerTargetRound {
 
                     Ok(pbp)
                 } else {
-                    Err(PayBankerError::NotRightCashAmount.into())
+                    Err(PayBankerError::NotRightCashAmount {
+                        expected: self.gold_to_be_paid,
+                        got: cash,
+                    }
+                    .into())
                 }
             }
             Err(_) => Err(PayBankerError::NoBankerPlayer.into()),

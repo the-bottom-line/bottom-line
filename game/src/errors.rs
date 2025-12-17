@@ -238,12 +238,19 @@ pub enum PayBankerError {
     /// The player does not have enough cash to pay the banker
     #[error("You don't have enough cash to pay the banker")]
     NotEnoughCash,
+
     /// No banker found to pay in this round
     #[error("Their is no banker in this round")]
     NoBankerPlayer,
+
     /// Not the right amount to be paid to the banker
-    #[error("Their is no banker in this round")]
-    NotRightCashAmount,
+    #[error("Player tried to pay the banker {got} cash when {expected} was expected")]
+    NotRightCashAmount {
+        /// Amount of cash expected to be paid.
+        expected: u8,
+        /// Amount of cash that the player tried to pay
+        got: u8,
+    },
 }
 
 /// Errors related to terminating a character's credit line.

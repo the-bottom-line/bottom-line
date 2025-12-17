@@ -493,7 +493,8 @@ pub enum UniqueResponse {
         new_banker_cash: u8,
         new_target_cash: u8,
         paid_amount: u8,
-        selected_cards: SelectedAssetsAndLiabilities,
+        sold_assets: Vec<SoldAssetToPayBanker>,
+        issued_liabilities: Vec<IssuedLiabilityToPayBanker>,
     },
     /// Sent when the regulator swapped their hand with this player.
     RegulatorSwappedYourCards {

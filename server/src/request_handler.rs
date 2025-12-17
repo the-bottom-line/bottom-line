@@ -521,7 +521,8 @@ pub fn pay_banker(
                             new_banker_cash: pbp.new_banker_cash,
                             new_target_cash: pbp.new_target_cash,
                             paid_amount: pbp.paid_amount,
-                            selected_cards: pbp.selected_cards.clone(),
+                            sold_assets: pbp.selected_cards.sold_assets.clone(),
+                            issued_liabilities: pbp.selected_cards.issued_liabilities.clone(),
                         }],
                     )
                 })

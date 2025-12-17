@@ -500,7 +500,7 @@ pub enum UniqueResponse {
         selected_cards: SelectedAssetsAndLiabilities,
     },
     /// Sent when the regulator swapped their hand with this player.
-    RegulatorSwapedYourCards {
+    RegulatorSwappedYourCards {
         /// This player's new hand.
         #[cfg_attr(
             feature = "ts",
@@ -510,14 +510,14 @@ pub enum UniqueResponse {
         new_cards: Vec<Either<Asset, Liability>>,
     },
     /// Sent when the regulator swapped their hand with another player.
-    SwapedWithPlayer {
+    SwappedWithPlayer {
         /// The id of the regulator.
         regulator_id: PlayerId,
         /// The id of the player the regulator swapped their hands with.
         target_id: PlayerId,
     },
     /// Sent when the regulator swapped a number of cards with the deck.
-    SwapedWithDeck {
+    SwappedWithDeck {
         /// The amount of assets the regulator drew from the deck.
         asset_count: usize,
         /// The amount of liabilities the regulator drew from the deck.

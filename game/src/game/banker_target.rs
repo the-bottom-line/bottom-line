@@ -2,11 +2,7 @@
 
 use either::Either;
 
-use crate::{
-    errors::*,
-    game::*,
-    player::{self, *},
-};
+use crate::{errors::*, game::*, player::*};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BankerTargetRound {
@@ -149,7 +145,7 @@ impl BankerTargetRound {
 }
 
 // TODO: use separate function that uses std::mem::take rather than clones
-impl From<&mut round::Round> for BankerTargetRound {
+impl From<&mut Round> for BankerTargetRound {
     fn from(round: &mut Round) -> Self {
         let color_array: Vec<Color> = round
             .current_player()

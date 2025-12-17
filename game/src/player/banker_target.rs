@@ -1,13 +1,7 @@
 //! This file contains the implementation of [`BankerTargetPlayer`].
 
+use crate::{errors::*, game::*, player::*};
 use either::Either;
-use itertools::Itertools;
-
-use crate::{
-    errors::*,
-    game::{self, Deck, Market, MarketCondition},
-    player::*,
-};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BankerTargetPlayer {

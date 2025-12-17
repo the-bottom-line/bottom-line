@@ -578,7 +578,7 @@ pub struct HandsAfterSwap {
     pub target_new_hand: Vec<Either<Asset, Liability>>,
 }
 
-impl From<&mut round::BankerTargetRound> for Round {
+impl From<&mut BankerTargetRound> for Round {
     fn from(btround: &mut BankerTargetRound) -> Self {
         Self {
             current_player: btround.current_player,

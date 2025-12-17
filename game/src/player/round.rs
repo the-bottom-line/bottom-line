@@ -3,11 +3,7 @@
 use either::Either;
 use itertools::Itertools;
 
-use crate::{
-    errors::*,
-    game::{Deck, Market, MarketCondition},
-    player::*,
-};
+use crate::{errors::*, game::*, player::*};
 
 /// The player type that corresponds to the [`Round`](crate::game::Round) stage of the game. During
 /// the round stage, each player has selected a character.

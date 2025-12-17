@@ -751,12 +751,12 @@ impl GameState {
     /// ```
     /// # use game::{errors::GameError, game::{GameState, Lobby}};
     /// let game = GameState::Lobby(Lobby::default());
-    /// assert_eq!(game.round(), Err(GameError::NotBankerTargetState));
+    /// assert_eq!(game.bankertarget(), Err(GameError::NotBankerTargetState));
     /// ```
     pub fn bankertarget(&self) -> Result<&BankerTargetRound, GameError> {
         match self {
             Self::BankerTarget(r) => Ok(r),
-            _ => Err(GameError::NotbankerTargetState),
+            _ => Err(GameError::NotBankerTargetState),
         }
     }
 
@@ -772,7 +772,7 @@ impl GameState {
     pub fn bankertarget_mut(&mut self) -> Result<&mut BankerTargetRound, GameError> {
         match self {
             Self::BankerTarget(r) => Ok(r),
-            _ => Err(GameError::NotbankerTargetState),
+            _ => Err(GameError::NotBankerTargetState),
         }
     }
 

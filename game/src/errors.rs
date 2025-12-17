@@ -111,7 +111,7 @@ pub enum GameError {
 
     /// Error indicating that this action is only allowed in the banker target state
     #[error("Action only allowed in Banker target state")]
-    NotbankerTargetState,
+    NotBankerTargetState,
 
     /// Error indicating that this action is only allowed in the results state
     #[error("Action only allowed in Results state")]

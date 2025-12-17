@@ -1,9 +1,5 @@
 use either::Either;
-use game::{
-    errors::GameError,
-    game::*,
-    player::{self, *},
-};
+use game::{errors::*, game::*, player::*};
 use responses::*;
 
 use std::{collections::HashMap, path::PathBuf};
@@ -562,7 +558,7 @@ pub fn swap_with_deck(
                 .map(|p| {
                     (
                         p.id(),
-                        vec![UniqueResponse::SwapedWithDeck {
+                        vec![UniqueResponse::SwappedWithDeck {
                             asset_count: _c[0],
                             liability_count: _c[1],
                         }],
@@ -596,7 +592,7 @@ pub fn swap_with_player(
         .map(|p| {
             (
                 p.id(),
-                vec![UniqueResponse::SwapedWithPlayer {
+                vec![UniqueResponse::SwappedWithPlayer {
                     regulator_id: player_id,
                     target_id: target_player_id,
                 }],
@@ -604,7 +600,7 @@ pub fn swap_with_player(
         })
         .chain(std::iter::once((
             target_player_id,
-            vec![UniqueResponse::RegulatorSwapedYourCards {
+            vec![UniqueResponse::RegulatorSwappedYourCards {
                 new_cards: hands.target_new_hand,
             }],
         )))

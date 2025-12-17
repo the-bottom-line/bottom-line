@@ -7,12 +7,13 @@ use crate::player::*;
 pub struct LobbyPlayer {
     id: PlayerId,
     name: String,
+    is_human : bool,
 }
 
 impl LobbyPlayer {
     /// Instantiates a new lobby player based on an id and a name.
-    pub fn new(id: PlayerId, name: String) -> Self {
-        Self { id, name }
+    pub fn new(id: PlayerId, name: String, is_human: bool) -> Self {
+        Self { id, name, is_human }
     }
 
     /// Gets the id of the player
@@ -28,6 +29,11 @@ impl LobbyPlayer {
     /// Gets the name of the player
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    /// Gets the humanity state of the player
+    pub fn is_human(&self) -> bool {
+        self.is_human
     }
 }
 

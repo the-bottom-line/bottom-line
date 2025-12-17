@@ -225,7 +225,14 @@ pub enum DirectResponse {
     /// Confirmation that this player ended their turn.
     YouEndedTurn,
 
-    // Rejoin information
+    /// Confirmation that you joined the lobby.
+    YouJoinedGame {
+        /// Your connected username.
+        username : String,
+        /// The channel you're connected to.
+        channel : String
+    },
+    /// Rejoin information
     YouRejoin {
         /// This player's personal id.
         id: PlayerId,
@@ -238,6 +245,10 @@ pub enum DirectResponse {
         )]
         #[serde(with = "serde_asset_liability::vec")]
         hand: Vec<Either<Asset, Liability>>,
+        /// The assets already played by the player
+        assets: Vec<Asset>,
+        /// The liabilities already played by the player
+        liabilities: Vec<Liability>,
         /// Public info about every other player.
         player_info: Vec<PlayerInfo>,
         /// The market at the start of the game.

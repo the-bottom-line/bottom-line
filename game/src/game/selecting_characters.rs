@@ -185,4 +185,20 @@ impl SelectingCharacters {
             .map(Into::into)
             .collect()
     }
+
+    /// Sets a player as disconnected
+    pub fn leave(&mut self, id: PlayerId) -> Result<&SelectingCharactersPlayer, GameError> {
+        let player = self.players.player_mut(id)?;
+        player.set_is_human(false);
+        Ok(player)
+    }
+    /// Allows a player to rejoin
+    pub fn rejoin(&mut self, id: PlayerId) -> Result<&SelectingCharactersPlayer, GameError> {
+        let player = self.players.player_mut(id)?;
+        if player.is_human() {
+            return Err(GameError::InvalidPlayerName(player.name().to_string()))
+        }
+        player.set_is_human(true);
+        Ok(player)
+    }
 }

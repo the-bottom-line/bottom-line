@@ -220,6 +220,8 @@ pub struct PlayerInfo {
     pub cash: u8,
     /// The character this player has chosen, if applicable.
     pub character: Option<Character>,
+    /// This player is controlled by a human
+    pub is_human : bool,
 }
 
 impl PlayerInfo {
@@ -243,6 +245,7 @@ impl Default for PlayerInfo {
             liabilities: Default::default(),
             cash: Default::default(),
             character: Default::default(),
+            is_human: Default::default(),
         }
     }
 }

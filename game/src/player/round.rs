@@ -28,6 +28,7 @@ pub struct RoundPlayer {
     pub(super) total_cards_drawn: u8,
     pub(super) total_cards_given_back: u8,
     pub(super) has_used_ability: bool,
+    pub(super) is_human: bool,
 }
 
 impl RoundPlayer {
@@ -69,6 +70,16 @@ impl RoundPlayer {
     /// Gets the hand of this player.
     pub fn hand(&self) -> &[Either<Asset, Liability>] {
         &self.hand
+    }
+
+    /// Gets the human state of this player
+    pub fn is_human(&self) -> bool {
+        self.is_human
+    }
+
+    /// Sets the human state of this player
+    pub fn set_is_human(&mut self, human : bool) {
+        self.is_human = human;
     }
 
     /// Adds a new `card_idx` to the list of cards drawn this round.
@@ -470,6 +481,7 @@ impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
                     bonus_draw_cards: 0,
                     total_cards_given_back: 0,
                     has_used_ability: false,
+                    is_human: player.is_human
                 })
             }
             None => Err(GameError::PlayerMissingCharacter),
@@ -487,6 +499,7 @@ impl From<&RoundPlayer> for PlayerInfo {
             liabilities: player.liabilities.clone(),
             cash: player.cash,
             character: Some(player.character),
+            is_human : player.is_human,
         }
     }
 }
@@ -537,6 +550,7 @@ mod tests {
                 cash: Default::default(),
                 character: None,
                 hand: Default::default(),
+                is_human: Default::default(),
             };
 
             assert_ok!(player.select_character(character));
@@ -563,6 +577,7 @@ mod tests {
             cash: Default::default(),
             character: Some(Character::HeadRnD),
             hand: Default::default(),
+            is_human: Default::default(),
         };
         let round_player = RoundPlayer::try_from(selecting_player).unwrap();
 
@@ -638,6 +653,7 @@ mod tests {
                 cash: Default::default(),
                 character: Some(character),
                 hand: Default::default(),
+                is_human: Default::default(),
             };
             let round_player = RoundPlayer::try_from(selecting_player).unwrap();
 
@@ -706,6 +722,7 @@ mod tests {
             cash: Default::default(),
             character: Some(CHARACTER),
             hand: Default::default(),
+            is_human: Default::default(),
         };
         let mut player = RoundPlayer::try_from(selecting_player).unwrap();
 
@@ -751,6 +768,7 @@ mod tests {
                 cash: Default::default(),
                 character: Some(character),
                 hand: Default::default(),
+                is_human: Default::default(),
             };
 
             let mut player = RoundPlayer::try_from(selecting_player).unwrap();
@@ -775,6 +793,7 @@ mod tests {
             cash: Default::default(),
             character: Some(CHARACTER),
             hand: Default::default(),
+            is_human: Default::default(),
         };
         let mut player = RoundPlayer::try_from(selecting_player).unwrap();
 
@@ -824,6 +843,7 @@ mod tests {
                 cash: Default::default(),
                 character: Some(character),
                 hand: Default::default(),
+                is_human: Default::default(),
             };
             let mut player = RoundPlayer::try_from(selecting_player).unwrap();
 
@@ -864,6 +884,7 @@ mod tests {
             cash: Default::default(),
             character: Some(Character::HeadRnD),
             hand: Default::default(),
+            is_human: Default::default(),
         };
         let mut round_player = RoundPlayer::try_from(selecting_player).unwrap();
 
@@ -899,6 +920,7 @@ mod tests {
                     cash: 100,
                     character: Some(character),
                     hand: Default::default(),
+                    is_human: Default::default(),
                 };
                 let round_player = RoundPlayer::try_from(selecting_player).unwrap();
 
@@ -927,6 +949,7 @@ mod tests {
                     cash: 100,
                     character: Some(character),
                     hand: Default::default(),
+                    is_human: Default::default(),
                 };
                 let round_player = RoundPlayer::try_from(selecting_player).unwrap();
 
@@ -992,6 +1015,7 @@ mod tests {
                 cash: STARTING_CASH,
                 character: Some(character),
                 hand: vec![],
+                is_human: Default::default(),
             };
             let round_player = RoundPlayer::try_from(selecting_player).unwrap();
 
@@ -1036,6 +1060,7 @@ mod tests {
             cash: 100,
             character: Some(Character::CEO),
             hand: vec![],
+            is_human: Default::default(),
         };
         let round_player = RoundPlayer::try_from(selecting_player).unwrap();
 
@@ -1077,6 +1102,7 @@ mod tests {
             cash: 100,
             character: Some(Character::CSO),
             hand: vec![],
+            is_human: Default::default(),
         };
         let round_player = RoundPlayer::try_from(selecting_player).unwrap();
 
@@ -1155,6 +1181,7 @@ mod tests {
                         Either::Right(liability(LIABILITY_VALUE)),
                         Either::Right(liability(LIABILITY_VALUE)),
                     ],
+                    is_human: Default::default(),
                 };
                 let mut player = RoundPlayer::try_from(selecting_player).unwrap();
 
@@ -1223,6 +1250,7 @@ mod tests {
                 cash: 100,
                 character: Some(character),
                 hand: hand_liability(LIABILITY_VALUE),
+                is_human: Default::default(),
             };
             let mut player = RoundPlayer::try_from(selecting_player).unwrap();
 

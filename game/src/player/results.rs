@@ -14,6 +14,7 @@ pub struct ResultsPlayer {
     assets: Vec<Asset>,
     liabilities: Vec<Liability>,
     hand: Vec<Either<Asset, Liability>>,
+    is_human : bool,
 }
 
 impl ResultsPlayer {
@@ -144,6 +145,7 @@ impl From<RoundPlayer> for ResultsPlayer {
             assets: player.assets,
             liabilities: player.liabilities,
             hand: player.hand,
+            is_human: player.is_human,
         }
     }
 }
@@ -158,6 +160,7 @@ impl From<&ResultsPlayer> for PlayerInfo {
             liabilities: player.liabilities.clone(),
             cash: player.cash,
             character: None,
+            is_human: player.is_human,
         }
     }
 }

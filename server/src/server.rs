@@ -112,6 +112,37 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                             }
                             Err(e) => DirectResponse::from(GameError::from(e)),
                         },
+                        GameState::Round(round) => match round.player_by_name(&connect_username) {
+                            Ok(player) => {
+                                debug_assert_eq!(player.name(), connect_username);
+                                match round.rejoin(player.id()) {
+                                    Ok(p) => {
+                                        username = p.name().to_owned();
+                                        channel_idx = p.id().into();
+                                        break;
+                                    }
+                                    Err(e) => {
+                                        DirectResponse::from(GameError::from(e))
+                                    }
+                                }
+                            }
+                            Err(e) => DirectResponse::from(GameError::from(e)),
+                        }
+                        GameState::SelectingCharacters(round) => match round.player_by_name(&connect_username) {
+                            Ok(player) => {
+                                debug_assert_eq!(player.name(), connect_username);
+                                match round.rejoin(player.id()) {
+                                    Ok(p) => {
+                                        username = p.name().to_owned();
+                                        channel_idx = p.id().into();
+                                        break;
+                                    }
+                                    Err(e) => DirectResponse::from(GameError::from(e))
+
+                                }
+                            }
+                            Err(e) => DirectResponse::from(GameError::from(e)),
+                        },
                         _ => DirectResponse::Error(ResponseError::GameAlreadyStarted),
                     }
                 };
@@ -138,6 +169,13 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 
     let mut player_rx = room.player_tx[channel_idx].subscribe();
 
+    let confirm = DirectResponse::YouJoinedGame {
+        username : username.clone(),
+        channel : channel.clone()
+    };
+    tracing::debug!("Targeted Response: {:?}", confirm);
+    let _ = send_external(confirm, sender.clone()).await;
+
     // announce join to everyone
     match &*room.game.lock().unwrap() {
         GameState::Lobby(lobby) => {
@@ -145,7 +183,6 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 changed_player: username.clone(),
                 usernames: lobby.usernames().iter().map(ToString::to_string).collect(),
             };
-
             tracing::debug!("Global Response: {:?}", internal);
             let _ = room.tx.send(internal);
         }
@@ -245,18 +282,55 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     };
 
     // announce leave
-    if let Ok(lobby) = room.game.lock().unwrap().lobby_mut() {
-        // remove username on disconnect
-        lobby.leave(&username);
+    match &mut *room.game.lock().unwrap() {
+        GameState::Lobby(lobby) => {
+            // remove username on disconnect
+            lobby.leave(&username);
 
-        // send updated list to everyone
-        for i in 0..lobby.len() {
-            let _ = room.player_tx[i].send(UniqueResponse::PlayersInLobby {
-                changed_player: username.clone(),
-                usernames: lobby.usernames().iter().map(ToString::to_string).collect(),
-            });
+            // send updated list to everyone
+            for i in 0..lobby.len() {
+                let _ = room.player_tx[i].send(UniqueResponse::PlayersInLobby {
+                    changed_player: username.clone(),
+                    usernames: lobby.usernames().iter().map(ToString::to_string).collect(),
+                });
+            }
         }
+        GameState::Round(game) => {
+            let p = game.player_by_name(&username);
+            match p {
+                Ok(player) => {
+                    game.leave(player.id());
+                }
+                Err(err) => {
+                    //TODO: Error handling
+                }
+            }
+        }
+        GameState::SelectingCharacters(game) => {
+            let p = game.player_by_name(&username);
+            match p {
+                Ok(player) => {
+                    game.leave(player.id());
+                }
+                Err(err) => {
+                    //TODO:: Error handling
+                }
+            }
+        }
+        _ => return
     }
+    // if let Ok(lobby) = room.game.lock().unwrap().lobby_mut() {
+    //     // remove username on disconnect
+    //     lobby.leave(&username);
+
+    //     // send updated list to everyone
+    //     for i in 0..lobby.len() {
+    //         let _ = room.player_tx[i].send(UniqueResponse::PlayersInLobby {
+    //             changed_player: username.clone(),
+    //             usernames: lobby.usernames().iter().map(ToString::to_string).collect(),
+    //         });
+    //     }
+    // }
 }
 
 #[cfg(test)]

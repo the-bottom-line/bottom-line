@@ -61,27 +61,6 @@ impl BankerTargetPlayer {
             self.cash += extra_asset_cash + extra_liability_cash;
             self.cash -= cash;
 
-            let mut asset_idxs = selected_assets.iter().map(|a| *a.0).collect::<Vec<_>>();
-
-            asset_idxs.sort();
-
-            for asset_idx in asset_idxs.iter().rev() {
-                // TODO: figure out if this can have invalid indices
-                self.assets.remove(*asset_idx);
-            }
-
-            let mut liability_idxs = selected_liabilities
-                .iter()
-                .map(|l| *l.0)
-                .collect::<Vec<_>>();
-
-            liability_idxs.sort();
-
-            for card_idx in liability_idxs.iter().rev() {
-                self.hand.remove(*card_idx);
-                self.liabilities_to_play -= 1;
-            }
-
             // TODO: reuse in `create_select_assets_liabilities` somehow
             let sold_assets = selected_assets
                 .iter()
@@ -107,6 +86,27 @@ impl BankerTargetPlayer {
                 sold_assets,
                 issued_liabilities,
             };
+
+            let mut asset_idxs = selected_assets.iter().map(|a| *a.0).collect::<Vec<_>>();
+
+            asset_idxs.sort();
+
+            for asset_idx in asset_idxs.iter().rev() {
+                // TODO: figure out if this can have invalid indices
+                self.assets.remove(*asset_idx);
+            }
+
+            let mut liability_idxs = selected_liabilities
+                .iter()
+                .map(|l| *l.0)
+                .collect::<Vec<_>>();
+
+            liability_idxs.sort();
+
+            for card_idx in liability_idxs.iter().rev() {
+                self.hand.remove(*card_idx);
+                self.liabilities_to_play -= 1;
+            }
 
             Ok(PayBankerPlayer {
                 paid_amount: cash,

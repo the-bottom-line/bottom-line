@@ -2,15 +2,8 @@
 
 #![warn(missing_docs)]
 
-use std::collections::HashMap;
-
 use either::Either;
-use game::{
-    errors::GameError,
-    game::{Market, MarketChange, PlayerScore, SelectedAssetsAndLiabilities},
-    player::*,
-    utility::serde_asset_liability,
-};
+use game::{errors::GameError, game::*, player::*, utility::serde_asset_liability};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -188,11 +181,12 @@ pub enum DirectResponse {
         new_banker_cash: u8,
         your_new_cash: u8,
         paid_amount: u8,
-        selected_cards: SelectedAssetsAndLiabilities,
+        sold_assets: Vec<SoldAssetToPayBanker>,
+        issued_liabilities: Vec<IssuedLiabilityToPayBanker>,
     },
     YouSelectCardBankerTarget {
-        assets: HashMap<usize, u8>,
-        liabilities: HashMap<usize, u8>,
+        assets: Vec<SoldAssetToPayBanker>,
+        liabilities: Vec<IssuedLiabilityToPayBanker>,
     },
     /// Confirmation that this player was succesful in getting regulator options
     YouRegulatorOptions {
@@ -436,7 +430,7 @@ pub enum UniqueResponse {
         is_possible_to_pay_banker: bool,
     },
     SelectedCardsBankerTarget {
-        assets: HashMap<usize, u8>,
+        assets: Vec<SoldAssetToPayBanker>,
         liability_count: usize,
     },
     /// Sent when someone drew a card.

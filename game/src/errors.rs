@@ -283,8 +283,8 @@ pub enum BankerTargetSelectError {
     AssetNotSelected,
     #[error("Asset not in players asset list")]
     InvalidAssetId,
-    #[error("Liability not found in players hand at id")]
-    InvalidLiabilityId,
+    #[error("Liability not found in players hand at id {0}")]
+    InvalidLiabilityId(u8),
     #[error("Liability not in selected liability list")]
     LiabilityNotSelected,
     #[error("Liability is already in selected liability list")]

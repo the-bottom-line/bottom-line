@@ -18,8 +18,9 @@ pub struct BankerTargetRound {
     pub(super) fired_characters: Vec<Character>,
     pub(super) gold_to_be_paid: u8,
     pub(super) can_pay_banker: bool,
-    pub(super) selected_cards: SelectedAssetsAndLiabilities,
     pub(super) is_final_round: bool,
+    pub(super) selected_assets: HashMap<usize, u8>,
+    pub(super) selected_liabilities: HashMap<usize, u8>,
 }
 
 impl BankerTargetRound {
@@ -83,13 +84,19 @@ impl BankerTargetRound {
             .find(|p| p.character() == Character::Banker)
             .ok_or(PayBankerError::NoBankerPlayer)?
             .id();
+
         match self
             .players
             .get_disjoint_mut([usize::from(player_id), usize::from(banker_id)])
         {
             Ok([player, banker]) => {
                 if cash == self.gold_to_be_paid {
-                    let pbp = player.pay_banker(cash, &self.selected_cards, banker)?;
+                    let pbp = player.pay_banker(
+                        cash,
+                        &self.selected_assets,
+                        &self.selected_liabilities,
+                        banker,
+                    )?;
 
                     Ok(pbp)
                 } else {
@@ -104,17 +111,60 @@ impl BankerTargetRound {
         }
     }
 
+    fn create_select_assets_liabilities(&self) -> SelectedAssetsAndLiabilities {
+        // PANIC: unwrap is always valid because current player is always valid.
+        let target = self.player(self.current_player).unwrap();
+        let sold_assets = self
+            .selected_assets
+            .iter()
+            .map(|(&asset_idx, &market_value)| SoldAssetToPayBanker {
+                asset_idx,
+                market_value,
+            })
+            .collect::<Vec<_>>();
+        let issued_liabilities = self
+            .selected_liabilities
+            .iter()
+            .map(|(&card_idx, _)| {
+                // TODO: verify legitimacy of unwrapping here
+                let liability = target
+                    .hand()
+                    .get(card_idx)
+                    .unwrap()
+                    .clone()
+                    .right()
+                    .unwrap();
+                IssuedLiabilityToPayBanker {
+                    card_idx,
+                    liability,
+                }
+            })
+            .collect::<Vec<_>>();
+
+        SelectedAssetsAndLiabilities {
+            sold_assets,
+            issued_liabilities,
+        }
+    }
+
     ///function to select an asset for divesting when targeted by the banker
     pub fn player_select_divest_asset(
         &mut self,
         player_id: PlayerId,
         asset_id: usize,
     ) -> Result<SelectedAssetsAndLiabilities, GameError> {
-        let selected = self.selected_cards.clone();
-        let market = self.current_market.clone();
-        let player = self.player_as_current_mut(player_id)?;
-        self.selected_cards = player.select_divest_asset(asset_id, &market, selected)?;
-        Ok(self.selected_cards.clone())
+        match self.players.player_mut(player_id) {
+            Ok(player) if player.id() == self.current_player => {
+                player.select_divest_asset(
+                    asset_id,
+                    &self.current_market,
+                    &mut self.selected_assets,
+                )?;
+                Ok(self.create_select_assets_liabilities())
+            }
+            Ok(_) => Err(GameError::NotPlayersTurn),
+            Err(e) => Err(e),
+        }
     }
 
     ///function to unselect an asset for divesting when targeted by the banker
@@ -123,34 +173,46 @@ impl BankerTargetRound {
         player_id: PlayerId,
         asset_id: usize,
     ) -> Result<SelectedAssetsAndLiabilities, GameError> {
-        let selected = self.selected_cards.clone();
-        let player = self.player_as_current_mut(player_id)?;
-        self.selected_cards = player.unselect_divest_asset(asset_id, selected)?;
-        Ok(self.selected_cards.clone())
+        match self.players.player_mut(player_id) {
+            Ok(player) if player.id() == self.current_player => {
+                player.unselect_divest_asset(asset_id, &mut self.selected_assets)?;
+                Ok(self.create_select_assets_liabilities())
+            }
+            Ok(_) => Err(GameError::NotPlayersTurn),
+            Err(e) => Err(e),
+        }
     }
 
     ///function to select an liability to issue when targeted by the banker
     pub fn player_select_issue_liability(
         &mut self,
         player_id: PlayerId,
-        liability_id: usize,
+        card_idx: usize,
     ) -> Result<SelectedAssetsAndLiabilities, GameError> {
-        let selected = self.selected_cards.clone();
-        let player = self.player_as_current_mut(player_id)?;
-        self.selected_cards = player.select_issue_iability(liability_id, selected)?;
-        Ok(self.selected_cards.clone())
+        match self.players.player_mut(player_id) {
+            Ok(player) if player.id() == self.current_player => {
+                player.select_issue_liability(card_idx, &mut self.selected_liabilities)?;
+                Ok(self.create_select_assets_liabilities())
+            }
+            Ok(_) => Err(GameError::NotPlayersTurn),
+            Err(e) => Err(e),
+        }
     }
 
-    ///function to unselect an asset for divesting when targeted by the banker
+    ///function to unselect a liability that was issued when targeted by the banker
     pub fn player_unselect_issue_liability(
         &mut self,
         player_id: PlayerId,
-        liability_id: usize,
+        liability_idx: usize,
     ) -> Result<SelectedAssetsAndLiabilities, GameError> {
-        let selected = self.selected_cards.clone();
-        let player = self.player_as_current_mut(player_id)?;
-        self.selected_cards = player.unselect_issue_iability(liability_id, selected)?;
-        Ok(self.selected_cards.clone())
+        match self.players.player_mut(player_id) {
+            Ok(player) if player.id() == self.current_player => {
+                player.unselect_issue_liability(liability_idx, &mut self.selected_liabilities)?;
+                Ok(self.create_select_assets_liabilities())
+            }
+            Ok(_) => Err(GameError::NotPlayersTurn),
+            Err(e) => Err(e),
+        }
     }
 }
 
@@ -173,7 +235,7 @@ impl From<&mut Round> for BankerTargetRound {
                 if a.market_value(&round.current_market) > 0 {
                     a.market_value(&round.current_market) as u8
                 } else {
-                    0 as u8
+                    0
                 }
             })
             .collect();
@@ -211,10 +273,8 @@ impl From<&mut Round> for BankerTargetRound {
             gold_to_be_paid: gtbp,
             can_pay_banker: gtbp
                 <= total_libility_value + total_asset_value + round.current_player().cash(),
-            selected_cards: SelectedAssetsAndLiabilities {
-                assets: HashMap::new(),
-                liabilities: HashMap::new(),
-            },
+            selected_assets: HashMap::new(),
+            selected_liabilities: HashMap::new(),
         }
     }
 }

@@ -2,7 +2,7 @@
 
 use crate::{errors::*, game::*, player::*};
 use either::Either;
-use std::collections::hash_map::Entry;
+use std::collections::{HashMap, hash_map::Entry};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BankerTargetPlayer {
@@ -33,33 +33,80 @@ impl BankerTargetPlayer {
         self.character
     }
 
+    /// Gets an asset at a particular index from this player.
+    pub fn asset(&self, asset_idx: usize) -> Result<&Asset, GameError> {
+        self.assets
+            .get(asset_idx)
+            .ok_or(GameError::InvalidAssetIndex(asset_idx as u8))
+    }
+
+    /// Gets the hand with cards of this player.
+    pub fn hand(&self) -> &[Either<Asset, Liability>] {
+        &self.hand
+    }
+
     /// Pays the banker in the round the requested amount of gold
     pub fn pay_banker(
         &mut self,
         cash: u8,
-        selected_cards: &SelectedAssetsAndLiabilities,
+        selected_assets: &HashMap<usize, u8>,
+        selected_liabilities: &HashMap<usize, u8>,
         banker: &mut BankerTargetPlayer,
     ) -> Result<PayBankerPlayer, PayBankerError> {
-        let extra_asset_cash: u8 = selected_cards.assets.iter().map(|a| a.1).sum();
-        let extra_liability_cash: u8 = selected_cards.liabilities.iter().map(|l| l.1).sum();
+        let extra_asset_cash = selected_assets.values().sum::<u8>();
+        let extra_liability_cash = selected_liabilities.values().sum::<u8>();
+
         if self.cash + extra_asset_cash + extra_liability_cash >= cash {
             banker.cash += cash;
             self.cash += extra_asset_cash + extra_liability_cash;
             self.cash -= cash;
 
-            let mut asset_ids: Vec<usize> = selected_cards.assets.iter().map(|a| *a.0).collect();
-            asset_ids.sort();
-            for id in asset_ids.iter().rev() {
-                self.assets.remove(*id);
+            let mut asset_idxs = selected_assets.iter().map(|a| *a.0).collect::<Vec<_>>();
+
+            asset_idxs.sort();
+
+            for asset_idx in asset_idxs.iter().rev() {
+                // TODO: figure out if this can have invalid indices
+                self.assets.remove(*asset_idx);
             }
 
-            let mut liability_ids: Vec<usize> =
-                selected_cards.liabilities.iter().map(|l| *l.0).collect();
-            liability_ids.sort();
-            for id in liability_ids.iter().rev() {
-                self.hand.remove(*id);
+            let mut liability_idxs = selected_liabilities
+                .iter()
+                .map(|l| *l.0)
+                .collect::<Vec<_>>();
+
+            liability_idxs.sort();
+
+            for card_idx in liability_idxs.iter().rev() {
+                self.hand.remove(*card_idx);
                 self.liabilities_to_play -= 1;
             }
+
+            // TODO: reuse in `create_select_assets_liabilities` somehow
+            let sold_assets = selected_assets
+                .iter()
+                .map(|(&asset_idx, &market_value)| SoldAssetToPayBanker {
+                    asset_idx,
+                    market_value,
+                })
+                .collect::<Vec<_>>();
+
+            let issued_liabilities = selected_liabilities
+                .iter()
+                .map(|(&card_idx, _)| {
+                    // TODO: verify legitimacy of unwrapping here
+                    let liability = self.hand.get(card_idx).unwrap().clone().right().unwrap();
+                    IssuedLiabilityToPayBanker {
+                        card_idx,
+                        liability,
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            let selected_cards = SelectedAssetsAndLiabilities {
+                sold_assets,
+                issued_liabilities,
+            };
 
             Ok(PayBankerPlayer {
                 paid_amount: cash,
@@ -67,7 +114,7 @@ impl BankerTargetPlayer {
                 new_target_cash: self.cash,
                 target_id: self.id,
                 banker_id: banker.id,
-                selected_cards: selected_cards.clone(),
+                selected_cards,
             })
         } else {
             Err(PayBankerError::NotEnoughCash)
@@ -79,14 +126,14 @@ impl BankerTargetPlayer {
         &mut self,
         asset_id: usize,
         market: &Market,
-        mut selected: SelectedAssetsAndLiabilities,
-    ) -> Result<SelectedAssetsAndLiabilities, BankerTargetSelectError> {
+        selected_assets: &mut HashMap<usize, u8>,
+    ) -> Result<&Asset, BankerTargetSelectError> {
         if let Some(asset) = self.assets.get(asset_id) {
-            if let Entry::Vacant(entry) = selected.assets.entry(asset_id) {
-                if asset.market_value(market) > 0 {
-                    let v = asset.market_value(market);
-                    entry.insert(v as u8);
-                    Ok(selected.clone())
+            if let Entry::Vacant(entry) = selected_assets.entry(asset_id) {
+                let market_value = asset.market_value(market);
+                if market_value > 0 {
+                    entry.insert(market_value as u8);
+                    Ok(asset)
                 } else {
                     Err(BankerTargetSelectError::AssetValueToLow)
                 }
@@ -94,6 +141,7 @@ impl BankerTargetPlayer {
                 Err(BankerTargetSelectError::AssetAlreadySelected)
             }
         } else {
+            // TODO: use GameError::InvalidAssetIndex or self.asset(asset_idx)
             Err(BankerTargetSelectError::InvalidAssetId)
         }
     }
@@ -102,36 +150,34 @@ impl BankerTargetPlayer {
     pub fn unselect_divest_asset(
         &mut self,
         asset_id: usize,
-        mut selected: SelectedAssetsAndLiabilities,
-    ) -> Result<SelectedAssetsAndLiabilities, BankerTargetSelectError> {
-        if self.assets.get(asset_id).is_some() {
-            if selected.assets.contains_key(&asset_id) {
-                selected.assets.remove(&asset_id);
-                Ok(selected.clone())
+        selected_assets: &mut HashMap<usize, u8>,
+    ) -> Result<&Asset, BankerTargetSelectError> {
+        if let Some(asset) = self.assets.get(asset_id) {
+            if let Some(_market_value) = selected_assets.remove(&asset_id) {
+                Ok(asset)
             } else {
                 Err(BankerTargetSelectError::AssetNotSelected)
             }
         } else {
+            // TODO: use GameError::InvalidAssetIndex or self.asset(asset_idx)
             Err(BankerTargetSelectError::InvalidAssetId)
         }
     }
 
-    /// Select an liability to add it to the issue liability list when paying the banker
-    pub fn select_issue_iability(
+    /// Select a liability from this player's hand and adds it to the issue liability list when
+    /// paying the banker
+    pub fn select_issue_liability(
         &mut self,
-        liability_id: usize,
-        mut selected: SelectedAssetsAndLiabilities,
-    ) -> Result<SelectedAssetsAndLiabilities, BankerTargetSelectError> {
+        card_idx: usize,
+        selected_liabilities: &mut HashMap<usize, u8>,
+    ) -> Result<&Liability, BankerTargetSelectError> {
         if self.character == Character::CFO {
-            if let Some(liability) = self.hand.get(liability_id) {
-                if selected.liabilities.len() < 3 {
-                    if let Entry::Vacant(entry) = selected.liabilities.entry(liability_id) {
-                        if let Some(l) = liability.clone().right() {
-                            entry.insert(l.value);
-                            Ok(selected.clone())
-                        } else {
-                            Err(BankerTargetSelectError::InvalidLiabilityId)
-                        }
+            if let Some(Either::Right(liability)) = self.hand.get(card_idx) {
+                let playable_liabilities = Character::CFO.playable_liabilities() as usize;
+                if selected_liabilities.len() < playable_liabilities {
+                    if let Entry::Vacant(entry) = selected_liabilities.entry(card_idx) {
+                        entry.insert(liability.value);
+                        Ok(liability)
                     } else {
                         Err(BankerTargetSelectError::LiabilityAlreadySelected)
                     }
@@ -139,7 +185,7 @@ impl BankerTargetPlayer {
                     Err(BankerTargetSelectError::AlreadySelected3Liabilities)
                 }
             } else {
-                Err(BankerTargetSelectError::InvalidLiabilityId)
+                Err(BankerTargetSelectError::InvalidLiabilityId(card_idx as u8))
             }
         } else {
             Err(BankerTargetSelectError::NotCFO)
@@ -147,24 +193,19 @@ impl BankerTargetPlayer {
     }
 
     /// Unselect an liability to remove it from the issueliability list when paying the banker
-    pub fn unselect_issue_iability(
+    pub fn unselect_issue_liability(
         &mut self,
-        liability_id: usize,
-        mut selected: SelectedAssetsAndLiabilities,
-    ) -> Result<SelectedAssetsAndLiabilities, BankerTargetSelectError> {
-        if let Some(liability) = self.hand.get(liability_id) {
-            if liability.is_right() {
-                if selected.liabilities.contains_key(&liability_id) {
-                    selected.liabilities.remove(&liability_id);
-                    Ok(selected.clone())
-                } else {
-                    Err(BankerTargetSelectError::LiabilityNotSelected)
-                }
+        card_idx: usize,
+        selected_liabilities: &mut HashMap<usize, u8>,
+    ) -> Result<&Liability, BankerTargetSelectError> {
+        if let Some(Either::Right(liability)) = self.hand.get(card_idx) {
+            if let Some(_market_value) = selected_liabilities.remove(&card_idx) {
+                Ok(liability)
             } else {
-                Err(BankerTargetSelectError::InvalidLiabilityId)
+                Err(BankerTargetSelectError::LiabilityNotSelected)
             }
         } else {
-            Err(BankerTargetSelectError::InvalidLiabilityId)
+            Err(BankerTargetSelectError::InvalidLiabilityId(card_idx as u8))
         }
     }
 }

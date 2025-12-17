@@ -485,8 +485,8 @@ fn create_selected_cards_response(
             (
                 p.id(),
                 vec![UniqueResponse::SelectedCardsBankerTarget {
-                    assets: selected.assets.clone(),
-                    liability_count: selected.liabilities.len(),
+                    assets: selected.sold_assets.clone(),
+                    liability_count: selected.issued_liabilities.len(),
                 }],
             )
         })
@@ -494,8 +494,8 @@ fn create_selected_cards_response(
     Response(
         InternalResponse(internal),
         DirectResponse::YouSelectCardBankerTarget {
-            assets: selected.assets,
-            liabilities: selected.liabilities,
+            assets: selected.sold_assets,
+            liabilities: selected.issued_liabilities,
         },
     )
 }
@@ -534,7 +534,8 @@ pub fn pay_banker(
                     new_banker_cash: pbp.new_banker_cash,
                     your_new_cash: pbp.new_target_cash,
                     paid_amount: pbp.paid_amount,
-                    selected_cards: pbp.selected_cards.clone(),
+                    sold_assets: pbp.selected_cards.sold_assets,
+                    issued_liabilities: pbp.selected_cards.issued_liabilities,
                 },
             ))
         }

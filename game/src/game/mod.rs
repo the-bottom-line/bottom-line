@@ -444,8 +444,8 @@ pub struct IssuedLiabilityToPayBanker {
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SelectedAssetsAndLiabilities {
-    pub assets: HashMap<usize, u8>,
-    pub liabilities: HashMap<usize, u8>,
+    pub sold_assets: Vec<SoldAssetToPayBanker>,
+    pub issued_liabilities: Vec<IssuedLiabilityToPayBanker>,
 }
 
 /// Data used when a turn ends

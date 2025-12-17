@@ -3,11 +3,7 @@
 use either::Either;
 use itertools::Itertools;
 
-use crate::{
-    errors::*,
-    game::{Deck, Market, MarketCondition},
-    player::*,
-};
+use crate::{errors::*, game::*, player::*};
 
 /// The player type that corresponds to the [`Round`](crate::game::Round) stage of the game. During
 /// the round stage, each player has selected a character.
@@ -155,6 +151,28 @@ impl RoundPlayer {
             }
         } else {
             Err(FireCharacterError::InvalidPlayerCharacter)
+        }
+    }
+
+    /// Tries to terminate credit line of character. If succesful, returns that character.
+    pub fn terminate_credit(
+        &mut self,
+        character: Character,
+    ) -> Result<Character, TerminateCreditCharacterError> {
+        if self.character == Character::Banker {
+            if !self.has_used_ability {
+                if character.can_be_fired() {
+                    // list of firable characters is the same for the banker
+                    self.has_used_ability = true;
+                    Ok(character)
+                } else {
+                    Err(TerminateCreditCharacterError::InvalidCharacter)
+                }
+            } else {
+                Err(TerminateCreditCharacterError::AlreadyFiredThisTurn)
+            }
+        } else {
+            Err(TerminateCreditCharacterError::InvalidPlayerCharacter)
         }
     }
 
@@ -525,6 +543,45 @@ impl From<&RoundPlayer> for PlayerInfo {
     }
 }
 
+impl From<&RoundPlayer> for BankerTargetPlayer {
+    fn from(player: &RoundPlayer) -> Self {
+        Self {
+            id: player.id(),
+            name: player.name().into(),
+            cash: player.cash(),
+            assets: player.assets.clone(),
+            liabilities: player.liabilities.clone(),
+            character: player.character(),
+            hand: player.hand.clone(),
+            liabilities_to_play: player.liabilities_to_play,
+            was_first_to_six_assets: player.was_first_to_six_assets,
+        }
+    }
+}
+
+impl From<&BankerTargetPlayer> for RoundPlayer {
+    fn from(player: &BankerTargetPlayer) -> Self {
+        let playable_assets = player.character.playable_assets();
+        Self {
+            id: player.id(),
+            name: player.name().into(),
+            cash: player.cash,
+            assets: player.assets.clone(),
+            liabilities: player.liabilities.clone(),
+            character: player.character,
+            hand: player.hand.clone(),
+            cards_drawn: vec![],
+            bonus_draw_cards: 0,
+            assets_to_play: playable_assets.total(),
+            playable_assets,
+            liabilities_to_play: player.liabilities_to_play,
+            total_cards_drawn: 0,
+            total_cards_given_back: 0,
+            has_used_ability: false,
+            was_first_to_six_assets: player.was_first_to_six_assets,
+        }
+    }
+}
 #[cfg(test)]
 pub(super) mod tests {
     use super::*;

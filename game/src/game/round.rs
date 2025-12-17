@@ -20,6 +20,7 @@ pub struct Round {
     pub(super) current_events: Vec<Event>,
     pub(super) open_characters: Vec<Character>,
     pub(super) fired_characters: Vec<Character>,
+    pub(super) banker_target: Option<Character>,
     pub(super) is_final_round: bool,
 }
 
@@ -99,6 +100,10 @@ impl Round {
     /// Gets a slice containing all characters that cannot be picked by anyone this round.
     pub fn open_characters(&self) -> &[Character] {
         &self.open_characters
+    }
+    ///Gets the character who is currently targeted by the banker if one is available
+    pub fn banker_target(&self) -> Option<Character> {
+        self.banker_target
     }
 
     /// Gets the [`PlayerInfo`] for each player, excluding the player that has the same id as `id`.
@@ -282,6 +287,20 @@ impl Round {
         let player = self.player_as_current_mut(id)?;
         let character = player.fire_character(character)?;
         self.fired_characters.push(character);
+        Ok(character)
+    }
+
+    /// This allows player with id `id` to fire a player who has character `character` if they are
+    /// the shareholder. If this is successful, the player who got fired will not play their turn
+    /// this round.
+    pub fn player_terminate_credit_character(
+        &mut self,
+        id: PlayerId,
+        character: Character,
+    ) -> Result<Character, GameError> {
+        let player = self.player_as_current_mut(id)?;
+        let character = player.terminate_credit(character)?;
+        self.banker_target = Some(character);
         Ok(character)
     }
 
@@ -557,4 +576,23 @@ pub struct HandsAfterSwap {
     pub regulator_new_hand: Vec<Either<Asset, Liability>>,
     /// The new hand for the regulator's target
     pub target_new_hand: Vec<Either<Asset, Liability>>,
+}
+
+impl From<&mut BankerTargetRound> for Round {
+    fn from(btround: &mut BankerTargetRound) -> Self {
+        Self {
+            current_player: btround.current_player,
+            players: Players(btround.players.iter().map(Into::into).collect()),
+            assets: btround.assets.clone(),
+            liabilities: btround.liabilities.clone(),
+            markets: btround.markets.clone(),
+            chairman: btround.chairman,
+            current_market: btround.current_market.clone(),
+            current_events: btround.current_events.clone(),
+            open_characters: btround.open_characters.clone(),
+            fired_characters: btround.fired_characters.clone(),
+            is_final_round: btround.is_final_round,
+            banker_target: None,
+        }
+    }
 }

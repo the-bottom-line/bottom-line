@@ -1,10 +1,12 @@
 //! This is where the game logic, excluding the player-specific logic, is located.
 
+mod banker_target;
 mod lobby;
 mod results;
 mod round;
 mod selecting_characters;
 
+pub use banker_target::*;
 pub use lobby::*;
 pub use results::*;
 pub use round::*;
@@ -15,7 +17,12 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "ts")]
 use ts_rs::TS;
 
-use std::{collections::HashSet, path::Path, sync::Arc, vec};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+    sync::Arc,
+    vec,
+};
 
 use crate::{errors::*, player::*, utility::serde_asset_liability};
 
@@ -399,7 +406,7 @@ impl ObtainingCharacters {
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MarketChange {
-    /// A list of events encountered in search for a market card
+    /// A list of evenOts encountered in search for a market card
     pub events: Vec<Event>,
     /// The new market card
     pub new_market: Market,
@@ -415,6 +422,30 @@ pub struct PlayerPlayedCard {
     pub used_card: Either<Asset, Liability>,
     /// Whether or not playing this asset means it is now the final round (6th asset)
     pub is_final_round: bool,
+}
+
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SoldAssetToPayBanker {
+    pub asset_idx: usize,
+    pub market_value: u8,
+}
+
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct IssuedLiabilityToPayBanker {
+    pub card_idx: usize,
+    pub liability: Liability,
+}
+
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SelectedAssetsAndLiabilities {
+    pub sold_assets: Vec<SoldAssetToPayBanker>,
+    pub issued_liabilities: Vec<IssuedLiabilityToPayBanker>,
 }
 
 /// Data used when a turn ends
@@ -610,6 +641,8 @@ pub enum GameState {
     /// Round state of the game. In this state each player plays their turn, which includes drawing
     /// cards, playing assets and liabilities and using their character ability
     Round(Round),
+    /// Banker target state of the game. In this state a player can do all their actions to pay the baker
+    BankerTarget(BankerTargetRound),
     /// Results state of the game. In this state players can see how they did compared to everyone
     /// else
     Results(Results),
@@ -727,6 +760,38 @@ impl GameState {
         }
     }
 
+    /// Tries to get a `&`[`Round`] state. Returns an error if the game is not in a round state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::{GameState, Lobby}};
+    /// let game = GameState::Lobby(Lobby::default());
+    /// assert_eq!(game.bankertarget(), Err(GameError::NotBankerTargetState));
+    /// ```
+    pub fn bankertarget(&self) -> Result<&BankerTargetRound, GameError> {
+        match self {
+            Self::BankerTarget(r) => Ok(r),
+            _ => Err(GameError::NotBankerTargetState),
+        }
+    }
+
+    /// Tries to get a `&mut`[`Round`] state. Returns an error if the game is not in a round state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::{GameState, Lobby}};
+    /// let mut game = GameState::Lobby(Lobby::default());
+    /// assert_eq!(game.round_mut(), Err(GameError::NotRoundState));
+    /// ```
+    pub fn bankertarget_mut(&mut self) -> Result<&mut BankerTargetRound, GameError> {
+        match self {
+            Self::BankerTarget(r) => Ok(r),
+            _ => Err(GameError::NotBankerTargetState),
+        }
+    }
+
     /// Tries to get a `&`[`Results`] state. Returns an error if the game is not in a results state.
     ///
     /// # Examples
@@ -796,7 +861,6 @@ impl GameState {
     /// [`Results`]
     pub fn end_player_turn(&mut self, id: PlayerId) -> Result<TurnEnded, GameError> {
         let round = self.round_mut()?;
-
         match round.end_player_turn(id)? {
             Either::Left(te) => Ok(te),
             Either::Right(state) => {

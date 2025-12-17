@@ -3,12 +3,7 @@
 #![warn(missing_docs)]
 
 use either::Either;
-use game::{
-    errors::GameError,
-    game::{Market, MarketChange, PlayerScore},
-    player::*,
-    utility::serde_asset_liability,
-};
+use game::{errors::GameError, game::*, player::*, utility::serde_asset_liability};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -76,6 +71,28 @@ pub enum FrontendRequest {
     FireCharacter {
         /// The character that is to be fired.
         character: Character,
+    },
+    /// Tries toterminate credit from particular character by this player.
+    TerminateCreditCharacter {
+        /// The character who's credit line will be terminated.
+        character: Character,
+    },
+    SelectAssetToDivest {
+        asset_id: usize,
+    },
+    UnselectAssetToDivest {
+        asset_id: usize,
+    },
+    SelectLiabilityToIssue {
+        liability_id: usize,
+    },
+    UnselectLiabilityToIssue {
+        liability_id: usize,
+    },
+    /// Tries to send cash to the banker when player is targeted
+    PayBanker {
+        /// The amount of cash to pay
+        cash: u8,
     },
     /// Tries to swap a list of card indices with the deck for this player.
     SwapWithDeck {
@@ -151,6 +168,25 @@ pub enum DirectResponse {
     YouFiredCharacter {
         /// The character that was fired.
         character: Character,
+    },
+    /// Confirmation that this character's credit line is terminated.
+    YouTerminateCreditCharacter {
+        /// The character who's credit line was terminated.
+        character: Character,
+    },
+    /// Confirmation that you paid some gold to the banker.
+    YouPaidBanker {
+        /// The amount of gold paid
+        banker_id: PlayerId,
+        new_banker_cash: u8,
+        your_new_cash: u8,
+        paid_amount: u8,
+        sold_assets: Vec<SoldAssetToPayBanker>,
+        issued_liabilities: Vec<IssuedLiabilityToPayBanker>,
+    },
+    YouSelectCardBankerTarget {
+        assets: Vec<SoldAssetToPayBanker>,
+        liabilities: Vec<IssuedLiabilityToPayBanker>,
     },
     /// Confirmation that this player was succesful in getting regulator options
     YouRegulatorOptions {
@@ -385,6 +421,18 @@ pub enum UniqueResponse {
         /// A list of characters which were called but were not available.
         skipped_characters: Vec<Character>,
     },
+    PlayerTargetedByBanker {
+        /// Id of the player whose turn it is
+        player_turn: PlayerId,
+        /// Amount of Cash to be paid to Banker
+        cash_to_be_paid: u8,
+        /// Amount of Cash to be paid to Banker
+        is_possible_to_pay_banker: bool,
+    },
+    SelectedCardsBankerTarget {
+        assets: Vec<SoldAssetToPayBanker>,
+        liability_count: usize,
+    },
     /// Sent when someone drew a card.
     DrewCard {
         /// The id of the player who drew a card.
@@ -432,8 +480,24 @@ pub enum UniqueResponse {
         /// The character which was fired.
         character: Character,
     },
+    /// sent when a characters credit line has been terminated
+    TerminatedCreditCharacter {
+        /// The id of the player who teminated the credit line someone.
+        player_id: PlayerId,
+        /// The character who's credit line was terminated.
+        character: Character,
+    },
+    PlayerPaidBanker {
+        banker_id: PlayerId,
+        player_id: PlayerId,
+        new_banker_cash: u8,
+        new_target_cash: u8,
+        paid_amount: u8,
+        sold_assets: Vec<SoldAssetToPayBanker>,
+        issued_liabilities: Vec<IssuedLiabilityToPayBanker>,
+    },
     /// Sent when the regulator swapped their hand with this player.
-    RegulatorSwapedYourCards {
+    RegulatorSwappedYourCards {
         /// This player's new hand.
         #[cfg_attr(
             feature = "ts",
@@ -443,14 +507,14 @@ pub enum UniqueResponse {
         new_cards: Vec<Either<Asset, Liability>>,
     },
     /// Sent when the regulator swapped their hand with another player.
-    SwapedWithPlayer {
+    SwappedWithPlayer {
         /// The id of the regulator.
         regulator_id: PlayerId,
         /// The id of the player the regulator swapped their hands with.
         target_id: PlayerId,
     },
     /// Sent when the regulator swapped a number of cards with the deck.
-    SwapedWithDeck {
+    SwappedWithDeck {
         /// The amount of assets the regulator drew from the deck.
         asset_count: usize,
         /// The amount of liabilities the regulator drew from the deck.

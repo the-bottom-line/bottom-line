@@ -46,30 +46,84 @@ impl BankerTargetPlayer {
         cash: u8,
         selected_cards: &SelectedAssetsAndLiabilities,
         banker: &mut BankerTargetPlayer,
-        market: Market
+        market: Market,
     ) -> Result<PayBankerPlayer, PayBankerError> {
-        let mut new_selected_cards= SelectedAssetsAndLiabilities{assets:HashMap::new() ,liabilities: HashMap::new()};
-        for (index, asset) in  self.assets.clone().into_iter().enumerate() {
+        let mut new_selected_cards = SelectedAssetsAndLiabilities {
+            assets: HashMap::new(),
+            liabilities: HashMap::new(),
+        };
+        for (index, asset) in self.assets.clone().into_iter().enumerate() {
             if asset.market_value(&market) > 0 {
-                new_selected_cards.assets.insert(index, asset.market_value(&market) as u8);
+                new_selected_cards
+                    .assets
+                    .insert(index, asset.market_value(&market) as u8);
             }
         }
-        //TODO get top 3 most valueble liabilities if player is CFO
-        //TODO Sell assets and libilities for targeted player 
-        //TODO Pay banker the maximum amount target can affort after selling 
-        //TODO remove cash from targeted player
+        //get top 3 most valueble liabilities if player is CFO
+        for (index, liability) in self
+            .hand
+            .clone()
+            .into_iter()
+            .filter(|l| l.is_right())
+            .enumerate()
+        {
+            if let Some(lib) = liability.right() {
+                new_selected_cards.liabilities.insert(index, lib.value)
+            }
+        }
+        let mut len = new_selected_cards.liabilities.iter().count();
 
+        if len > 3 {
+            len -= 3;
+        } else {
+            len = 0;
+        }
+        //remove smallest libilities if there are more as 3 in hand
+        for i in 0..len {
+            let mut smallest_k: u8 = 100;
+            let mut smallest_k = 0;
+            for (k, v) in new_selected_cards.liabilities {
+                if smallest_v < v {
+                    smallest_v = v;
+                    smallest_k = k;
+                }
+            }
+            new_selected_cards.liabilities.remove(&smallest_k)
+        }
 
-        
+        // Sell assets and libilities for targeted player
+        let extra_asset_cash: u8 = selected_cards.assets.iter().map(|a| a.1).sum();
+        let extra_liability_cash: u8 = selected_cards.liabilities.iter().map(|l| l.1).sum();
+        let mut asset_ids: Vec<usize> = selected_cards.assets.iter().map(|a| *a.0).collect();
+        asset_ids.sort();
+        for id in asset_ids.iter().rev() {
+            self.assets.remove(*id);
+        }
+
+        let mut liability_ids: Vec<usize> =
+            selected_cards.liabilities.iter().map(|l| *l.0).collect();
+        liability_ids.sort();
+        for id in liability_ids.iter().rev() {
+            self.hand.remove(*id);
+            self.liabilities_to_play -= 1;
+        }
+        let total_available_cash = extra_asset_cash + extra_asset_cash + self.cash;
+        if total_available_cash < cash {
+            //TODO Pay banker the maximum amount target can affort after selling
+            banker.cash += total_available_cash;
+            self.cash = 0;
 
             Ok(PayBankerPlayer {
-                paid_amount: cash,
+                paid_amount: total_available_cash,
                 new_banker_cash: banker.cash,
                 new_target_cash: self.cash,
                 target_id: self.id,
                 banker_id: banker.id,
                 selected_cards: selected_cards.clone(),
             })
+        } else {
+            Err(PayBankerError::NotRightCashAmount)
+        }
     }
 
     /// Pays the banker in the round the requested amount of gold

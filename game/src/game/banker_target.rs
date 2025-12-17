@@ -96,8 +96,13 @@ impl BankerTargetRound {
                     if self.can_pay_banker {
                         let pbp = player.pay_banker(cash, &self.selected_cards, banker)?;
                         return Ok(pbp);
-                    }else{
-                        let pbp = player.go_bankrupt_for_banker(cash, &self.selected_cards, banker, self.current_market.clone())?;
+                    } else {
+                        let pbp = player.go_bankrupt_for_banker(
+                            cash,
+                            &self.selected_cards,
+                            banker,
+                            self.current_market.clone(),
+                        )?;
                         return Ok(pbp);
                     }
                 } else {

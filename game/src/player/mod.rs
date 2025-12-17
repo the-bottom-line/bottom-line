@@ -248,6 +248,7 @@ pub struct RegulatorSwapPlayer {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PayBankerPlayer {
+    pub paid_amount: u8,
     pub new_banker_cash: u8,
     pub new_target_cash: u8,
     pub target_id: PlayerId,

@@ -67,6 +67,7 @@ impl BankerTargetPlayer {
             }
 
             Ok(PayBankerPlayer {
+                paid_amount: cash,
                 new_banker_cash: banker.cash,
                 new_target_cash: self.cash,
                 target_id: self.id,

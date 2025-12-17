@@ -22,6 +22,7 @@ pub struct BankerTargetRound {
     pub(super) fired_characters: Vec<Character>,
     pub(super) gold_to_be_paid: u8,
     pub(super) selected_cards: SelectedAssetsAndLiabilities,
+    pub(super) is_final_round: bool,
 }
 
 impl BankerTargetRound {
@@ -147,6 +148,7 @@ impl BankerTargetRound {
     }
 }
 
+// TODO: use separate function that uses std::mem::take rather than clones
 impl From<&mut round::Round> for BankerTargetRound {
     fn from(round: &mut Round) -> Self {
         let color_array: Vec<Color> = round
@@ -155,7 +157,9 @@ impl From<&mut round::Round> for BankerTargetRound {
             .iter()
             .map(|a| a.color)
             .collect();
+
         let gtbp = color_array.iter().collect::<HashSet<_>>().len() as u8 + 1;
+
         Self {
             current_player: round.current_player,
             players: Players(round.players.iter().map(Into::into).collect()),
@@ -167,6 +171,7 @@ impl From<&mut round::Round> for BankerTargetRound {
             current_events: round.current_events.clone(),
             open_characters: round.open_characters.clone(),
             fired_characters: round.fired_characters.clone(),
+            is_final_round: round.is_final_round,
             gold_to_be_paid: gtbp,
             selected_cards: SelectedAssetsAndLiabilities {
                 assets: HashMap::new(),

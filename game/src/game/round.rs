@@ -591,6 +591,7 @@ impl From<&mut round::BankerTargetRound> for Round {
             current_events: btround.current_events.clone(),
             open_characters: btround.open_characters.clone(),
             fired_characters: btround.fired_characters.clone(),
+            is_final_round: btround.is_final_round,
             banker_target: None,
         }
     }

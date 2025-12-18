@@ -419,10 +419,11 @@ impl Round {
                     assets: p
                         .assets()
                         .iter()
-                        .map(|a| DivestAsset {
-                            asset: a.clone(),
+                        .enumerate()
+                        .map(|(i, a)| DivestAsset {
+                            asset_idx: i,
                             divest_cost: a.divest_cost(&self.current_market),
-                            is_divestable: a.color != Color::Red && a.color != Color::Green,
+                            is_divestable: a.color.is_divestable(),
                         })
                         .collect(),
                 })

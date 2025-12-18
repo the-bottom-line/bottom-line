@@ -271,6 +271,10 @@ pub enum DirectResponse {
     },
     /// Confirmation that this player divested an asset of another player.
     YouDivestedAnAsset {
+        /// The id of the player who is forced to divest one of their assets.
+        target_id: PlayerId,
+        /// The index of the asset they are forced to divest.
+        asset_idx: usize,
         /// The amount of gold it cost to divest this asset.
         gold_cost: u8,
     },
@@ -527,7 +531,7 @@ pub enum UniqueResponse {
         /// The id of the player who is forced to divest one of their assets.
         target_id: PlayerId,
         /// The index of the asset they are forced to divest.
-        card_idx: usize,
+        asset_idx: usize,
         /// The amount of gold the stakeholder paid to divest this asset.
         paid_gold: u8,
     },

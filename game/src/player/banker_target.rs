@@ -58,26 +58,30 @@ impl BankerTargetPlayer {
         };
         for (index, asset) in self.assets.clone().into_iter().enumerate() {
             if asset.market_value(&market) > 0 {
-                new_selected_cards
-                    .sold_assets
-                    .push(SoldAssetToPayBanker{asset_idx: index, market_value: asset.market_value(&market) as u8 });
+                new_selected_cards.sold_assets.push(SoldAssetToPayBanker {
+                    asset_idx: index,
+                    market_value: asset.market_value(&market) as u8,
+                });
             }
         }
         //get top 3 most valueble liabilities if player is CFO
         if self.character == Character::CFO {
             for (index, liability) in self
-            .hand
-            .clone()
-            .into_iter()
-            .filter(|l| l.is_right())
-            .enumerate()
-        {
-            if let Some(lib) = liability.right() {
-                new_selected_cards.issued_liabilities
-                .push(IssuedLiabilityToPayBanker { card_idx: index, liability: lib });
+                .hand
+                .clone()
+                .into_iter()
+                .filter(|l| l.is_right())
+                .enumerate()
+            {
+                if let Some(lib) = liability.right() {
+                    new_selected_cards
+                        .issued_liabilities
+                        .push(IssuedLiabilityToPayBanker {
+                            card_idx: index,
+                            liability: lib,
+                        });
+                }
             }
-        }
-
         }
         let mut len = new_selected_cards.issued_liabilities.iter().count();
 
@@ -102,16 +106,31 @@ impl BankerTargetPlayer {
         }
 
         // Sell assets and libilities for targeted player
-        let extra_asset_cash: u8 = new_selected_cards.sold_assets.iter().map(|s| s.market_value).sum();
-        let extra_liability_cash: u8 = new_selected_cards.issued_liabilities.iter().map(|l| l.liability.value).sum();
-        let mut asset_ids: Vec<usize> = new_selected_cards.sold_assets.iter().map(|s| s.asset_idx).collect();
+        let extra_asset_cash: u8 = new_selected_cards
+            .sold_assets
+            .iter()
+            .map(|s| s.market_value)
+            .sum();
+        let extra_liability_cash: u8 = new_selected_cards
+            .issued_liabilities
+            .iter()
+            .map(|l| l.liability.value)
+            .sum();
+        let mut asset_ids: Vec<usize> = new_selected_cards
+            .sold_assets
+            .iter()
+            .map(|s| s.asset_idx)
+            .collect();
         asset_ids.sort();
         for id in asset_ids.iter().rev() {
             self.assets.remove(*id);
         }
 
-        let mut liability_ids: Vec<usize> =
-            new_selected_cards.issued_liabilities.iter().map(|l| l.card_idx).collect();
+        let mut liability_ids: Vec<usize> = new_selected_cards
+            .issued_liabilities
+            .iter()
+            .map(|l| l.card_idx)
+            .collect();
         liability_ids.sort();
         for id in liability_ids.iter().rev() {
             self.hand.remove(*id);
@@ -132,7 +151,10 @@ impl BankerTargetPlayer {
                 selected_cards: new_selected_cards.clone(),
             })
         } else {
-            Err(PayBankerError::NotRightCashAmount { expected: total_available_cash, got: cash })
+            Err(PayBankerError::NotRightCashAmount {
+                expected: total_available_cash,
+                got: cash,
+            })
         }
     }
 

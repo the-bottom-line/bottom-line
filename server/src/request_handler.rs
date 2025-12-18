@@ -221,6 +221,7 @@ pub fn play_card(
                         p.id(),
                         vec![UniqueResponse::BoughtAsset {
                             player_id,
+                            card_idx,
                             asset: asset.clone(),
                             market_change: played_card.market.clone(),
                         }],
@@ -232,6 +233,7 @@ pub fn play_card(
                 InternalResponse(internal),
                 DirectResponse::YouBoughtAsset {
                     asset,
+                    card_idx,
                     market_change: played_card.market,
                 },
             ))
@@ -246,6 +248,7 @@ pub fn play_card(
                         p.id(),
                         vec![UniqueResponse::IssuedLiability {
                             player_id,
+                            card_idx,
                             liability: liability.clone(),
                         }],
                     )
@@ -254,7 +257,10 @@ pub fn play_card(
 
             Ok(Response(
                 InternalResponse(internal),
-                DirectResponse::YouIssuedLiability { liability },
+                DirectResponse::YouIssuedLiability {
+                    liability,
+                    card_idx,
+                },
             ))
         }
     }

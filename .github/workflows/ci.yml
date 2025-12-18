@@ -2,7 +2,7 @@ name: Rust CI
 
 on:
   push:
-    branches: [ main, staging, ci ]
+    branches: [ main, staging ]
   pull_request:
     branches: [ main, staging ]
 
@@ -35,7 +35,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings -A missing_docs
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Run game tests
         run: cargo test-game

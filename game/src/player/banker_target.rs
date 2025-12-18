@@ -261,7 +261,7 @@ impl BankerTargetPlayer {
             }
         } else {
             // TODO: use GameError::InvalidAssetIndex or self.asset(asset_idx)
-            Err(BankerTargetSelectError::InvalidAssetId)
+            Err(BankerTargetSelectError::InvalidAssetId(asset_id as u8))
         }
     }
 
@@ -279,7 +279,7 @@ impl BankerTargetPlayer {
             }
         } else {
             // TODO: use GameError::InvalidAssetIndex or self.asset(asset_idx)
-            Err(BankerTargetSelectError::InvalidAssetId)
+            Err(BankerTargetSelectError::InvalidAssetId(asset_id as u8))
         }
     }
 

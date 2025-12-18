@@ -64,7 +64,8 @@ impl BankerTargetPlayer {
             }
         }
         //get top 3 most valueble liabilities if player is CFO
-        for (index, liability) in self
+        if self.character == Character::CFO {
+            for (index, liability) in self
             .hand
             .clone()
             .into_iter()
@@ -75,6 +76,8 @@ impl BankerTargetPlayer {
                 new_selected_cards.issued_liabilities
                 .push(IssuedLiabilityToPayBanker { card_idx: index, liability: lib });
             }
+        }
+
         }
         let mut len = new_selected_cards.issued_liabilities.iter().count();
 
@@ -114,7 +117,7 @@ impl BankerTargetPlayer {
             self.hand.remove(*id);
             self.liabilities_to_play -= 1;
         }
-        let total_available_cash = extra_asset_cash + extra_asset_cash + self.cash;
+        let total_available_cash = extra_asset_cash + extra_liability_cash + self.cash;
         if total_available_cash < cash {
             //TODO Pay banker the maximum amount target can affort after selling
             banker.cash += total_available_cash;

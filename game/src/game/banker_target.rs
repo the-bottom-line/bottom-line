@@ -89,7 +89,7 @@ impl BankerTargetRound {
             .players
             .get_disjoint_mut([usize::from(player_id), usize::from(banker_id)])
         {
-            Ok([player, banker]) => {
+            Ok([player, banker]) => {     
                 if cash == self.gold_to_be_paid {
                     if self.can_pay_banker {
                         let pbp = player.pay_banker(cash, &self.selected_assets,

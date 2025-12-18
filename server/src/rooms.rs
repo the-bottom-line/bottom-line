@@ -97,6 +97,20 @@ impl RoomState {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
                 end_turn(state, player_id)
             }
+            FrontendRequest::Resync => {
+                match state {
+                    GameState::Round(round) => {
+                        let player_id = round.player_by_name(player_name)?.id();
+                        resync(state, player_id)
+                    }
+                    GameState::SelectingCharacters(round) => {
+                        let player_id = round.player_by_name(player_name)?.id();
+                        resync(state, player_id)
+                    }
+                    _ => Err(GameError::NotRoundState)
+                }
+                
+            }
         }
     }
 }

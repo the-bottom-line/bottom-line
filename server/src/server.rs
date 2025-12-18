@@ -1,7 +1,7 @@
 use game::{errors::GameError, game::GameState};
 use responses::*;
 
-use crate::{request_handler::Response, rooms::RoomState};
+use crate::{request_handler::{Response}, rooms::RoomState};
 
 use axum::{
     Router,
@@ -119,6 +119,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                                     Ok(p) => {
                                         username = p.name().to_owned();
                                         channel_idx = p.id().into();
+                                        tracing::debug!("Player rejoined: {:?}", p.id());
                                         break;
                                     }
                                     Err(e) => {
@@ -135,6 +136,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                                     Ok(p) => {
                                         username = p.name().to_owned();
                                         channel_idx = p.id().into();
+                                        tracing::debug!("Player rejoined: {:?}", p.id());
                                         break;
                                     }
                                     Err(e) => DirectResponse::from(GameError::from(e))
@@ -175,8 +177,8 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     };
     tracing::debug!("Targeted Response: {:?}", confirm);
     let _ = send_external(confirm, sender.clone()).await;
-
-    // announce join to everyone
+    let mut rejoin_message : Option<DirectResponse> = None;
+     // announce join to everyone
     match &*room.game.lock().unwrap() {
         GameState::Lobby(lobby) => {
             let internal = UniqueResponse::PlayersInLobby {
@@ -186,8 +188,16 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             tracing::debug!("Global Response: {:?}", internal);
             let _ = room.tx.send(internal);
         }
+        state @ GameState::Round(_) | state @ GameState::SelectingCharacters(_) => {
+            rejoin_message = Some(DirectResponse::YouRejoined)
+        }
         // TODO: handle joins after game starts
         _ => return,
+    }
+
+    if let Some(message) = &rejoin_message {
+        tracing::debug!("Sending rejoin message: {:?}", message);
+        let _ = send_external(message, sender.clone()).await;
     }
 
     // task: forward broadcast messages to this client
@@ -299,7 +309,9 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             let p = game.player_by_name(&username);
             match p {
                 Ok(player) => {
-                    game.leave(player.id());
+                    let id = player.id().clone();
+                    game.leave(id);
+                    tracing::debug!("Player left: {:?}", id);
                 }
                 Err(err) => {
                     //TODO: Error handling
@@ -310,7 +322,9 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             let p = game.player_by_name(&username);
             match p {
                 Ok(player) => {
-                    game.leave(player.id());
+                    let id = player.id().clone();
+                    game.leave(id);
+                    tracing::debug!("Player left: {:?}", id);
                 }
                 Err(err) => {
                     //TODO:: Error handling

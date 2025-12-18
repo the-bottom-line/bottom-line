@@ -97,6 +97,7 @@ pub enum FrontendRequest {
     },
     /// Tries to end the turn of this player.
     EndTurn,
+    Resync,
 }
 
 /// A response type that a player receives after performing an action. Can either be an error or
@@ -232,8 +233,11 @@ pub enum DirectResponse {
         /// The channel you're connected to.
         channel : String
     },
-    /// Rejoin information
-    YouRejoin {
+    /// Inform the client that they are rejoining
+    YouRejoined,
+
+    /// Deliver data to the client to sync them back to the game state
+    YouResynced {
         /// This player's personal id.
         id: PlayerId,
         /// The amount of cash this player gets.
@@ -428,6 +432,9 @@ pub enum UniqueResponse {
     GameEnded {
         /// A list of player scores.
         scores: Vec<PlayerScore>,
+    },
+    Rejoined {
+        player_id: PlayerId,
     },
 }
 

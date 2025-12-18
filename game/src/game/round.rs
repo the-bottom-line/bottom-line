@@ -518,10 +518,14 @@ impl Round {
     }
 
     /// Sets a player as disconnected
-    pub fn leave(&mut self, id: PlayerId) -> Result<&RoundPlayer, GameError> {
-        let player = self.players.player_mut(id)?;
-        player.set_is_human(false);
-        Ok(player)
+    pub fn leave(&mut self, id: PlayerId) -> bool {
+        match self.players.player_mut(id) {
+            Ok(player) => {
+                player.set_is_human(false);
+                return true;
+            }
+            Err(e) => return false
+        }
     }
 
     /// Allows a player to rejoin

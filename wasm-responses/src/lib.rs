@@ -135,6 +135,7 @@ impl CreateRequest {
                 card_idx,
             } => Self::divest_asset(target_player_id.0, card_idx),
             responses::FrontendRequest::EndTurn => Self::end_turn(),
+            responses::FrontendRequest::Resync => todo!(),
         };
     }
 }

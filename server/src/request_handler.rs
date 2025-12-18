@@ -562,6 +562,52 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
     }
 }
 
+pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameError>{
+    match state {
+        GameState::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
+        GameState::Results(_) => Err(GameError::NotAvailableInResultsState),
+        GameState::Round(round) => {
+            let player = round.player(player_id)?;
+            let internal = round
+                .players()
+                .iter()
+                .map(|p| (p.id(), vec![UniqueResponse::Rejoined{player_id : player_id.clone()}]))
+                .collect();
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouResynced {
+                    id : player.id(),
+                    cash : player.cash(),
+                    hand : player.hand().to_vec(),
+                    assets : player.assets().to_vec(),
+                    liabilities : player.liabilities().to_vec(),
+                    market : round.current_market().clone(),
+                    player_info : round.player_info(player_id),
+                }))
+        }
+        GameState::SelectingCharacters(round) => {
+            let player = round.player(player_id)?;
+            let internal = round
+                .players()
+                .iter()
+                .map(|p| (p.id(), vec![UniqueResponse::Rejoined{player_id : player_id.clone()}]))
+                .collect();
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouResynced {
+                    id : player.id(),
+                    cash : player.cash(),
+                    hand : player.hand().to_vec(),
+                    assets : player.assets().to_vec(),
+                    liabilities : player.liabilities().to_vec(),
+                    market : round.current_market().clone(),
+                    player_info : round.player_info(player_id),
+                }))
+        }
+
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

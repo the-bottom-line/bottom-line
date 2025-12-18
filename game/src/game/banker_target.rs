@@ -4,6 +4,10 @@ use either::Either;
 
 use crate::{errors::*, game::*, player::*};
 
+/// State containing all information related to the banker targeting state of the game. In the
+/// banker target stage, the player that was targeted can elect to issue liabilities and sell off
+/// assets at market value in order to raise cash to pay off the banker. Once they have paid off the
+/// banker, the game moves to a [`Results`] state.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BankerTargetRound {
     pub(super) current_player: PlayerId,
@@ -33,14 +37,19 @@ impl BankerTargetRound {
             .expect("self.current_player went out of bounds")
     }
 
+    /// Gets a player with a particular id
     pub fn player(&self, id: PlayerId) -> Result<&BankerTargetPlayer, GameError> {
         self.players.player(id)
     }
 
+    /// The banker gets paid one + one per different color asset their target owns. This function
+    /// Retrieves that amount of gold.
     pub fn gold_to_be_paid(&self) -> u8 {
         self.gold_to_be_paid
     }
 
+    /// This field checks whether or not a player can actually pay the banker with cash, by selling
+    /// assets or, if they are the CFO, issue liabilities.
     pub fn can_pay_banker(&self) -> bool {
         self.can_pay_banker
     }
@@ -225,6 +234,7 @@ impl BankerTargetRound {
 }
 
 // TODO: use separate function that uses std::mem::take rather than clones
+// TODO: refactor
 impl From<&mut Round> for BankerTargetRound {
     fn from(round: &mut Round) -> Self {
         let color_array: Vec<Color> = round

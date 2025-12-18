@@ -251,13 +251,21 @@ pub struct RegulatorSwapPlayer {
     pub liability_count: usize,
 }
 
+/// Utility struct that represents a player confirming their selection of assets and liabilities
+/// to issue to pay the banker.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PayBankerPlayer {
+    /// The total amount of gold paid to the banker.
     pub paid_amount: u8,
+    /// The new cash balance of the banker.
     pub new_banker_cash: u8,
+    /// The new cash balance of the player that was targeted by the banker.
     pub new_target_cash: u8,
+    /// The id of the player that was targeted by the banker.
     pub target_id: PlayerId,
+    /// The id of the player who is the banker.
     pub banker_id: PlayerId,
+    /// The selection of assets and liabilities to be played to pay the banker.
     pub selected_cards: SelectedAssetsAndLiabilities,
 }
 

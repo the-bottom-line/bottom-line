@@ -91,14 +91,18 @@ impl BankerTargetRound {
         {
             Ok([player, banker]) => {
                 if cash == self.gold_to_be_paid {
-                    let pbp = player.pay_banker(
-                        cash,
-                        &self.selected_assets,
-                        &self.selected_liabilities,
-                        banker,
-                    )?;
-
-                    Ok(pbp)
+                    if self.can_pay_banker {
+                        let pbp = player.pay_banker(cash, &self.selected_assets,
+                        &self.selected_liabilities, banker)?;
+                        return Ok(pbp);
+                    } else {
+                        let pbp = player.go_bankrupt_for_banker(
+                            cash,
+                            banker,
+                            self.current_market.clone(),
+                        )?;
+                        return Ok(pbp);
+                    }
                 } else {
                     Err(PayBankerError::NotRightCashAmount {
                         expected: self.gold_to_be_paid,

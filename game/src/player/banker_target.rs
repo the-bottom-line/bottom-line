@@ -1,6 +1,7 @@
 //! This file contains the implementation of [`BankerTargetPlayer`].
 
 use crate::{errors::*, game::*, player::*};
+
 use either::Either;
 use std::collections::{HashMap, hash_map::Entry};
 
@@ -43,6 +44,93 @@ impl BankerTargetPlayer {
     /// Gets the hand with cards of this player.
     pub fn hand(&self) -> &[Either<Asset, Liability>] {
         &self.hand
+    }
+    /// Pays the banker in the round with everything the player can afford
+    pub fn go_bankrupt_for_banker(
+        &mut self,
+        cash: u8,
+        banker: &mut BankerTargetPlayer,
+        market: Market,
+    ) -> Result<PayBankerPlayer, PayBankerError> {
+        let mut new_selected_cards: SelectedAssetsAndLiabilities = SelectedAssetsAndLiabilities {
+            sold_assets: vec![],
+            issued_liabilities: vec![],
+        };
+        for (index, asset) in self.assets.clone().into_iter().enumerate() {
+            if asset.market_value(&market) > 0 {
+                new_selected_cards
+                    .sold_assets
+                    .push(SoldAssetToPayBanker{asset_idx: index, market_value: asset.market_value(&market) as u8 });
+            }
+        }
+        //get top 3 most valueble liabilities if player is CFO
+        for (index, liability) in self
+            .hand
+            .clone()
+            .into_iter()
+            .filter(|l| l.is_right())
+            .enumerate()
+        {
+            if let Some(lib) = liability.right() {
+                new_selected_cards.issued_liabilities
+                .push(IssuedLiabilityToPayBanker { card_idx: index, liability: lib });
+            }
+        }
+        let mut len = new_selected_cards.issued_liabilities.iter().count();
+
+        if len > 3 {
+            len -= 3;
+        } else {
+            len = 0;
+        }
+        //remove smallest libilities if there are more as 3 in hand
+        for i in 0..len {
+            let mut smallest_k: usize = 100;
+            let mut smallest_v = 0;
+            let mut index = 0;
+            for (l) in &new_selected_cards.issued_liabilities {
+                if smallest_v < l.liability.value {
+                    smallest_v = l.liability.value;
+                    smallest_k = l.card_idx;
+                    index += 1;
+                }
+            }
+            new_selected_cards.issued_liabilities.remove(index);
+        }
+
+        // Sell assets and libilities for targeted player
+        let extra_asset_cash: u8 = new_selected_cards.sold_assets.iter().map(|s| s.market_value).sum();
+        let extra_liability_cash: u8 = new_selected_cards.issued_liabilities.iter().map(|l| l.liability.value).sum();
+        let mut asset_ids: Vec<usize> = new_selected_cards.sold_assets.iter().map(|s| s.asset_idx).collect();
+        asset_ids.sort();
+        for id in asset_ids.iter().rev() {
+            self.assets.remove(*id);
+        }
+
+        let mut liability_ids: Vec<usize> =
+            new_selected_cards.issued_liabilities.iter().map(|l| l.card_idx).collect();
+        liability_ids.sort();
+        for id in liability_ids.iter().rev() {
+            self.hand.remove(*id);
+            self.liabilities_to_play -= 1;
+        }
+        let total_available_cash = extra_asset_cash + extra_asset_cash + self.cash;
+        if total_available_cash < cash {
+            //TODO Pay banker the maximum amount target can affort after selling
+            banker.cash += total_available_cash;
+            self.cash = 0;
+
+            Ok(PayBankerPlayer {
+                paid_amount: total_available_cash,
+                new_banker_cash: banker.cash,
+                new_target_cash: self.cash,
+                target_id: self.id,
+                banker_id: banker.id,
+                selected_cards: new_selected_cards.clone(),
+            })
+        } else {
+            Err(PayBankerError::NotRightCashAmount { expected: total_available_cash, got: cash })
+        }
     }
 
     /// Pays the banker in the round the requested amount of gold

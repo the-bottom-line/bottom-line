@@ -20,6 +20,8 @@ pub struct Round {
     pub(super) current_events: Vec<Event>,
     pub(super) open_characters: Vec<Character>,
     pub(super) fired_characters: Vec<Character>,
+    pub(super) banker_target: Option<Character>,
+    pub(super) is_final_round: bool,
 }
 
 impl Round {
@@ -99,6 +101,10 @@ impl Round {
     pub fn open_characters(&self) -> &[Character] {
         &self.open_characters
     }
+    ///Gets the character who is currently targeted by the banker if one is available
+    pub fn banker_target(&self) -> Option<Character> {
+        self.banker_target
+    }
 
     /// Gets the [`PlayerInfo`] for each player, excluding the player that has the same id as `id`.
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
@@ -112,6 +118,11 @@ impl Round {
     /// Gets the current market
     pub fn current_market(&self) -> &Market {
         &self.current_market
+    }
+
+    /// Gets whether or not this is the final round
+    pub fn is_final_round(&self) -> bool {
+        self.is_final_round
     }
 
     /// Internally used function that checks whether a player with such an `id` exists, and whether
@@ -168,17 +179,37 @@ impl Round {
 
         match player.play_card(card_idx)? {
             Either::Left(asset) => {
+                if !self.is_final_round() && self.check_is_final_round() {
+                    // Keep the borrow checker happy
+                    let player = self.player_as_current_mut(id)?;
+                    player.enable_first_to_six_assets_bonus();
+                }
+
+                self.is_final_round = self.check_is_final_round();
+
                 let market = match self.should_refresh_market(old_max_bought_assets) {
                     true => Some(self.refresh_market()),
                     false => None,
                 };
-                let used_card = Either::Left(asset.clone());
-                Ok(PlayerPlayedCard { market, used_card })
+                let used_card = Either::Left(asset);
+                let is_final_round = self.is_final_round;
+
+                Ok(PlayerPlayedCard {
+                    market,
+                    used_card,
+                    is_final_round,
+                })
             }
             Either::Right(liability) => {
                 let market = None;
                 let used_card = Either::Right(liability);
-                Ok(PlayerPlayedCard { market, used_card })
+                let is_final_round = self.is_final_round;
+
+                Ok(PlayerPlayedCard {
+                    market,
+                    used_card,
+                    is_final_round,
+                })
             }
         }
     }
@@ -256,6 +287,20 @@ impl Round {
         let player = self.player_as_current_mut(id)?;
         let character = player.fire_character(character)?;
         self.fired_characters.push(character);
+        Ok(character)
+    }
+
+    /// This allows player with id `id` to fire a player who has character `character` if they are
+    /// the shareholder. If this is successful, the player who got fired will not play their turn
+    /// this round.
+    pub fn player_terminate_credit_character(
+        &mut self,
+        id: PlayerId,
+        character: Character,
+    ) -> Result<Character, GameError> {
+        let player = self.player_as_current_mut(id)?;
+        let character = player.terminate_credit(character)?;
+        self.banker_target = Some(character);
         Ok(character)
     }
 
@@ -429,7 +474,7 @@ impl Round {
                 };
 
                 Ok(Either::Left(turn_ended))
-            } else if !self.is_last_round() {
+            } else if !self.is_final_round() {
                 let maybe_ceo = self.player_from_character(Character::CEO);
                 let chairman_id = match maybe_ceo.map(|p| p.id()) {
                     Some(id) => id,
@@ -459,7 +504,6 @@ impl Round {
 
                 Ok(Either::Right(state))
             } else {
-                let final_market = std::mem::take(&mut self.current_market);
                 let final_events = std::mem::take(&mut self.current_events);
                 let players = std::mem::take(&mut self.players);
 
@@ -472,7 +516,6 @@ impl Round {
 
                 let state = GameState::Results(Results {
                     players,
-                    final_market,
                     final_events,
                 });
 
@@ -481,6 +524,12 @@ impl Round {
         } else {
             Err(GameError::PlayerShouldGiveBackCard)
         }
+    }
+
+    /// Checks whether someone has bought equal to or more assets than [`ASSETS_FOR_END_OF_GAME`].
+    /// If so, this should be the final round.
+    fn check_is_final_round(&self) -> bool {
+        self.max_bought_assets() >= ASSETS_FOR_END_OF_GAME
     }
 
     /// Returns the highest amount of assets of any player.
@@ -518,12 +567,6 @@ impl Round {
             }
         }
     }
-
-    /// Checks whether someone has bought equal to or more assets than [`ASSETS_FOR_END_OF_GAME`].
-    /// If so, this should be the final round.
-    fn is_last_round(&self) -> bool {
-        self.max_bought_assets() >= ASSETS_FOR_END_OF_GAME
-    }
 }
 
 /// Used to return the new hands for the regulator and its player target.
@@ -533,4 +576,23 @@ pub struct HandsAfterSwap {
     pub regulator_new_hand: Vec<Either<Asset, Liability>>,
     /// The new hand for the regulator's target
     pub target_new_hand: Vec<Either<Asset, Liability>>,
+}
+
+impl From<&mut BankerTargetRound> for Round {
+    fn from(btround: &mut BankerTargetRound) -> Self {
+        Self {
+            current_player: btround.current_player,
+            players: Players(btround.players.iter().map(Into::into).collect()),
+            assets: btround.assets.clone(),
+            liabilities: btround.liabilities.clone(),
+            markets: btround.markets.clone(),
+            chairman: btround.chairman,
+            current_market: btround.current_market.clone(),
+            current_events: btround.current_events.clone(),
+            open_characters: btround.open_characters.clone(),
+            fired_characters: btround.fired_characters.clone(),
+            is_final_round: btround.is_final_round,
+            banker_target: None,
+        }
+    }
 }

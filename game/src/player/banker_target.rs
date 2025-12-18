@@ -88,7 +88,7 @@ impl BankerTargetPlayer {
                 }
             }
         }
-        let mut len = new_selected_cards.issued_liabilities.iter().count();
+        let mut len = new_selected_cards.issued_liabilities.len();
 
         if len > 3 {
             len -= 3;

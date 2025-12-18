@@ -93,14 +93,14 @@ impl BankerTargetRound {
                             &self.selected_liabilities,
                             banker,
                         )?;
-                        return Ok(pbp);
+                        Ok(pbp)
                     } else {
                         let pbp = player.go_bankrupt_for_banker(
                             cash,
                             banker,
                             self.current_market.clone(),
                         )?;
-                        return Ok(pbp);
+                        Ok(pbp)
                     }
                 } else {
                     Err(PayBankerError::NotRightCashAmount {
@@ -230,7 +230,7 @@ impl From<&mut Round> for BankerTargetRound {
             .map(|a| a.color)
             .collect();
 
-        let gtbp = color_array.iter().collect::<HashSet<_>>().len() as u8 + 1;
+        let gold_to_be_paid = color_array.iter().collect::<HashSet<_>>().len() as u8 + 1;
         let asset_values: Vec<u8> = round
             .current_player()
             .assets()
@@ -274,8 +274,8 @@ impl From<&mut Round> for BankerTargetRound {
             open_characters: round.open_characters.clone(),
             fired_characters: round.fired_characters.clone(),
             is_final_round: round.is_final_round,
-            gold_to_be_paid: gtbp,
-            can_pay_banker: gtbp
+            gold_to_be_paid,
+            can_pay_banker: gold_to_be_paid
                 <= total_libility_value + total_asset_value + round.current_player().cash(),
             selected_assets: HashMap::new(),
             selected_liabilities: HashMap::new(),

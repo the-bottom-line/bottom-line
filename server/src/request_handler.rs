@@ -618,33 +618,37 @@ pub fn swap_with_player(
 
 pub fn divest_asset(
     state: &mut GameState,
-    player_id: PlayerId,
-    target_player_id: PlayerId,
+    stakeholder_id: PlayerId,
+    target_id: PlayerId,
     asset_idx: usize,
 ) -> Result<Response, GameError> {
     let round = state.round_mut()?;
 
-    match round.player_divest_asset(player_id, target_player_id, asset_idx) {
-        Ok(_c) => {
+    match round.player_divest_asset(stakeholder_id, target_id, asset_idx) {
+        Ok(gold_cost) => {
             let internal = round
                 .players()
                 .iter()
-                .filter(|p| p.id() != player_id)
+                .filter(|p| p.id() != stakeholder_id)
                 .map(|p| {
                     (
                         p.id(),
                         vec![UniqueResponse::AssetDivested {
-                            player_id,
-                            target_id: target_player_id,
-                            card_idx: asset_idx,
-                            paid_gold: _c,
+                            player_id: stakeholder_id,
+                            target_id,
+                            asset_idx,
+                            paid_gold: gold_cost,
                         }],
                     )
                 })
                 .collect();
             Ok(Response(
                 InternalResponse(internal),
-                DirectResponse::YouDivestedAnAsset { gold_cost: _c },
+                DirectResponse::YouDivestedAnAsset {
+                    target_id,
+                    asset_idx,
+                    gold_cost,
+                },
             ))
         }
         Err(e) => Err(e),

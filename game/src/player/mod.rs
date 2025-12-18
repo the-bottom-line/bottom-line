@@ -230,6 +230,11 @@ impl Color {
         Self::Yellow,
         Self::Blue,
     ];
+
+    /// Red and green are not divestable so they return false. True otherwise.
+    pub fn is_divestable(&self) -> bool {
+        !matches!(self, Self::Red | Self::Green) // note the !
+    }
 }
 
 /// Utility struct used to represent the amount of asset cards and liability cards a certain player
@@ -275,7 +280,7 @@ pub struct DivestPlayer {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DivestAsset {
     /// The asset in question.
-    pub asset: Asset,
+    pub asset_idx: usize,
     /// The cost of divisting this asset based.
     pub divest_cost: u8,
     /// Whether or not this asset is divestable.

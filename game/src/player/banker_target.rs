@@ -96,14 +96,15 @@ impl BankerTargetPlayer {
             len = 0;
         }
         //remove smallest libilities if there are more as 3 in hand
-        for i in 0..len {
-            let mut smallest_k: usize = 100;
+        // TODO: use smallest_k.
+        for _ in 0..len {
+            let mut _smallest_k: usize = 100;
             let mut smallest_v = 0;
             let mut index = 0;
-            for (l) in &new_selected_cards.issued_liabilities {
+            for l in &new_selected_cards.issued_liabilities {
                 if smallest_v < l.liability.value {
                     smallest_v = l.liability.value;
-                    smallest_k = l.card_idx;
+                    _smallest_k = l.card_idx;
                     index += 1;
                 }
             }

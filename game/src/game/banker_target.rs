@@ -67,20 +67,6 @@ impl BankerTargetRound {
             .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
     }
 
-    /// Internally used function that checks whether a player with such an `id` exists, and whether
-    /// that player is actually the current player. If this is the case, a mutable reference to the
-    /// player is returned.
-    fn player_as_current_mut(
-        &mut self,
-        id: PlayerId,
-    ) -> Result<&mut BankerTargetPlayer, GameError> {
-        match self.players.player_mut(id) {
-            Ok(player) if player.id() == self.current_player => Ok(player),
-            Ok(_) => Err(GameError::NotPlayersTurn),
-            Err(e) => Err(e),
-        }
-    }
-
     /// function to pay the banker and switch game back to a normal round state
     pub fn player_pay_banker(
         &mut self,

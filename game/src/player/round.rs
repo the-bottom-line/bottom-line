@@ -453,7 +453,7 @@ impl RoundPlayer {
     }
 
     /// Gets the amount of cash this player gets to start their turn.
-    pub fn turn_start_cash(&self) -> i16 {
+    pub fn turn_start_cash(&self) -> u8 {
         1
     }
 
@@ -484,17 +484,24 @@ impl RoundPlayer {
     }
 
     /// Gets the total amount of cash this player receives at the start of their turn.
-    pub fn turn_cash(&self, current_market: &Market) -> u8 {
-        let start = self.turn_start_cash();
+    pub fn turn_cash(&self) -> u8 {
+        self.turn_start_cash()
+    }
+
+    /// Get bonus gold a player can get on their turn based on their characters collor and their bought assets
+    pub fn get_bonus_cash_character(&self, current_market: &Market) -> u8 {
         let asset_bonus = self.asset_bonus();
         let market_condition_bonus = self.market_condition_bonus(current_market);
-
-        (start + asset_bonus * (market_condition_bonus + 1)) as u8
+        if asset_bonus - market_condition_bonus < 0 {
+            return 0
+        }else {
+            return  (asset_bonus - market_condition_bonus) as u8;
+        }
     }
 
     /// Starts this player's turn by givinig them their turn gold.
-    pub(crate) fn start_turn(&mut self, current_market: &Market) {
-        self.cash += self.turn_cash(current_market);
+    pub(crate) fn start_turn(&mut self) {
+        self.cash += self.turn_cash();
     }
 }
 

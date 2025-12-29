@@ -465,7 +465,7 @@ impl Round {
             if let Some(id) = self.next_player().map(|p| p.id()) {
                 let player = self.players.player_mut(id)?;
 
-                player.start_turn(&self.current_market);
+                player.start_turn();
 
                 self.current_player = player.id();
 

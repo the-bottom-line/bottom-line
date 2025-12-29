@@ -150,7 +150,7 @@ impl SelectingCharacters {
                     round
                         .players
                         .player_mut(current_player)?
-                        .start_turn(&round.current_market);
+                        .start_turn();
 
                     Ok(Some(GameState::Round(round)))
                 } else {

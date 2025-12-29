@@ -301,7 +301,7 @@ fn turn_starts(round: &Round) -> UniqueResponse {
 
     UniqueResponse::TurnStarts {
         player_turn: current_player.id(),
-        player_turn_cash: current_player.turn_cash(round.current_market()),
+        player_turn_cash: current_player.turn_cash(),
         player_character: current_player.character(),
         draws_n_cards: current_player.draws_n_cards(),
         gives_back_n_cards: current_player.gives_back_n_cards(),

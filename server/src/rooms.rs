@@ -76,6 +76,10 @@ impl RoomState {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
                 use_ability(state, player_id)
             }
+            FrontendRequest::GetBonusCash => {
+                let player_id = state.round()?.player_by_name(player_name)?.id();
+                get_bonus_cash(state, player_id)
+            }
             FrontendRequest::FireCharacter { character } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
                 fire_character(state, player_id, character)

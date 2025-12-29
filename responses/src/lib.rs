@@ -67,6 +67,8 @@ pub enum FrontendRequest {
     },
     /// Tries to use the ability for this player.
     UseAbility,
+    /// Get characters bonus gold only once per turn,
+    GetBonusCash,
     /// Tries to fire a particular character by this player.
     FireCharacter {
         /// The character that is to be fired.
@@ -247,6 +249,11 @@ pub enum DirectResponse {
         character: Character,
         /// A string containing information about what this player is allowed to do.
         perk: String,
+    },
+    /// Confirmation you received your bonus cash and how much.
+    YouBonusCash {
+        /// The amount of cash received
+        cash: u8,
     },
     /// Confirmation that this player bought an asset.
     YouBoughtAsset {
@@ -482,6 +489,13 @@ pub enum UniqueResponse {
         player_id: PlayerId,
         /// The index of the liability this player redeemed.
         liability_idx: usize,
+    },
+    /// Player got their characters bonus gold.
+    PlayerGotBonusCash {
+        /// PlayerId of the player who got the bonus gold.
+        player_id: PlayerId,
+        /// Amount of gold the player receiced.
+        cash: u8,
     },
     /// Sent when the shareholder is in the process of firing someone.
     ShareholderIsFiring {},

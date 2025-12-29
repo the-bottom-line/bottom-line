@@ -64,6 +64,10 @@ pub enum GameError {
     #[error(transparent)]
     DivestAsset(#[from] DivestAssetError),
 
+    /// Errors related to getting bonus gold
+    #[error(transparent)]
+    GetBonusCash(#[from] GetBonusCashError),
+
     /// Errors related to the asset abilities
     #[error(transparent)]
     CardAbility(#[from] AssetAbilityError),
@@ -211,6 +215,21 @@ pub enum GiveBackCardError {
     #[error("Player does not have to give back card")]
     Unnecessary,
 }
+
+/// Errors related to getting bonus gold
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
+pub enum GetBonusCashError {
+    /// The given character cannot be fired.
+    #[error("Character does not have a bonus color")]
+    InvalidCharacter,
+
+    /// Player has already gotten bonus cash this turn.
+    #[error("Player has already gotten bonus cash this turn")]
+    AlreadyGottenBonusCashThisTurn,
+}
+
 
 /// Errors related to firing a character.
 #[cfg_attr(feature = "ts", derive(TS))]

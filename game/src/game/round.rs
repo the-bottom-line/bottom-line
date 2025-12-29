@@ -275,6 +275,16 @@ impl Round {
             }
         }
     }
+    /// Gets players bonus cash based on their characters color. If successfull returns gold.
+    pub fn player_get_bonus_cash_character(
+        &mut self,
+        player_id: PlayerId,
+    ) -> Result<u8, GameError>{
+        let market = &self.current_market.clone();
+        let player = self.player_as_current_mut(player_id)?;
+        let cash = player.get_bonus_cash_character(market)?;
+        Ok(cash)
+    }
 
     /// This allows player with id `id` to fire a player who has character `character` if they are
     /// the shareholder. If this is successful, the player who got fired will not play their turn

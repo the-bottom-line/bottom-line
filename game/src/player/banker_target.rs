@@ -320,6 +320,7 @@ impl From<BankerTargetPlayer> for RoundPlayer {
             total_cards_drawn: 0,
             total_cards_given_back: 0,
             has_used_ability: false,
+            has_gotten_bonus_cash: false,
             was_first_to_six_assets: false,
         }
     }

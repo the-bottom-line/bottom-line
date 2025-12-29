@@ -24,6 +24,7 @@ pub struct RoundPlayer {
     pub(super) total_cards_drawn: u8,
     pub(super) total_cards_given_back: u8,
     pub(super) has_used_ability: bool,
+    pub(super) has_gotten_bonus_cash: bool,
     pub(super) was_first_to_six_assets: bool,
 }
 
@@ -488,14 +489,22 @@ impl RoundPlayer {
         self.turn_start_cash()
     }
 
-    /// Get bonus gold a player can get on their turn based on their characters collor and their bought assets
-    pub fn get_bonus_cash_character(&self, current_market: &Market) -> u8 {
+    /// Get bonus gold a player can get on their turn based on their characters color and their bought assets
+    pub fn get_bonus_cash_character(&mut self, current_market: &Market) -> Result<u8, GetBonusCashError> {
+        if self.has_gotten_bonus_cash {
+            return Err(GetBonusCashError::AlreadyGottenBonusCashThisTurn)
+        }
+        if self.character.color() == None {
+            return Err(GetBonusCashError::InvalidCharacter)
+        }
         let asset_bonus = self.asset_bonus();
         let market_condition_bonus = self.market_condition_bonus(current_market);
         if asset_bonus - market_condition_bonus < 0 {
-            return 0
+            self.has_gotten_bonus_cash = true;
+            Ok(0)
         }else {
-            return  (asset_bonus - market_condition_bonus) as u8;
+            self.has_gotten_bonus_cash = true;
+            Ok((asset_bonus - market_condition_bonus) as u8)
         }
     }
 
@@ -528,6 +537,7 @@ impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
                     bonus_draw_cards: 0,
                     total_cards_given_back: 0,
                     has_used_ability: false,
+                    has_gotten_bonus_cash: false,
                     was_first_to_six_assets: false,
                 })
             }
@@ -585,6 +595,7 @@ impl From<&BankerTargetPlayer> for RoundPlayer {
             total_cards_drawn: 0,
             total_cards_given_back: 0,
             has_used_ability: false,
+            has_gotten_bonus_cash: false,
             was_first_to_six_assets: player.was_first_to_six_assets,
         }
     }
@@ -820,6 +831,7 @@ pub(super) mod tests {
             Err(FireCharacterError::AlreadyFiredThisTurn)
         );
     }
+    
 
     #[test]
     fn fire_character_not_shareholder() {

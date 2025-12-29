@@ -134,6 +134,36 @@ pub fn use_ability(state: &mut GameState, player_id: PlayerId) -> Result<Respons
     }
 }
 
+pub fn get_bonus_cash(
+    state: &mut GameState,
+    player_id: PlayerId,
+) -> Result<Response, GameError>{
+    let round = state.round_mut()?;
+    let bonus_cash  = round.player_get_bonus_cash_character(player_id)?;
+
+    let internal = round
+        .players()
+        .iter()
+        .filter(|p| p.id() != player_id)
+        .map(|p| {
+            (
+                p.id(),
+                vec![UniqueResponse::PlayerGotBonusCash { 
+                    player_id,
+                    cash: bonus_cash,
+                }],
+            )
+        })
+        .collect();
+
+    Ok(Response(
+        InternalResponse(internal),
+        DirectResponse::YouBonusCash { 
+            cash: bonus_cash,
+        },
+    ))
+}
+
 pub fn draw_card(
     state: &mut GameState,
     card_type: CardType,

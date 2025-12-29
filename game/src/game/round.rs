@@ -279,7 +279,7 @@ impl Round {
     pub fn player_get_bonus_cash_character(
         &mut self,
         player_id: PlayerId,
-    ) -> Result<u8, GameError>{
+    ) -> Result<u8, GameError> {
         let market = &self.current_market.clone();
         let player = self.player_as_current_mut(player_id)?;
         let cash = player.get_bonus_cash_character(market)?;

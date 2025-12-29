@@ -230,7 +230,6 @@ pub enum GetBonusCashError {
     AlreadyGottenBonusCashThisTurn,
 }
 
-
 /// Errors related to firing a character.
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]

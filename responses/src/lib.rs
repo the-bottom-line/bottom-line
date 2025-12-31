@@ -252,6 +252,8 @@ pub enum DirectResponse {
     YouBoughtAsset {
         /// The asset this player bought.
         asset: Asset,
+        /// The index of the asset in the player's hand this player bought.
+        card_idx: usize,
         /// If the market changed, a list of events and a new market is returned.
         market_change: Option<MarketChange>,
     },
@@ -259,6 +261,8 @@ pub enum DirectResponse {
     YouIssuedLiability {
         /// The liability the player issued.
         liability: Liability,
+        /// The index of the liability in the player's hand this player issued.
+        card_idx: usize,
     },
     /// Confirmation that this player
     YouAreFiringSomeone {
@@ -271,6 +275,10 @@ pub enum DirectResponse {
     },
     /// Confirmation that this player divested an asset of another player.
     YouDivestedAnAsset {
+        /// The id of the player who is forced to divest one of their assets.
+        target_id: PlayerId,
+        /// The index of the asset they are forced to divest.
+        asset_idx: usize,
         /// The amount of gold it cost to divest this asset.
         gold_cost: u8,
     },
@@ -453,6 +461,8 @@ pub enum UniqueResponse {
         player_id: PlayerId,
         /// The asset this player bought.
         asset: Asset,
+        /// The index of the asset in the player's hand that the player bought.
+        card_idx: usize,
         /// If buying the asset changed the market, sends a list of events as well as the new
         /// market.
         market_change: Option<MarketChange>,
@@ -463,6 +473,8 @@ pub enum UniqueResponse {
         player_id: PlayerId,
         /// The liability this player issued.
         liability: Liability,
+        /// The index of the liability in the player's hand that the player issued.
+        card_idx: usize,
     },
     /// Sent when a player
     RedeemedLiability {
@@ -527,7 +539,7 @@ pub enum UniqueResponse {
         /// The id of the player who is forced to divest one of their assets.
         target_id: PlayerId,
         /// The index of the asset they are forced to divest.
-        card_idx: usize,
+        asset_idx: usize,
         /// The amount of gold the stakeholder paid to divest this asset.
         paid_gold: u8,
     },

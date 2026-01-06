@@ -230,6 +230,11 @@ impl Color {
         Self::Yellow,
         Self::Blue,
     ];
+
+    /// Red and green are not divestable so they return false. True otherwise.
+    pub fn is_divestable(&self) -> bool {
+        !matches!(self, Self::Red | Self::Green) // note the !
+    }
 }
 
 /// Utility struct used to represent the amount of asset cards and liability cards a certain player
@@ -246,13 +251,22 @@ pub struct RegulatorSwapPlayer {
     pub liability_count: usize,
 }
 
-#[cfg_attr(feature = "ts", derive(TS))]
-#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+/// Utility struct that represents a player confirming their selection of assets and liabilities
+/// to issue to pay the banker.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PayBankerPlayer {
-    pub cash: u8,
+    /// The total amount of gold paid to the banker.
+    pub paid_amount: u8,
+    /// The new cash balance of the banker.
+    pub new_banker_cash: u8,
+    /// The new cash balance of the player that was targeted by the banker.
+    pub new_target_cash: u8,
+    /// The id of the player that was targeted by the banker.
     pub target_id: PlayerId,
+    /// The id of the player who is the banker.
     pub banker_id: PlayerId,
+    /// The selection of assets and liabilities to be played to pay the banker.
+    pub selected_cards: SelectedAssetsAndLiabilities,
 }
 
 /// Utility struct used to represent each asset that can be divested from a player including the
@@ -274,7 +288,7 @@ pub struct DivestPlayer {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DivestAsset {
     /// The asset in question.
-    pub asset: Asset,
+    pub asset_idx: usize,
     /// The cost of divisting this asset based.
     pub divest_cost: u8,
     /// Whether or not this asset is divestable.

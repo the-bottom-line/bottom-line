@@ -76,6 +76,10 @@ impl RoomState {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
                 use_ability(state, player_id)
             }
+            FrontendRequest::GetBonusCash => {
+                let player_id = state.round()?.player_by_name(player_name)?.id();
+                get_bonus_cash(state, player_id)
+            }
             FrontendRequest::FireCharacter { character } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
                 fire_character(state, player_id, character)
@@ -83,6 +87,22 @@ impl RoomState {
             FrontendRequest::TerminateCreditCharacter { character } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
                 terminate_credit_character(state, player_id, character)
+            }
+            FrontendRequest::SelectAssetToDivest { asset_id } => {
+                let player_id = state.bankertarget()?.player_by_name(player_name)?.id();
+                select_divest_asset(state, player_id, asset_id)
+            }
+            FrontendRequest::UnselectAssetToDivest { asset_id } => {
+                let player_id = state.bankertarget()?.player_by_name(player_name)?.id();
+                unselect_divest_asset(state, player_id, asset_id)
+            }
+            FrontendRequest::SelectLiabilityToIssue { liability_id } => {
+                let player_id = state.bankertarget()?.player_by_name(player_name)?.id();
+                select_issue_liability(state, player_id, liability_id)
+            }
+            FrontendRequest::UnselectLiabilityToIssue { liability_id } => {
+                let player_id = state.bankertarget()?.player_by_name(player_name)?.id();
+                unselect_issue_liability(state, player_id, liability_id)
             }
             FrontendRequest::PayBanker { cash } => {
                 let player_id = state.bankertarget()?.player_by_name(player_name)?.id();

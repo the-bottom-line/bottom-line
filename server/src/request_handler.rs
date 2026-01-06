@@ -134,6 +134,31 @@ pub fn use_ability(state: &mut GameState, player_id: PlayerId) -> Result<Respons
     }
 }
 
+pub fn get_bonus_cash(state: &mut GameState, player_id: PlayerId) -> Result<Response, GameError> {
+    let round = state.round_mut()?;
+    let bonus_cash = round.player_get_bonus_cash_character(player_id)?;
+
+    let internal = round
+        .players()
+        .iter()
+        .filter(|p| p.id() != player_id)
+        .map(|p| {
+            (
+                p.id(),
+                vec![UniqueResponse::PlayerGotBonusCash {
+                    player_id,
+                    cash: bonus_cash,
+                }],
+            )
+        })
+        .collect();
+
+    Ok(Response(
+        InternalResponse(internal),
+        DirectResponse::YouBonusCash { cash: bonus_cash },
+    ))
+}
+
 pub fn draw_card(
     state: &mut GameState,
     card_type: CardType,
@@ -301,7 +326,7 @@ fn turn_starts(round: &Round) -> UniqueResponse {
 
     UniqueResponse::TurnStarts {
         player_turn: current_player.id(),
-        player_turn_cash: current_player.turn_cash(round.current_market()),
+        player_turn_cash: current_player.turn_cash(),
         player_character: current_player.character(),
         draws_n_cards: current_player.draws_n_cards(),
         gives_back_n_cards: current_player.gives_back_n_cards(),
@@ -618,6 +643,7 @@ pub fn swap_with_player(
         InternalResponse(internal),
         DirectResponse::YouSwapPlayer {
             new_cards: hands.regulator_new_hand,
+            target_player_id,
         },
     ))
 }

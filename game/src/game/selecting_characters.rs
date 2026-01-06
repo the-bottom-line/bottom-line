@@ -147,10 +147,7 @@ impl SelectingCharacters {
                         is_final_round: false,
                     };
 
-                    round
-                        .players
-                        .player_mut(current_player)?
-                        .start_turn(&round.current_market);
+                    round.players.player_mut(current_player)?.start_turn();
 
                     Ok(Some(GameState::Round(round)))
                 } else {

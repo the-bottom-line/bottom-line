@@ -37,7 +37,7 @@ impl BankerTargetRound {
             .expect("self.current_player went out of bounds")
     }
 
-    /// Gets a player with a particular id
+    /// Get a refrence to a bankertarget player by playerid
     pub fn player(&self, id: PlayerId) -> Result<&BankerTargetPlayer, GameError> {
         self.players.player(id)
     }

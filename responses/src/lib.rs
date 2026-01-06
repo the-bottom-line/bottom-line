@@ -67,6 +67,8 @@ pub enum FrontendRequest {
     },
     /// Tries to use the ability for this player.
     UseAbility,
+    /// Get characters bonus gold only once per turn,
+    GetBonusCash,
     /// Tries to fire a particular character by this player.
     FireCharacter {
         /// The character that is to be fired.
@@ -228,6 +230,8 @@ pub enum DirectResponse {
         )]
         #[serde(with = "serde_asset_liability::vec")]
         new_cards: Vec<Either<Asset, Liability>>,
+        /// The id of the player you swapped cards with
+        target_player_id: PlayerId,
     },
     /// Confirmation that this player is now forcing another player to divest.
     YouAreDivesting {
@@ -264,6 +268,11 @@ pub enum DirectResponse {
         character: Character,
         /// A string containing information about what this player is allowed to do.
         perk: String,
+    },
+    /// Confirmation you received your bonus cash and how much.
+    YouBonusCash {
+        /// The amount of cash received
+        cash: u8,
     },
     /// Confirmation that this player bought an asset.
     YouBoughtAsset {
@@ -446,7 +455,7 @@ pub enum UniqueResponse {
         /// A list of characters which were called but were not available.
         skipped_characters: Vec<Character>,
     },
-    /// Sent when a player is targeted by the banker.
+    /// Sent when a player is targed by the banker on their turn
     PlayerTargetedByBanker {
         /// Id of the player whose turn it is.
         player_turn: PlayerId,
@@ -504,6 +513,13 @@ pub enum UniqueResponse {
         player_id: PlayerId,
         /// The index of the liability this player redeemed.
         liability_idx: usize,
+    },
+    /// Player got their characters bonus gold.
+    PlayerGotBonusCash {
+        /// PlayerId of the player who got the bonus gold.
+        player_id: PlayerId,
+        /// Amount of gold the player receiced.
+        cash: u8,
     },
     /// Sent when the shareholder is in the process of firing someone.
     ShareholderIsFiring {},

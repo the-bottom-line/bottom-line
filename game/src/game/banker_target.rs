@@ -89,14 +89,14 @@ impl BankerTargetRound {
                             &self.selected_liabilities,
                             banker,
                         )?;
-                        return Ok(pbp);
+                        Ok(pbp)
                     } else {
                         let pbp = player.go_bankrupt_for_banker(
                             cash,
                             banker,
                             self.current_market.clone(),
                         )?;
-                        return Ok(pbp);
+                        Ok(pbp)
                     }
                 } else {
                     Err(PayBankerError::NotRightCashAmount {

@@ -643,7 +643,7 @@ pub fn swap_with_player(
         InternalResponse(internal),
         DirectResponse::YouSwapPlayer {
             new_cards: hands.regulator_new_hand,
-            target_player_id: target_player_id,
+            target_player_id,
         },
     ))
 }

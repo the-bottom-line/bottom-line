@@ -497,7 +497,7 @@ impl RoundPlayer {
         if self.has_gotten_bonus_cash {
             return Err(GetBonusCashError::AlreadyGottenBonusCashThisTurn);
         }
-        if self.character.color() == None {
+        if self.character.color().is_none() {
             return Err(GetBonusCashError::InvalidCharacter);
         }
         let asset_bonus = self.asset_bonus();

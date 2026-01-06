@@ -229,6 +229,8 @@ pub enum DirectResponse {
         )]
         #[serde(with = "serde_asset_liability::vec")]
         new_cards: Vec<Either<Asset, Liability>>,
+        /// The id of the player you swapped cards with
+        target_player_id: PlayerId,
     },
     /// Confirmation that this player is now forcing another player to divest.
     YouAreDivesting {

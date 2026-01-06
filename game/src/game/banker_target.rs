@@ -4,6 +4,9 @@ use either::Either;
 
 use crate::{errors::*, game::*, player::*};
 
+
+/// State containing all information related to the banker target stage of the game. In this state
+/// a player can oly take actions related to paying back the banker.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BankerTargetRound {
     pub(super) current_player: PlayerId,
@@ -33,14 +36,17 @@ impl BankerTargetRound {
             .expect("self.current_player went out of bounds")
     }
 
+    /// Get a refrence to a bankertarget player by playerid
     pub fn player(&self, id: PlayerId) -> Result<&BankerTargetPlayer, GameError> {
         self.players.player(id)
     }
 
+    /// Get the amount of gold the banker target needs to pay to the banker this round
     pub fn gold_to_be_paid(&self) -> u8 {
         self.gold_to_be_paid
     }
 
+    /// Get a boolean to indicate if it is possilble at all to pay back the banker
     pub fn can_pay_banker(&self) -> bool {
         self.can_pay_banker
     }
@@ -58,19 +64,6 @@ impl BankerTargetRound {
             .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
     }
 
-    /// Internally used function that checks whether a player with such an `id` exists, and whether
-    /// that player is actually the current player. If this is the case, a mutable reference to the
-    /// player is returned.
-    fn player_as_current_mut(
-        &mut self,
-        id: PlayerId,
-    ) -> Result<&mut BankerTargetPlayer, GameError> {
-        match self.players.player_mut(id) {
-            Ok(player) if player.id() == self.current_player => Ok(player),
-            Ok(_) => Err(GameError::NotPlayersTurn),
-            Err(e) => Err(e),
-        }
-    }
 
     /// function to pay the banker and switch game back to a normal round state
     pub fn player_pay_banker(

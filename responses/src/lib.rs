@@ -79,16 +79,24 @@ pub enum FrontendRequest {
         /// The character who's credit line will be terminated.
         character: Character,
     },
+    /// Tries to select an asset to later divest when targeted by the banker
     SelectAssetToDivest {
+        /// Asset index of the asset to select
         asset_id: usize,
     },
+    ///  Tries to unselect an asset to later divest when targeted by the banker
     UnselectAssetToDivest {
+        /// Asset index of the asset to unselect
         asset_id: usize,
     },
+    /// Tries to select an liability to later issue when targeted by the banker
     SelectLiabilityToIssue {
+        /// Liability index of the asset in hand
         liability_id: usize,
     },
+    /// Tries to unselect an liability to later issue when targeted by the banker
     UnselectLiabilityToIssue {
+        /// Liability index of the asset in hand
         liability_id: usize,
     },
     /// Tries to send cash to the banker when player is targeted
@@ -180,14 +188,22 @@ pub enum DirectResponse {
     YouPaidBanker {
         /// The amount of gold paid
         banker_id: PlayerId,
+        /// The new cash amount of the banker
         new_banker_cash: u8,
+        /// The players new cash amount
         your_new_cash: u8,
+        /// The amount of cash you paid
         paid_amount: u8,
+        /// A list of assets you divested to pay the banker
         sold_assets: Vec<SoldAssetToPayBanker>,
+        /// A list of the Liabilities you issued to pay the banker
         issued_liabilities: Vec<IssuedLiabilityToPayBanker>,
     },
+    /// Confirmation you selected a card to divest or issue when paying back the banker
     YouSelectCardBankerTarget {
+        /// List of all assets currently selected
         assets: Vec<SoldAssetToPayBanker>,
+        /// List of all liabilities currently selected
         liabilities: Vec<IssuedLiabilityToPayBanker>,
     },
     /// Confirmation that this player was succesful in getting regulator options
@@ -436,6 +452,7 @@ pub enum UniqueResponse {
         /// A list of characters which were called but were not available.
         skipped_characters: Vec<Character>,
     },
+    /// Sent when a player is targed by the banker on their turn
     PlayerTargetedByBanker {
         /// Id of the player whose turn it is
         player_turn: PlayerId,
@@ -444,8 +461,11 @@ pub enum UniqueResponse {
         /// Amount of Cash to be paid to Banker
         is_possible_to_pay_banker: bool,
     },
+    /// Sent to show what cards a player is selecting when trying to pay back the banker
     SelectedCardsBankerTarget {
+        /// List of assets selected to diivest
         assets: Vec<SoldAssetToPayBanker>,
+        /// Amount of liabilities selected to divest. other players don't know the specific cards yet
         liability_count: usize,
     },
     /// Sent when someone drew a card.
@@ -513,13 +533,21 @@ pub enum UniqueResponse {
         /// The character who's credit line was terminated.
         character: Character,
     },
+    /// Sent when a player paid back the banker
     PlayerPaidBanker {
+        /// Player id of the banker
         banker_id: PlayerId,
+        /// Player id of the target
         player_id: PlayerId,
+        /// The new amount of cash for the banker
         new_banker_cash: u8,
+        /// The new amount of cash for the target
         new_target_cash: u8,
+        /// The amoutn of cash wich was paid
         paid_amount: u8,
+        /// List of assets divested by target player
         sold_assets: Vec<SoldAssetToPayBanker>,
+        /// List of issued liabilities by target player
         issued_liabilities: Vec<IssuedLiabilityToPayBanker>,
     },
     /// Sent when the regulator swapped their hand with this player.

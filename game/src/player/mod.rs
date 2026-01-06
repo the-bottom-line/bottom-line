@@ -251,13 +251,20 @@ pub struct RegulatorSwapPlayer {
     pub liability_count: usize,
 }
 
+/// Utility struct to contain all in case a player is paying back the banker
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PayBankerPlayer {
+    /// The paid cash
     pub paid_amount: u8,
+    /// The new amount of cash of the banker
     pub new_banker_cash: u8,
+    /// The new amount of cash of the target
     pub new_target_cash: u8,
+    /// The player id of the target
     pub target_id: PlayerId,
+    /// The player id of the banker
     pub banker_id: PlayerId,
+    /// A struct containing a list of selected cards
     pub selected_cards: SelectedAssetsAndLiabilities,
 }
 

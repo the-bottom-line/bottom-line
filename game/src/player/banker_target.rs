@@ -5,7 +5,8 @@ use crate::{errors::*, game::*, player::*};
 use either::Either;
 use std::collections::{HashMap, hash_map::Entry};
 
-/// The player struct corosponding to the banker target state of the game
+/// The player type that corresponds to the [`BankerTargetRound`](crate::game::BankerTargetRound)
+/// stage of the game.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BankerTargetPlayer {
     pub(super) id: PlayerId,
@@ -46,7 +47,10 @@ impl BankerTargetPlayer {
     pub fn hand(&self) -> &[Either<Asset, Liability>] {
         &self.hand
     }
-    /// Pays the banker in the round with everything the player can afford
+
+    /// Pays the banker in the round with everything the player owns that are worth anything. This
+    /// means that this function ignores assets that are worth zero or negative cash in the current
+    /// market.
     pub fn go_bankrupt_for_banker(
         &mut self,
         cash: u8,
@@ -254,7 +258,7 @@ impl BankerTargetPlayer {
             }
         } else {
             // TODO: use GameError::InvalidAssetIndex or self.asset(asset_idx)
-            Err(BankerTargetSelectError::InvalidAssetId)
+            Err(BankerTargetSelectError::InvalidAssetId(asset_id as u8))
         }
     }
 
@@ -272,7 +276,7 @@ impl BankerTargetPlayer {
             }
         } else {
             // TODO: use GameError::InvalidAssetIndex or self.asset(asset_idx)
-            Err(BankerTargetSelectError::InvalidAssetId)
+            Err(BankerTargetSelectError::InvalidAssetId(asset_id as u8))
         }
     }
 

@@ -289,36 +289,47 @@ pub enum TerminateCreditCharacterError {
     AlreadyFiredThisTurn,
 }
 
-/// Errors releated to selecting cards to divest or issue by banker target
+/// Errors related to selecting assets or liabilities when paying off the banker.
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
 pub enum BankerTargetSelectError {
-    /// Value of the asset is 0 or less
+    /// The selected asset has no value in the current market and therefore cannot be used to pay
+    /// off the banker.
     #[error("Asset is not worth anything in the current market")]
     AssetValueToLow,
-    /// Asset is already in selected asset list
+
+    /// The asset was already added to the list of selected assets and cannot be selected again.
     #[error("Asset is already in selected asset list")]
     AssetAlreadySelected,
-    /// Asset is not in selected asset list
+
+    /// The asset was expected to be in the selected asset list but was not found there.
     #[error("Asset is not in selected asset list")]
     AssetNotSelected,
-    /// Asset not in players asset list
-    #[error("Asset not in players asset list")]
-    InvalidAssetId,
-    /// Liability not found in players hand
-    #[error("Liability not found in players hand at id {0}")]
+
+    /// The provided asset ID does not exist in the player's asset list.
+    #[error("Asset with index {0} not in player's asset list")]
+    InvalidAssetId(u8),
+
+    /// The provided liability ID does not exist in the player's hand.
+    #[error("Liability with index {0} not found in player's hand")]
     InvalidLiabilityId(u8),
-    /// Liability not in selected liability list
+
+    /// The liability was expected to be in the selected liability list but was not found there.
     #[error("Liability not in selected liability list")]
     LiabilityNotSelected,
-    /// Liability is already in selected liability list
+
+    /// The liability was already added to the selected liability list and cannot be selected again.
     #[error("Liability is already in selected liability list")]
     LiabilityAlreadySelected,
-    /// Only the CFO can issue a liability when targeted by the banker
+
+    /// The current player is not the CFO and therefore is not allowed to issue liabilities when
+    /// targeted by the banker.
     #[error("Only the CFO can issue a liability when targeted by the banker")]
     NotCFO,
-    /// Can only select up to 3 liabilities when targeted by the banker as the CFO
+
+    /// The CFO can issue a maximum of three liabilities to pay off the banker, they cannot issue
+    /// another liability.
     #[error("Can only select up to 3 liabilities when targeted by the banker as the CFO")]
     AlreadySelected3Liabilities,
 }

@@ -424,36 +424,40 @@ pub struct PlayerPlayedCard {
     pub is_final_round: bool,
 }
 
-/// Asset to deivest when paying the banker
+/// Structure that represents an asset that is set to be sold to pay off their obligation to the
+/// banker. It contains the index of the asset as well as the market value of the asset.
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SoldAssetToPayBanker {
-    /// Asset index on board
+    /// The index of the asset that can be sold to the banker.
     pub asset_idx: usize,
-    /// Market value of the asset
+    /// The market value of the asset that can be sold to the banker.
     pub market_value: u8,
 }
 
-/// Liability to issue when paying the banker
+/// Struct that represents a liability that a player has selected to be issued to pay off their
+/// obligation to the banker. It contains the index of the liability in the hand of the player, as
+/// well as the liability itself.
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct IssuedLiabilityToPayBanker {
-    /// Index of card in hand
+    /// The index of the liability in the hand of the player.
     pub card_idx: usize,
-    /// refrence to liability
+    /// The liability to be issued to pay off the banker.
     pub liability: Liability,
 }
 
-/// List of selected cards when paying back the banker
+/// A collection of selected assets that will be sold and a list of liabilities that will be issued
+/// in order to comply with the banker's obligation.
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SelectedAssetsAndLiabilities {
-    /// List of selected assets
+    /// A list of assets to be sold to pay off the banker.
     pub sold_assets: Vec<SoldAssetToPayBanker>,
-    /// List of selected liabilities
+    /// A list of liabilities to be issued to pay off the banker.
     pub issued_liabilities: Vec<IssuedLiabilityToPayBanker>,
 }
 

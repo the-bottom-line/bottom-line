@@ -4,7 +4,6 @@ use either::Either;
 
 use crate::{errors::*, game::*, player::*};
 
-
 /// State containing all information related to the banker target stage of the game. In this state
 /// a player can oly take actions related to paying back the banker.
 #[derive(Debug, Clone, PartialEq)]
@@ -63,7 +62,6 @@ impl BankerTargetRound {
             .find(|p| p.name() == name)
             .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
     }
-
 
     /// function to pay the banker and switch game back to a normal round state
     pub fn player_pay_banker(

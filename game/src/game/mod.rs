@@ -424,7 +424,6 @@ pub struct PlayerPlayedCard {
     pub is_final_round: bool,
 }
 
-
 /// Asset to deivest when paying the banker
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
@@ -454,7 +453,7 @@ pub struct IssuedLiabilityToPayBanker {
 pub struct SelectedAssetsAndLiabilities {
     /// List of selected assets
     pub sold_assets: Vec<SoldAssetToPayBanker>,
-    /// List of selected liabilities 
+    /// List of selected liabilities
     pub issued_liabilities: Vec<IssuedLiabilityToPayBanker>,
 }
 

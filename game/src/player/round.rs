@@ -874,7 +874,6 @@ pub(super) mod tests {
         for character in Character::CHARACTERS.into_iter().filter(|c| {
             *c != Character::Shareholder && *c != Character::Banker && *c != Character::Regulator
         }) {
-            
             let mut player = round_player(character, 0);
             // basic test with a neutral market and no player assets
             assert_matches!(player.get_bonus_cash_character(&market), Ok(0));
@@ -886,7 +885,6 @@ pub(super) mod tests {
             player = round_player(character, 0);
             // Test with a Negative market and no player assets
             assert_matches!(player.get_bonus_cash_character(&market_minus), Ok(0));
-
 
             player = round_player(character, 0);
             // add an asset of characters color to player
@@ -911,7 +909,6 @@ pub(super) mod tests {
             }
             // Test 1 colored asset and negative market
             assert_matches!(player.get_bonus_cash_character(&market_minus), Ok(0));
-
         }
     }
 

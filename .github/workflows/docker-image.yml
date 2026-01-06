@@ -1,9 +1,9 @@
 name: Linux_Container_Workflow
 on:
   push:
-    branches: [ "CD" ]
+    branches: [ "staging" ]
   pull_request:
-    branches: [ "CD" ]
+    branches: [ "staging" ]
 jobs:
     build-and-deploy:
         runs-on: ubuntu-latest

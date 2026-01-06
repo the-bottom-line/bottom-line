@@ -24,6 +24,7 @@ pub struct RoundPlayer {
     pub(super) total_cards_drawn: u8,
     pub(super) total_cards_given_back: u8,
     pub(super) has_used_ability: bool,
+    pub(super) has_gotten_bonus_cash: bool,
     pub(super) was_first_to_six_assets: bool,
 }
 
@@ -453,7 +454,7 @@ impl RoundPlayer {
     }
 
     /// Gets the amount of cash this player gets to start their turn.
-    pub fn turn_start_cash(&self) -> i16 {
+    pub fn turn_start_cash(&self) -> u8 {
         1
     }
 
@@ -484,17 +485,37 @@ impl RoundPlayer {
     }
 
     /// Gets the total amount of cash this player receives at the start of their turn.
-    pub fn turn_cash(&self, current_market: &Market) -> u8 {
-        let start = self.turn_start_cash();
+    pub fn turn_cash(&self) -> u8 {
+        self.turn_start_cash()
+    }
+
+    /// Get bonus gold a player can get on their turn based on their characters color and their bought assets
+    pub fn get_bonus_cash_character(
+        &mut self,
+        current_market: &Market,
+    ) -> Result<u8, GetBonusCashError> {
+        if self.has_gotten_bonus_cash {
+            return Err(GetBonusCashError::AlreadyGottenBonusCashThisTurn);
+        }
+        if self.character.color().is_none() {
+            return Err(GetBonusCashError::InvalidCharacter);
+        }
         let asset_bonus = self.asset_bonus();
         let market_condition_bonus = self.market_condition_bonus(current_market);
-
-        (start + asset_bonus * (market_condition_bonus + 1)) as u8
+        let bonus_cash = asset_bonus + market_condition_bonus;
+        if bonus_cash < 0 {
+            self.has_gotten_bonus_cash = true;
+            Ok(0)
+        } else {
+            self.has_gotten_bonus_cash = true;
+            self.cash += bonus_cash as u8;
+            Ok(bonus_cash as u8)
+        }
     }
 
     /// Starts this player's turn by givinig them their turn gold.
-    pub(crate) fn start_turn(&mut self, current_market: &Market) {
-        self.cash += self.turn_cash(current_market);
+    pub(crate) fn start_turn(&mut self) {
+        self.cash += self.turn_cash();
     }
 }
 
@@ -521,6 +542,7 @@ impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
                     bonus_draw_cards: 0,
                     total_cards_given_back: 0,
                     has_used_ability: false,
+                    has_gotten_bonus_cash: false,
                     was_first_to_six_assets: false,
                 })
             }
@@ -578,6 +600,7 @@ impl From<&BankerTargetPlayer> for RoundPlayer {
             total_cards_drawn: 0,
             total_cards_given_back: 0,
             has_used_ability: false,
+            has_gotten_bonus_cash: false,
             was_first_to_six_assets: player.was_first_to_six_assets,
         }
     }
@@ -812,6 +835,81 @@ pub(super) mod tests {
             player.fire_character(Character::Stakeholder),
             Err(FireCharacterError::AlreadyFiredThisTurn)
         );
+    }
+
+    #[test]
+    fn get_bonus_cash_colored_characters() {
+        let market_plus = Market {
+            title: "".into(),
+            rfr: 0,
+            mrp: 0,
+            blue: MarketCondition::Plus,
+            green: MarketCondition::Plus,
+            purple: MarketCondition::Plus,
+            red: MarketCondition::Plus,
+            yellow: MarketCondition::Plus,
+        };
+
+        let market_minus = Market {
+            title: "".into(),
+            rfr: 0,
+            mrp: 0,
+            blue: MarketCondition::Minus,
+            green: MarketCondition::Minus,
+            purple: MarketCondition::Minus,
+            red: MarketCondition::Minus,
+            yellow: MarketCondition::Minus,
+        };
+
+        let market = Market {
+            title: "".into(),
+            rfr: 0,
+            mrp: 0,
+            blue: MarketCondition::Zero,
+            green: MarketCondition::Zero,
+            purple: MarketCondition::Zero,
+            red: MarketCondition::Zero,
+            yellow: MarketCondition::Zero,
+        };
+        for character in Character::CHARACTERS.into_iter().filter(|c| {
+            *c != Character::Shareholder && *c != Character::Banker && *c != Character::Regulator
+        }) {
+            let mut player = round_player(character, 0);
+            // basic test with a neutral market and no player assets
+            assert_matches!(player.get_bonus_cash_character(&market), Ok(0));
+
+            player = round_player(character, 0);
+            // Test with a Positive market and no player assets
+            assert_matches!(player.get_bonus_cash_character(&market_plus), Ok(1));
+
+            player = round_player(character, 0);
+            // Test with a Negative market and no player assets
+            assert_matches!(player.get_bonus_cash_character(&market_minus), Ok(0));
+
+            player = round_player(character, 0);
+            // add an asset of characters color to player
+            if let Some(c) = character.color() {
+                player.assets.push(asset(c));
+            }
+            // test 1 colored asset and neutral market
+            assert_matches!(player.get_bonus_cash_character(&market), Ok(1));
+
+            player = round_player(character, 0);
+            // add an asset of characters color to player
+            if let Some(c) = character.color() {
+                player.assets.push(asset(c));
+            }
+            // test 1 colored asset and positive market
+            assert_matches!(player.get_bonus_cash_character(&market_plus), Ok(2));
+
+            player = round_player(character, 0);
+            // add an asset of characters color to player
+            if let Some(c) = character.color() {
+                player.assets.push(asset(c));
+            }
+            // Test 1 colored asset and negative market
+            assert_matches!(player.get_bonus_cash_character(&market_minus), Ok(0));
+        }
     }
 
     #[test]

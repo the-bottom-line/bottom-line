@@ -424,27 +424,36 @@ pub struct PlayerPlayedCard {
     pub is_final_round: bool,
 }
 
+/// Asset to deivest when paying the banker
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SoldAssetToPayBanker {
+    /// Asset index on board
     pub asset_idx: usize,
+    /// Market value of the asset
     pub market_value: u8,
 }
 
+/// Liability to issue when paying the banker
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct IssuedLiabilityToPayBanker {
+    /// Index of card in hand
     pub card_idx: usize,
+    /// refrence to liability
     pub liability: Liability,
 }
 
+/// List of selected cards when paying back the banker
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SelectedAssetsAndLiabilities {
+    /// List of selected assets
     pub sold_assets: Vec<SoldAssetToPayBanker>,
+    /// List of selected liabilities
     pub issued_liabilities: Vec<IssuedLiabilityToPayBanker>,
 }
 

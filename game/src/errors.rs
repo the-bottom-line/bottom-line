@@ -64,6 +64,10 @@ pub enum GameError {
     #[error(transparent)]
     DivestAsset(#[from] DivestAssetError),
 
+    /// Errors related to getting bonus gold
+    #[error(transparent)]
+    GetBonusCash(#[from] GetBonusCashError),
+
     /// Errors related to the asset abilities
     #[error(transparent)]
     CardAbility(#[from] AssetAbilityError),
@@ -212,6 +216,20 @@ pub enum GiveBackCardError {
     Unnecessary,
 }
 
+/// Errors related to getting bonus gold
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
+pub enum GetBonusCashError {
+    /// The given character cannot be fired.
+    #[error("Character does not have a bonus color")]
+    InvalidCharacter,
+
+    /// Player has already gotten bonus cash this turn.
+    #[error("Player has already gotten bonus cash this turn")]
+    AlreadyGottenBonusCashThisTurn,
+}
+
 /// Errors related to firing a character.
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
@@ -271,26 +289,36 @@ pub enum TerminateCreditCharacterError {
     AlreadyFiredThisTurn,
 }
 
+/// Errors releated to selecting cards to divest or issue by banker target
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
 pub enum BankerTargetSelectError {
+    /// Value of the asset is 0 or less
     #[error("Asset is not worth anything in the current market")]
     AssetValueToLow,
+    /// Asset is already in selected asset list
     #[error("Asset is already in selected asset list")]
     AssetAlreadySelected,
+    /// Asset is not in selected asset list
     #[error("Asset is not in selected asset list")]
     AssetNotSelected,
+    /// Asset not in players asset list
     #[error("Asset not in players asset list")]
     InvalidAssetId,
+    /// Liability not found in players hand
     #[error("Liability not found in players hand at id {0}")]
     InvalidLiabilityId(u8),
+    /// Liability not in selected liability list
     #[error("Liability not in selected liability list")]
     LiabilityNotSelected,
+    /// Liability is already in selected liability list
     #[error("Liability is already in selected liability list")]
     LiabilityAlreadySelected,
+    /// Only the CFO can issue a liability when targeted by the banker
     #[error("Only the CFO can issue a liability when targeted by the banker")]
     NotCFO,
+    /// Can only select up to 3 liabilities when targeted by the banker as the CFO
     #[error("Can only select up to 3 liabilities when targeted by the banker as the CFO")]
     AlreadySelected3Liabilities,
 }

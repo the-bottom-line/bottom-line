@@ -5,6 +5,7 @@ use crate::{errors::*, game::*, player::*};
 use either::Either;
 use std::collections::{HashMap, hash_map::Entry};
 
+/// The player struct corosponding to the banker target state of the game
 #[derive(Debug, Clone, PartialEq)]
 pub struct BankerTargetPlayer {
     pub(super) id: PlayerId,
@@ -58,28 +59,32 @@ impl BankerTargetPlayer {
         };
         for (index, asset) in self.assets.clone().into_iter().enumerate() {
             if asset.market_value(&market) > 0 {
-                new_selected_cards
-                    .sold_assets
-                    .push(SoldAssetToPayBanker{asset_idx: index, market_value: asset.market_value(&market) as u8 });
+                new_selected_cards.sold_assets.push(SoldAssetToPayBanker {
+                    asset_idx: index,
+                    market_value: asset.market_value(&market) as u8,
+                });
             }
         }
         //get top 3 most valueble liabilities if player is CFO
         if self.character == Character::CFO {
             for (index, liability) in self
-            .hand
-            .clone()
-            .into_iter()
-            .filter(|l| l.is_right())
-            .enumerate()
-        {
-            if let Some(lib) = liability.right() {
-                new_selected_cards.issued_liabilities
-                .push(IssuedLiabilityToPayBanker { card_idx: index, liability: lib });
+                .hand
+                .clone()
+                .into_iter()
+                .filter(|l| l.is_right())
+                .enumerate()
+            {
+                if let Some(lib) = liability.right() {
+                    new_selected_cards
+                        .issued_liabilities
+                        .push(IssuedLiabilityToPayBanker {
+                            card_idx: index,
+                            liability: lib,
+                        });
+                }
             }
         }
-
-        }
-        let mut len = new_selected_cards.issued_liabilities.iter().count();
+        let mut len = new_selected_cards.issued_liabilities.len();
 
         if len > 3 {
             len -= 3;
@@ -87,14 +92,12 @@ impl BankerTargetPlayer {
             len = 0;
         }
         //remove smallest libilities if there are more as 3 in hand
-        for i in 0..len {
-            let mut smallest_k: usize = 100;
+        for _i in 0..len {
             let mut smallest_v = 0;
             let mut index = 0;
-            for (l) in &new_selected_cards.issued_liabilities {
+            for l in &new_selected_cards.issued_liabilities {
                 if smallest_v < l.liability.value {
                     smallest_v = l.liability.value;
-                    smallest_k = l.card_idx;
                     index += 1;
                 }
             }
@@ -102,16 +105,31 @@ impl BankerTargetPlayer {
         }
 
         // Sell assets and libilities for targeted player
-        let extra_asset_cash: u8 = new_selected_cards.sold_assets.iter().map(|s| s.market_value).sum();
-        let extra_liability_cash: u8 = new_selected_cards.issued_liabilities.iter().map(|l| l.liability.value).sum();
-        let mut asset_ids: Vec<usize> = new_selected_cards.sold_assets.iter().map(|s| s.asset_idx).collect();
+        let extra_asset_cash: u8 = new_selected_cards
+            .sold_assets
+            .iter()
+            .map(|s| s.market_value)
+            .sum();
+        let extra_liability_cash: u8 = new_selected_cards
+            .issued_liabilities
+            .iter()
+            .map(|l| l.liability.value)
+            .sum();
+        let mut asset_ids: Vec<usize> = new_selected_cards
+            .sold_assets
+            .iter()
+            .map(|s| s.asset_idx)
+            .collect();
         asset_ids.sort();
         for id in asset_ids.iter().rev() {
             self.assets.remove(*id);
         }
 
-        let mut liability_ids: Vec<usize> =
-            new_selected_cards.issued_liabilities.iter().map(|l| l.card_idx).collect();
+        let mut liability_ids: Vec<usize> = new_selected_cards
+            .issued_liabilities
+            .iter()
+            .map(|l| l.card_idx)
+            .collect();
         liability_ids.sort();
         for id in liability_ids.iter().rev() {
             self.hand.remove(*id);
@@ -132,7 +150,10 @@ impl BankerTargetPlayer {
                 selected_cards: new_selected_cards.clone(),
             })
         } else {
-            Err(PayBankerError::NotRightCashAmount { expected: total_available_cash, got: cash })
+            Err(PayBankerError::NotRightCashAmount {
+                expected: total_available_cash,
+                got: cash,
+            })
         }
     }
 
@@ -320,6 +341,7 @@ impl From<BankerTargetPlayer> for RoundPlayer {
             total_cards_drawn: 0,
             total_cards_given_back: 0,
             has_used_ability: false,
+            has_gotten_bonus_cash: false,
             was_first_to_six_assets: false,
         }
     }

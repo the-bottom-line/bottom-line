@@ -2,23 +2,33 @@ use game::{errors::GameError, game::GameState};
 use responses::*;
 use tokio::sync::broadcast;
 
-use std::sync::Mutex;
+use std::{
+    sync::{Arc, Mutex},
+    time::Instant,
+};
 
 use crate::request_handler::*;
 
 /// All-encompassing state each room has access to
 pub struct RoomState {
+    /// Room channel name.
+    pub channel: String,
     /// Internal broadcast that can be received by any connected thread
     pub tx: broadcast::Sender<UniqueResponse>,
     /// Internal broadcast channels to send responses specific to each player
     pub player_tx: [broadcast::Sender<UniqueResponse>; 7],
     /// Per-room gamestate
     pub game: Mutex<GameState>,
+    /// Timestamp of last activity used for cleanup.
+    pub last_activity: Arc<Mutex<Instant>>,
+    /// A task that periodically checks if the room has been inactive and should be closed.
+    pub cleanup_handle: Mutex<Option<tokio::task::JoinHandle<()>>>,
 }
 
 impl RoomState {
-    pub fn new() -> Self {
+    pub fn new(channel: String) -> Self {
         Self {
+            channel,
             tx: broadcast::channel(64).0,
             player_tx: [
                 broadcast::channel(64).0,
@@ -30,6 +40,8 @@ impl RoomState {
                 broadcast::channel(64).0,
             ],
             game: Mutex::new(GameState::new()),
+            last_activity: Arc::new(Mutex::new(Instant::now())),
+            cleanup_handle: Mutex::new(None),
         }
     }
 
@@ -38,6 +50,8 @@ impl RoomState {
         msg: FrontendRequest,
         player_name: &str,
     ) -> Result<Response, GameError> {
+        self.touch();
+
         // PANIC: a mutex can only poison if any other thread that has access to it crashes. Since
         // this cannot happen, unwrapping is safe.
         let state = &mut *self.game.lock().unwrap();
@@ -145,10 +159,29 @@ impl RoomState {
             }
         }
     }
+
+    /// Updates the timestamp the last action was taken in.
+    pub fn touch(&self) {
+        *self.last_activity.lock().unwrap() = Instant::now();
+    }
+
+    pub async fn close(&self, reason: RoomCloseReason) {
+        let msg = UniqueResponse::RoomClosed {
+            channel: self.channel.clone(),
+            reason,
+        };
+
+        if let Err(e) = self.tx.send(msg) {
+            tracing::error!(%e);
+        }
+
+        // Give the messages a little bit of time to be sent out and received
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    }
 }
 
 impl Default for RoomState {
     fn default() -> Self {
-        Self::new()
+        Self::new(String::default())
     }
 }

@@ -20,6 +20,7 @@ use serde::Serialize;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
+    time::Duration,
 };
 use tokio::sync::{Mutex as TokioMutex, broadcast}; // async mutex for shared sink
 
@@ -27,7 +28,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 pub struct AppState {
     /// Keys are the name of the channel
-    rooms: Mutex<HashMap<String, Arc<RoomState>>>,
+    rooms: Arc<Mutex<HashMap<String, Arc<RoomState>>>>,
 }
 
 async fn websocket_handler(
@@ -47,7 +48,7 @@ pub async fn setupsocket() {
         .init();
 
     let app_state = Arc::new(AppState {
-        rooms: Mutex::new(HashMap::new()),
+        rooms: Arc::new(Mutex::new(HashMap::new())),
     });
 
     let app = Router::new()
@@ -110,7 +111,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     channel = connect_channel.clone();
                     let room = rooms
                         .entry(connect_channel)
-                        .or_insert_with(|| Arc::new(RoomState::new()));
+                        .or_insert_with(|| add_room(channel.clone(), state.rooms.clone()));
 
                     // PANIC: a mutex can only poison if any other thread that has access to it
                     // crashes. Since this cannot happen, unwrapping is safe.
@@ -255,9 +256,18 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 
     // if any task finishes, abort the others
     tokio::select! {
-        _ = &mut send_task => recv_task.abort(),
-        _ = &mut recv_task => send_task.abort(),
-        _ = &mut player_send_task => player_send_task.abort(),
+        _ = &mut send_task => {
+            recv_task.abort();
+            player_send_task.abort();
+        },
+        _ = &mut recv_task => {
+            send_task.abort();
+            player_send_task.abort();
+        }
+        _ = &mut player_send_task => {
+            recv_task.abort();
+            send_task.abort();
+        },
     };
 
     // announce leave
@@ -275,6 +285,51 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             });
         }
     }
+}
+
+pub fn add_room(
+    channel: String,
+    rooms: Arc<Mutex<HashMap<String, Arc<RoomState>>>>,
+) -> Arc<RoomState> {
+    let room = Arc::new(RoomState::new(channel.clone()));
+
+    // Spawn cleanup task
+    let cleanup_handle = spawn_cleanup_task(channel.clone(), room.clone(), rooms.clone());
+
+    *room.cleanup_handle.lock().unwrap() = Some(cleanup_handle);
+
+    rooms.lock().unwrap().insert(channel, Arc::clone(&room));
+
+    room
+}
+
+fn spawn_cleanup_task(
+    channel: String,
+    room: Arc<RoomState>,
+    rooms: Arc<Mutex<HashMap<String, Arc<RoomState>>>>,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        const CHECK_INTERVAL: Duration = Duration::from_secs(30);
+        const INACTIVITY_TIMEOUT: Duration = Duration::from_secs(300); // 5 min
+
+        loop {
+            tokio::time::sleep(CHECK_INTERVAL).await;
+
+            let elapsed = room.last_activity.lock().unwrap().elapsed();
+
+            if elapsed > INACTIVITY_TIMEOUT {
+                tracing::info!("Room {} inactive for {:?}, closing", channel, elapsed);
+
+                room.close(RoomCloseReason::Inactive).await;
+
+                // Remove from HashMap to drop RoomState and close connected channels which cleans
+                // up both the room as well as its connected user threads.
+                rooms.lock().unwrap().remove(&channel);
+
+                break;
+            }
+        }
+    })
 }
 
 #[cfg(test)]

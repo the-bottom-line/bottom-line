@@ -11,8 +11,6 @@ use crate::request_handler::*;
 
 /// All-encompassing state each room has access to
 pub struct RoomState {
-    /// Room channel name.
-    pub channel: String,
     /// Internal broadcast that can be received by any connected thread
     pub tx: broadcast::Sender<UniqueResponse>,
     /// Internal broadcast channels to send responses specific to each player
@@ -26,9 +24,8 @@ pub struct RoomState {
 }
 
 impl RoomState {
-    pub fn new(channel: String) -> Self {
+    pub fn new() -> Self {
         Self {
-            channel,
             tx: broadcast::channel(64).0,
             player_tx: [
                 broadcast::channel(64).0,
@@ -164,24 +161,10 @@ impl RoomState {
     pub fn touch(&self) {
         *self.last_activity.lock().unwrap() = Instant::now();
     }
-
-    pub async fn close(&self, reason: RoomCloseReason) {
-        let msg = UniqueResponse::RoomClosed {
-            channel: self.channel.clone(),
-            reason,
-        };
-
-        if let Err(e) = self.tx.send(msg) {
-            tracing::error!(%e);
-        }
-
-        // Give the messages a little bit of time to be sent out and received
-        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
-    }
 }
 
 impl Default for RoomState {
     fn default() -> Self {
-        Self::new(String::default())
+        Self::new()
     }
 }

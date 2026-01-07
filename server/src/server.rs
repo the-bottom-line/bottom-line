@@ -291,7 +291,7 @@ pub fn add_room(
     channel: String,
     rooms: Arc<Mutex<HashMap<String, Arc<RoomState>>>>,
 ) -> Arc<RoomState> {
-    let room = Arc::new(RoomState::new(channel.clone()));
+    let room = Arc::new(RoomState::new());
 
     // Spawn cleanup task
     let cleanup_handle = spawn_cleanup_task(channel.clone(), room.clone(), rooms.clone());
@@ -320,7 +320,17 @@ fn spawn_cleanup_task(
             if elapsed > INACTIVITY_TIMEOUT {
                 tracing::info!("Room {} inactive for {:?}, closing", channel, elapsed);
 
-                room.close(RoomCloseReason::Inactive).await;
+                let msg = UniqueResponse::RoomClosed {
+                    channel: channel.clone(),
+                    reason: RoomCloseReason::Inactive,
+                };
+
+                if let Err(e) = room.tx.send(msg) {
+                    tracing::error!(%e);
+                }
+
+                // Give the messages a little bit of time to be sent out and received
+                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
 
                 // Remove from HashMap to drop RoomState and close connected channels which cleans
                 // up both the room as well as its connected user threads.

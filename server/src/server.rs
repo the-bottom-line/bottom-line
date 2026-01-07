@@ -111,7 +111,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     channel = connect_channel.clone();
                     let room = rooms
                         .entry(connect_channel)
-                        .or_insert_with(|| add_room(channel.clone(), state.rooms.clone()));
+                        .or_insert_with(|| create_room(channel.clone(), state.rooms.clone()));
 
                     // PANIC: a mutex can only poison if any other thread that has access to it
                     // crashes. Since this cannot happen, unwrapping is safe.
@@ -287,18 +287,17 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     }
 }
 
-pub fn add_room(
+pub fn create_room(
     channel: String,
     rooms: Arc<Mutex<HashMap<String, Arc<RoomState>>>>,
 ) -> Arc<RoomState> {
     let room = Arc::new(RoomState::new());
 
-    // Spawn cleanup task
     let cleanup_handle = spawn_cleanup_task(channel.clone(), room.clone(), rooms.clone());
 
     *room.cleanup_handle.lock().unwrap() = Some(cleanup_handle);
 
-    rooms.lock().unwrap().insert(channel, Arc::clone(&room));
+    tracing::debug!("Created room with channel '{channel}'");
 
     room
 }

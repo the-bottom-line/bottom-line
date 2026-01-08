@@ -7,7 +7,7 @@ use axum::{
     Router,
     extract::{
         State,
-        ws::{Message, WebSocket, WebSocketUpgrade},
+        ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade},
     },
     response::IntoResponse,
     routing::get,
@@ -177,6 +177,17 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
         tokio::spawn(async move {
             loop {
                 match rx.recv().await {
+                    Ok(UniqueResponse::RoomClosed { reason, .. }) => {
+                        let frame = CloseFrame {
+                            code: reason as u16,
+                            reason: format!("{reason:?}").into(),
+                        };
+
+                        let mut s = sender.lock().await;
+                        if s.send(Message::Close(Some(frame))).await.is_err() {
+                            break;
+                        }
+                    }
                     Ok(msg) => {
                         tracing::debug!("unique send: {msg:?}");
                         if send_external(msg, sender.clone()).await.is_err() {
@@ -308,16 +319,39 @@ fn spawn_cleanup_task(
     rooms: Arc<Mutex<HashMap<String, Arc<RoomState>>>>,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        const CHECK_INTERVAL: Duration = Duration::from_secs(30);
-        const INACTIVITY_TIMEOUT: Duration = Duration::from_secs(300); // 5 min
+        const DEFAULT_INACTIVITY_TIMEOUT: Duration = Duration::from_secs(300); // 5 min
+        const DEFAULT_CLEANUP_INTERVAL: Duration = Duration::from_secs(30);
+
+        let inactivity_timeout = if let Ok(timeout) = std::env::var("INACTIVITY_TIMEOUT") {
+            Duration::from_secs(
+                timeout
+                    .parse()
+                    .expect("ENV INACTIVITY_TIMEOUT should be a positive integer"),
+            )
+        } else {
+            DEFAULT_INACTIVITY_TIMEOUT
+        };
+        let cleanup_interval = if let Ok(interval) = std::env::var("CLEANUP_INTERVAL") {
+            Duration::from_secs(
+                interval
+                    .parse()
+                    .expect("ENV CLEANUP_INTERVAL should be a positive integer"),
+            )
+        } else {
+            DEFAULT_CLEANUP_INTERVAL
+        };
 
         loop {
-            tokio::time::sleep(CHECK_INTERVAL).await;
+            tokio::time::sleep(cleanup_interval).await;
 
             let elapsed = room.last_activity.lock().unwrap().elapsed();
 
-            if elapsed > INACTIVITY_TIMEOUT {
-                tracing::info!("Room {} inactive for {:?}, closing", channel, elapsed);
+            if elapsed > inactivity_timeout {
+                tracing::info!(
+                    "Room with channel name '{}' inactive for {:?}, closing",
+                    channel,
+                    elapsed
+                );
 
                 let msg = UniqueResponse::RoomClosed {
                     channel: channel.clone(),
@@ -330,6 +364,12 @@ fn spawn_cleanup_task(
 
                 // Give the messages a little bit of time to be sent out and received
                 tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+
+                // if let Err(e) = room.tx.send(UniqueResponse::ShutdownConnection) {
+                //     tracing::error!(%e);
+                // }
+
+                // tokio::time::sleep(std::time::Duration::from_millis(250)).await;
 
                 // Remove from HashMap to drop RoomState and close connected channels which cleans
                 // up both the room as well as its connected user threads.
@@ -349,7 +389,9 @@ mod tests {
     use claim::*;
     use futures_util::stream::SplitStream;
     use serde::Deserialize;
+    use tokio::sync::OnceCell;
     use tokio_tungstenite::{WebSocketStream, connect_async};
+    use tungstenite::{Message, protocol::CloseFrame};
 
     pub async fn receive<T, S>(reader: &mut SplitStream<WebSocketStream<S>>) -> T
     where
@@ -384,15 +426,31 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(milliseconds)).await
     }
 
-    #[tokio::test]
-    async fn start_game() {
-        let url = "ws://127.0.0.1:3000/websocket";
+    static SERVER: OnceCell<()> = OnceCell::const_new();
 
-        tokio::task::spawn(async move {
-            setupsocket().await;
-        });
+    // #[fixture]
+    async fn server_url() -> &'static str {
+        SERVER
+            .get_or_init(|| async {
+                tokio::spawn(async {
+                    setupsocket().await;
+                });
+            })
+            .await;
 
         sleep(250).await;
+
+        "ws://127.0.0.1:3000/websocket"
+    }
+
+    // #[rstest]
+    #[tokio::test]
+    async fn start_game() {
+        // I don't understand why this is needed, but if I don't do this, somehow both tests
+        // interfere. Hacky way to make sure neither test fucks with the other.
+        sleep(2000).await;
+
+        let url = server_url().await;
 
         let (ws_stream1, _) = connect_async(url).await.unwrap();
         let (write1, read1) = ws_stream1.split();
@@ -413,7 +471,7 @@ mod tests {
             send(
                 writer,
                 Connect::Connect {
-                    channel: "thing".to_string(),
+                    channel: "server-test".to_string(),
                     username: format!("user {}", i),
                 },
             )
@@ -512,5 +570,43 @@ mod tests {
             let response = receive(reader).await;
             assert_matches!(response, UniqueResponse::TurnStarts { .. });
         }
+    }
+
+    #[tokio::test]
+    async fn room_timeout() {
+        // Safe in single-threaded programs. No other threads are spun up by this point, so
+        // this should be fine.
+        unsafe {
+            std::env::set_var("INACTIVITY_TIMEOUT", "5");
+            std::env::set_var("CLEANUP_INTERVAL", "1");
+        };
+
+        let url = server_url().await;
+
+        let (ws_stream1, _) = connect_async(url).await.unwrap();
+        let (mut write1, mut read1) = ws_stream1.split();
+
+        // room is created. Now it should take 5 seconds to be shut down for inactivity.
+        send(
+            &mut write1,
+            Connect::Connect {
+                channel: "timeout-test".to_owned(),
+                username: "user 1".to_owned(),
+            },
+        )
+        .await;
+
+        let response = receive(&mut read1).await;
+        assert!(matches!(response, UniqueResponse::PlayersInLobby { .. }));
+
+        sleep(6000).await;
+
+        let msg = read1
+            .next()
+            .await
+            .expect("Stream ended")
+            .expect("Failed to read message");
+
+        assert!(matches!(msg, Message::Close(Some(CloseFrame { .. }))));
     }
 }

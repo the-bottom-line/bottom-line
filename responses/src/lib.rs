@@ -641,6 +641,27 @@ pub enum UniqueResponse {
         /// The asset the player confirmed their choice for.
         asset_idx: usize,
     },
+    /// Used internally to gracefully let everyone know a room closed for any reason.
+    #[serde(skip)]
+    RoomClosed {
+        /// The channel that was closed.
+        channel: String,
+        /// The reason for which it was closed.
+        reason: RoomCloseReason,
+    },
+}
+
+/// Reasons for which a room might have been closed.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = game::SHARED_TS_DIR))]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub enum RoomCloseReason {
+    /// Used when the room was closed because it was inactive.
+    Inactive,
+    /// Used when the room was closed because the game which it hosted has ended.
+    GameEnded,
+    /// Used when it encountered a fatal error
+    FatalError,
 }
 
 /// The general error type that can be sent back in a response.

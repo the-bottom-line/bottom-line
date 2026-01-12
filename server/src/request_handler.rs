@@ -769,6 +769,7 @@ pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameEr
     match state {
         GameState::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
         GameState::Results(_) => Err(GameError::NotAvailableInResultsState),
+        GameState::BankerTarget(_) => todo!(),
         GameState::Round(round) => {
             let player = round.player(player_id)?;
             let internal = round

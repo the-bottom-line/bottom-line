@@ -44,6 +44,7 @@ impl ResultsPlayer {
             old_change_asset_color: None,
             confirmed_asset_ability_idxs: vec![],
             was_first_to_six_assets: player.was_first_to_six_assets,
+            is_human: player.is_human,
         }
     }
 
@@ -394,7 +395,6 @@ impl ResultsPlayer {
             let fcf = self.fcf();
 
             (fcf / (0.1 * wacc)) + (debt / 3.0) + cash + bonuses
-            is_human: player.is_human,
         }
     }
 }
@@ -596,6 +596,7 @@ pub(super) mod tests {
             old_change_asset_color: None,
             confirmed_asset_ability_idxs: vec![],
             was_first_to_six_assets: false,
+            is_human: true,
         }
     }
 

@@ -620,6 +620,7 @@ impl From<&RoundPlayer> for BankerTargetPlayer {
             hand: player.hand.clone(),
             liabilities_to_play: player.liabilities_to_play,
             was_first_to_six_assets: player.was_first_to_six_assets,
+            is_human: player.is_human(),
         }
     }
 }
@@ -645,6 +646,7 @@ impl From<&BankerTargetPlayer> for RoundPlayer {
             has_used_ability: false,
             has_gotten_bonus_cash: false,
             was_first_to_six_assets: player.was_first_to_six_assets,
+            is_human: true,
         }
     }
 }

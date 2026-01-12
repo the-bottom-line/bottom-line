@@ -4,6 +4,10 @@ use either::Either;
 
 use crate::{errors::*, game::*, player::*};
 
+/// State containing all information related to the banker targeting state of the game. In the
+/// banker target stage, the player that was targeted can elect to issue liabilities and sell off
+/// assets at market value in order to raise cash to pay off the banker. Once they have paid off the
+/// banker, the game moves to a [`Results`] state.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BankerTargetRound {
     pub(super) current_player: PlayerId,
@@ -33,14 +37,19 @@ impl BankerTargetRound {
             .expect("self.current_player went out of bounds")
     }
 
+    /// Get a refrence to a bankertarget player by playerid
     pub fn player(&self, id: PlayerId) -> Result<&BankerTargetPlayer, GameError> {
         self.players.player(id)
     }
 
+    /// The banker gets paid one + one per different color asset their target owns. This function
+    /// Retrieves that amount of gold.
     pub fn gold_to_be_paid(&self) -> u8 {
         self.gold_to_be_paid
     }
 
+    /// This field checks whether or not a player can actually pay the banker with cash, by selling
+    /// assets or, if they are the CFO, issue liabilities.
     pub fn can_pay_banker(&self) -> bool {
         self.can_pay_banker
     }
@@ -56,20 +65,6 @@ impl BankerTargetRound {
             .iter()
             .find(|p| p.name() == name)
             .ok_or_else(|| GameError::InvalidPlayerName(name.to_owned()))
-    }
-
-    /// Internally used function that checks whether a player with such an `id` exists, and whether
-    /// that player is actually the current player. If this is the case, a mutable reference to the
-    /// player is returned.
-    fn player_as_current_mut(
-        &mut self,
-        id: PlayerId,
-    ) -> Result<&mut BankerTargetPlayer, GameError> {
-        match self.players.player_mut(id) {
-            Ok(player) if player.id() == self.current_player => Ok(player),
-            Ok(_) => Err(GameError::NotPlayersTurn),
-            Err(e) => Err(e),
-        }
     }
 
     /// function to pay the banker and switch game back to a normal round state
@@ -89,19 +84,23 @@ impl BankerTargetRound {
             .players
             .get_disjoint_mut([usize::from(player_id), usize::from(banker_id)])
         {
-            Ok([player, banker]) => {     
+            Ok([player, banker]) => {
                 if cash == self.gold_to_be_paid {
                     if self.can_pay_banker {
-                        let pbp = player.pay_banker(cash, &self.selected_assets,
-                        &self.selected_liabilities, banker)?;
-                        return Ok(pbp);
+                        let pbp = player.pay_banker(
+                            cash,
+                            &self.selected_assets,
+                            &self.selected_liabilities,
+                            banker,
+                        )?;
+                        Ok(pbp)
                     } else {
                         let pbp = player.go_bankrupt_for_banker(
                             cash,
                             banker,
                             self.current_market.clone(),
                         )?;
-                        return Ok(pbp);
+                        Ok(pbp)
                     }
                 } else {
                     Err(PayBankerError::NotRightCashAmount {
@@ -221,6 +220,7 @@ impl BankerTargetRound {
 }
 
 // TODO: use separate function that uses std::mem::take rather than clones
+// TODO: refactor
 impl From<&mut Round> for BankerTargetRound {
     fn from(round: &mut Round) -> Self {
         let color_array: Vec<Color> = round
@@ -230,7 +230,7 @@ impl From<&mut Round> for BankerTargetRound {
             .map(|a| a.color)
             .collect();
 
-        let gtbp = color_array.iter().collect::<HashSet<_>>().len() as u8 + 1;
+        let gold_to_be_paid = color_array.iter().collect::<HashSet<_>>().len() as u8 + 1;
         let asset_values: Vec<u8> = round
             .current_player()
             .assets()
@@ -274,8 +274,8 @@ impl From<&mut Round> for BankerTargetRound {
             open_characters: round.open_characters.clone(),
             fired_characters: round.fired_characters.clone(),
             is_final_round: round.is_final_round,
-            gold_to_be_paid: gtbp,
-            can_pay_banker: gtbp
+            gold_to_be_paid,
+            can_pay_banker: gold_to_be_paid
                 <= total_libility_value + total_asset_value + round.current_player().cash(),
             selected_assets: HashMap::new(),
             selected_liabilities: HashMap::new(),

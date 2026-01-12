@@ -2,7 +2,10 @@ use game::{errors::GameError, game::GameState};
 use responses::*;
 use tokio::sync::broadcast;
 
-use std::sync::Mutex;
+use std::{
+    sync::{Arc, Mutex},
+    time::Instant,
+};
 
 use crate::request_handler::*;
 
@@ -14,6 +17,10 @@ pub struct RoomState {
     pub player_tx: [broadcast::Sender<UniqueResponse>; 7],
     /// Per-room gamestate
     pub game: Mutex<GameState>,
+    /// Timestamp of last activity used for cleanup.
+    pub last_activity: Arc<Mutex<Instant>>,
+    /// A task that periodically checks if the room has been inactive and should be closed.
+    pub cleanup_handle: Mutex<Option<tokio::task::JoinHandle<()>>>,
 }
 
 impl RoomState {
@@ -30,6 +37,8 @@ impl RoomState {
                 broadcast::channel(64).0,
             ],
             game: Mutex::new(GameState::new()),
+            last_activity: Arc::new(Mutex::new(Instant::now())),
+            cleanup_handle: Mutex::new(None),
         }
     }
 
@@ -38,6 +47,8 @@ impl RoomState {
         msg: FrontendRequest,
         player_name: &str,
     ) -> Result<Response, GameError> {
+        self.touch();
+
         // PANIC: a mutex can only poison if any other thread that has access to it crashes. Since
         // this cannot happen, unwrapping is safe.
         let state = &mut *self.game.lock().unwrap();
@@ -75,6 +86,10 @@ impl RoomState {
             FrontendRequest::UseAbility => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
                 use_ability(state, player_id)
+            }
+            FrontendRequest::GetBonusCash => {
+                let player_id = state.round()?.player_by_name(player_name)?.id();
+                get_bonus_cash(state, player_id)
             }
             FrontendRequest::FireCharacter { character } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
@@ -140,6 +155,11 @@ impl RoomState {
                 confirm_asset_ability(state, player_id, asset_idx)
             }
         }
+    }
+
+    /// Updates the timestamp the last action was taken in.
+    pub fn touch(&self) {
+        *self.last_activity.lock().unwrap() = Instant::now();
     }
 }
 

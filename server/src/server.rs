@@ -140,11 +140,29 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let room = {
         // PANIC: a mutex can only poison if any other thread that has access to it crashes. Since
         // this cannot happen, unwrapping is safe.
-        let rooms = state.rooms.lock().unwrap();
-        rooms
-            .get(&channel)
-            .cloned()
-            .expect("The room should exist at this point")
+        let maybe_room = {
+            let rooms = state.rooms.lock().unwrap();
+            rooms.get(&channel).cloned()
+        };
+        if let Some(room) = maybe_room {
+            room
+        } else {
+            let reason = RoomCloseReason::FatalError;
+            let frame = CloseFrame {
+                code: reason as u16,
+                reason: format!("{reason:?}").into(),
+            };
+            if sender
+                .lock()
+                .await
+                .send(Message::Close(Some(frame)))
+                .await
+                .is_err()
+            {
+                tracing::error!("Couldn't send close frame when fatal crash was encountered")
+            };
+            return;
+        }
     };
 
     let tx = room.tx.clone();

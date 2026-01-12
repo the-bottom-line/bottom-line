@@ -322,7 +322,7 @@ pub fn create_room(
 ) -> Arc<RoomState> {
     let room = Arc::new(RoomState::new());
 
-    let cleanup_handle = spawn_cleanup_task(channel.clone(), room.clone(), rooms.clone());
+    let cleanup_handle = spawn_cleanup_task(channel.clone(), rooms.clone());
 
     *room.cleanup_handle.lock().unwrap() = Some(cleanup_handle);
 
@@ -333,7 +333,6 @@ pub fn create_room(
 
 fn spawn_cleanup_task(
     channel: String,
-    room: Arc<RoomState>,
     rooms: Arc<Mutex<HashMap<String, Arc<RoomState>>>>,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
@@ -362,7 +361,10 @@ fn spawn_cleanup_task(
         loop {
             tokio::time::sleep(cleanup_interval).await;
 
-            let elapsed = room.last_activity.lock().unwrap().elapsed();
+            let elapsed = match rooms.lock().unwrap().get(&channel) {
+                Some(room) => room.last_activity.lock().unwrap().elapsed(),
+                None => break,
+            };
 
             if elapsed > inactivity_timeout {
                 tracing::info!(
@@ -376,9 +378,14 @@ fn spawn_cleanup_task(
                     reason: RoomCloseReason::Inactive,
                 };
 
-                if let Err(e) = room.tx.send(msg) {
-                    tracing::error!(%e);
-                }
+                match rooms.lock().unwrap().get(&channel) {
+                    Some(room) => {
+                        if let Err(e) = room.tx.send(msg) {
+                            tracing::error!(%e);
+                        }
+                    }
+                    None => break,
+                };
 
                 // Give the messages a little bit of time to be sent out and received
                 tokio::time::sleep(std::time::Duration::from_millis(250)).await;
@@ -427,7 +434,10 @@ mod tests {
         serde_json::from_str::<T>(&msg).unwrap()
     }
 
-    pub async fn send<S>(writer: &mut S, response: impl Serialize)
+    pub async fn send<S>(
+        writer: &mut S,
+        response: impl Serialize,
+    ) -> Result<(), Box<dyn std::error::Error>>
     where
         S: futures_util::Sink<tokio_tungstenite::tungstenite::Message> + Unpin,
         S::Error: std::fmt::Debug,
@@ -437,7 +447,9 @@ mod tests {
         writer
             .send(msg.into())
             .await
-            .expect("Sending message failed");
+            .map_err(|e| format!("{e:?}"))?;
+
+        Ok(())
     }
 
     async fn sleep(milliseconds: u64) {
@@ -493,7 +505,8 @@ mod tests {
                     username: format!("user {}", i),
                 },
             )
-            .await;
+            .await
+            .unwrap();
         }
 
         sleep(100).await;
@@ -507,7 +520,9 @@ mod tests {
             }
         }
 
-        send(&mut writers[0], FrontendRequest::StartGame).await;
+        send(&mut writers[0], FrontendRequest::StartGame)
+            .await
+            .unwrap();
 
         let response = receive(&mut readers[0]).await;
         assert!(matches!(response, DirectResponse::YouStartedGame));
@@ -532,7 +547,9 @@ mod tests {
                 assert_some!(closed_character);
 
                 let character = characters[0];
-                send(writer, FrontendRequest::SelectCharacter { character }).await;
+                send(writer, FrontendRequest::SelectCharacter { character })
+                    .await
+                    .unwrap();
 
                 let response = receive(reader).await;
                 assert_matches!(
@@ -570,7 +587,9 @@ mod tests {
                     assert_none!(closed_character);
 
                     let character = characters[0];
-                    send(writer, FrontendRequest::SelectCharacter { character }).await;
+                    send(writer, FrontendRequest::SelectCharacter { character })
+                        .await
+                        .unwrap();
 
                     let response = receive(reader).await;
                     assert_matches!(
@@ -612,7 +631,56 @@ mod tests {
                 username: "user 1".to_owned(),
             },
         )
-        .await;
+        .await
+        .unwrap();
+
+        let response = receive(&mut read1).await;
+        assert!(matches!(response, UniqueResponse::PlayersInLobby { .. }));
+
+        sleep(6000).await;
+
+        for i in 0..4 {
+            tokio::spawn(async move {
+                let (ws_stream1, _) = connect_async(url).await.unwrap();
+                let (mut write1, mut read1) = ws_stream1.split();
+
+                // The it should be possible to join other rooms too
+                send(
+                    &mut write1,
+                    Connect::Connect {
+                        channel: format!("{i}-timeout-test"),
+                        username: "user 1".to_owned(),
+                    },
+                )
+                .await
+                .unwrap();
+
+                let response = receive(&mut read1).await;
+                assert!(matches!(response, UniqueResponse::PlayersInLobby { .. }));
+            });
+        }
+
+        let msg = read1
+            .next()
+            .await
+            .expect("Stream ended")
+            .expect("Failed to read message");
+
+        assert!(matches!(msg, Message::Close(Some(CloseFrame { .. }))));
+
+        let (ws_stream1, _) = connect_async(url).await.unwrap();
+        let (mut write1, mut read1) = ws_stream1.split();
+
+        // room was destroyed. It should be possible to rejoin it again.
+        send(
+            &mut write1,
+            Connect::Connect {
+                channel: "timeout-test".to_owned(),
+                username: "user 1".to_owned(),
+            },
+        )
+        .await
+        .unwrap();
 
         let response = receive(&mut read1).await;
         assert!(matches!(response, UniqueResponse::PlayersInLobby { .. }));

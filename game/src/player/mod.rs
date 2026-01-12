@@ -1,11 +1,13 @@
 //! This file contains all four player states, as well as functionality for those players and ways
 //! to interact with them.
 
+mod banker_target;
 mod lobby;
 mod results;
 mod round;
 mod selecting_characters;
 
+pub use banker_target::*;
 pub use lobby::*;
 pub use results::*;
 pub use round::*;
@@ -70,16 +72,6 @@ impl Asset {
     }
 }
 
-impl std::fmt::Display for Asset {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}\ngold: {}\nsilver: {}\ncolor: {:?}",
-            self.title, self.gold_value, self.silver_value, self.color
-        )
-    }
-}
-
 /// A certain powerup some assets have. These specify special actions this asset allows a player to
 /// take at the end of the game.
 #[cfg_attr(feature = "ts", derive(TS))]
@@ -95,25 +87,6 @@ pub enum AssetPowerup {
     /// At the end of the game, count one of your assets as any color.
     #[serde(rename = "At the end of the game, count one of your assets as any color")]
     CountAsAnyColor,
-}
-
-impl std::fmt::Display for AssetPowerup {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::MinusIntoPlus => write!(
-                f,
-                "At the end of the game, for one color, turn - into 0 or 0 into +"
-            ),
-            Self::SilverIntoGold => write!(
-                f,
-                "At the end of the game, turn silver into gold on one asset card"
-            ),
-            Self::CountAsAnyColor => write!(
-                f,
-                "At the end of the game, count one of your assets as any color"
-            ),
-        }
-    }
 }
 
 /// Representation of a liability card. Each liability has an associated gold value as well as a
@@ -141,18 +114,6 @@ impl Liability {
             LiabilityType::BankLoan => 2,
             LiabilityType::Bonds => 3,
         }
-    }
-}
-
-impl std::fmt::Display for Liability {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let title = serde_json::to_string(&self.rfr_type).unwrap();
-        write!(
-            f,
-            "{title} - {}%\nvalue: {}\n",
-            self.rfr_percentage(),
-            self.value
-        )
     }
 }
 
@@ -272,6 +233,11 @@ impl Color {
         Self::Yellow,
         Self::Blue,
     ];
+
+    /// Red and green are not divestable so they return false. True otherwise.
+    pub fn is_divestable(&self) -> bool {
+        !matches!(self, Self::Red | Self::Green) // note the !
+    }
 }
 
 /// Utility struct used to represent the amount of asset cards and liability cards a certain player
@@ -286,6 +252,24 @@ pub struct RegulatorSwapPlayer {
     pub asset_count: usize,
     /// The amount of liability cards this player has.
     pub liability_count: usize,
+}
+
+/// Utility struct that represents a player confirming their selection of assets and liabilities
+/// to issue to pay the banker.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PayBankerPlayer {
+    /// The total amount of gold paid to the banker.
+    pub paid_amount: u8,
+    /// The new cash balance of the banker.
+    pub new_banker_cash: u8,
+    /// The new cash balance of the player that was targeted by the banker.
+    pub new_target_cash: u8,
+    /// The id of the player that was targeted by the banker.
+    pub target_id: PlayerId,
+    /// The id of the player who is the banker.
+    pub banker_id: PlayerId,
+    /// The selection of assets and liabilities to be played to pay the banker.
+    pub selected_cards: SelectedAssetsAndLiabilities,
 }
 
 /// Utility struct used to represent each asset that can be divested from a player including the
@@ -307,7 +291,7 @@ pub struct DivestPlayer {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DivestAsset {
     /// The asset in question.
-    pub asset: Asset,
+    pub asset_idx: usize,
     /// The cost of divisting this asset based.
     pub divest_cost: u8,
     /// Whether or not this asset is divestable.

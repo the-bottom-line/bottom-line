@@ -112,6 +112,8 @@ impl SelectingCharacters {
                         .min_by(|p1, p2| p1.character().cmp(&p2.character()))
                         .map(|p| p.id())
                         .unwrap();
+                    // PANIC: This is safe because a game has to have at least four players to
+                    // start, and they cannot be removed
 
                     let players = std::mem::take(&mut self.players);
                     let assets = std::mem::take(&mut self.assets);
@@ -121,7 +123,7 @@ impl SelectingCharacters {
                     let current_events = std::mem::take(&mut self.current_events);
                     let open_characters = self.characters.open_characters().to_vec();
                     let fired_characters: Vec<Character> = vec![];
-
+                    let banker_target = None;
                     let players = players
                         .0
                         .into_iter()
@@ -141,12 +143,11 @@ impl SelectingCharacters {
                         current_events,
                         open_characters,
                         fired_characters,
+                        banker_target,
+                        is_final_round: false,
                     };
 
-                    round
-                        .players
-                        .player_mut(current_player)?
-                        .start_turn(&round.current_market);
+                    round.players.player_mut(current_player)?.start_turn();
 
                     Ok(Some(GameState::Round(round)))
                 } else {

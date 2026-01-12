@@ -537,6 +537,20 @@ impl Round {
         player.set_is_human(true);
         Ok(player)
     }
+
+    /// Returns a list of all players that have already taken their turn this round
+    /// and their characters
+    pub fn played_characters(&self) -> Vec<(PlayerId, Character)> {
+        let current_character = self.current_player().character();
+        self.players
+            .players()
+            .iter()
+            .filter(|p| {
+                p.character() <= current_character && !self.fired_characters.contains(&p.character())
+            }) // Iter of all already played characters that haven't been fired
+            .map(|player| (player.id(), player.character()))
+            .collect::<Vec<_>>()
+    }
 }
 
 /// Used to return the new hands for the regulator and its player target.

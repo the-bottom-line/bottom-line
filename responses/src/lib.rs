@@ -240,7 +240,7 @@ pub enum DirectResponse {
     YouResynced {
         /// This player's personal id.
         id: PlayerId,
-        /// The amount of cash this player gets.
+        /// The amount of cash this player has.
         cash: u8,
         /// The player's hand.
         #[cfg_attr(
@@ -255,8 +255,10 @@ pub enum DirectResponse {
         liabilities: Vec<Liability>,
         /// Public info about every other player.
         player_info: Vec<PlayerInfo>,
-        /// The market at the start of the game.
+        /// The current market.
         market: Market,
+        /// A response containing the current gamestate
+        phase : ResyncData,
     }
 }
 
@@ -433,7 +435,9 @@ pub enum UniqueResponse {
         /// A list of player scores.
         scores: Vec<PlayerScore>,
     },
+    /// Sent when rejoin request is acknowledged
     Rejoined {
+        /// Id of the rejoining player
         player_id: PlayerId,
     },
 }
@@ -455,4 +459,46 @@ pub enum ResponseError {
     /// An error sent when the data the player sent in invalid.
     #[error("Data is not valid for this state")]
     InvalidData,
+}
+
+/// Custom data used for resyncing a client
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = game::SHARED_TS_DIR))]
+#[derive(Debug, Serialize, Deserialize)]
+pub enum ResyncData {
+    /// When the game is in the SelectingCharacters phase this data is used to sync back up
+    SelectingCharacters {
+        /// The id of the chairman, or the person who selects a character first.
+        chairman_id: PlayerId,
+        /// The id of the player currently selecting a character
+        currently_picking_id: PlayerId,
+        /// If it's this player's turn, a list of characters that can be selected.
+        selectable_characters: Option<Vec<Character>>,
+        /// A list of characters that cannot be selected by anyone.
+        open_characters: Vec<Character>,
+        /// A character that only the chairman can see, but not select.
+        closed_character: Option<Character>,
+        /// The order each player selects a character in.
+        turn_order: Vec<PlayerId>,
+    },
+
+    /// When the player rejoining is currently playing the round this will be sent
+    PlayingRound {
+        /// Player currently playing
+        current_player_id : PlayerId,
+        /// List of previous players and their characters
+        had_turn : Vec<(PlayerId, Character)>,
+        /// The cards that have already been drawn by the player
+        /// Empty when card drawing phase has finished
+        drawn_cards: Vec<usize>,
+        /// Variable to track if we're in a drawing phase because Option<> is not possible
+        /// True if we're expected to draw more cards
+        can_still_draw : bool,
+        /// Variable to track if the player has used their ability yet
+        used_ability : bool,
+        /// Struct to track how many assets the player can still play
+        playable_assets : u8,
+        /// Variable to track how many liabilities the player can still play
+        playable_liabilities : u8,
+    },
 }

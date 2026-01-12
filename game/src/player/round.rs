@@ -82,6 +82,11 @@ impl RoundPlayer {
         self.is_human = human;
     }
 
+    /// Returns the list of drawn cards
+    pub fn cards_drawn(&self) -> &[usize] {
+        &self.cards_drawn
+    }
+
     /// Adds a new `card_idx` to the list of cards drawn this round.
     fn update_cards_drawn(&mut self, card_idx: usize) {
         self.cards_drawn = self
@@ -102,6 +107,16 @@ impl RoundPlayer {
     /// Checks whether or not this player can still issue a liability.
     pub fn can_play_liability(&self) -> bool {
         self.liabilities_to_play > 0
+    }
+
+    /// Returns the budget for assets this player can still play.
+    pub fn assets_to_play(&self) -> u8 {
+        self.assets_to_play
+    }
+
+    /// Returns the number of liabilities this player can still issue.
+    pub fn liabilities_to_play(&self) -> u8 {
+        self.liabilities_to_play
     }
 
     /// Redeems a liability for a player by paying for it in cash. If succesful, returns the

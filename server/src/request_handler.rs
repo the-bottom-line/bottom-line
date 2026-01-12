@@ -573,17 +573,28 @@ pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameEr
                 .iter()
                 .map(|p| (p.id(), vec![UniqueResponse::Rejoined{player_id : player_id.clone()}]))
                 .collect();
+            let round_data = ResyncData::PlayingRound {
+                current_player_id: round.current_player().id(),
+                had_turn: round.played_characters(),
+                drawn_cards: round.current_player().cards_drawn().to_vec(),
+                can_still_draw: false,
+                used_ability: false,
+                playable_assets: round.current_player().assets_to_play(),
+                playable_liabilities: round.current_player().liabilities_to_play(),
+            };
+            let response = DirectResponse::YouResynced {
+                id : player.id(),
+                cash : player.cash(),
+                hand : player.hand().to_vec(),
+                assets : player.assets().to_vec(),
+                liabilities : player.liabilities().to_vec(),
+                market : round.current_market().clone(),
+                player_info : round.player_info(player_id),
+                phase : round_data
+            };
             Ok(Response(
                 InternalResponse(internal),
-                DirectResponse::YouResynced {
-                    id : player.id(),
-                    cash : player.cash(),
-                    hand : player.hand().to_vec(),
-                    assets : player.assets().to_vec(),
-                    liabilities : player.liabilities().to_vec(),
-                    market : round.current_market().clone(),
-                    player_info : round.player_info(player_id),
-                }))
+                response))
         }
         GameState::SelectingCharacters(round) => {
             let player = round.player(player_id)?;
@@ -592,6 +603,24 @@ pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameEr
                 .iter()
                 .map(|p| (p.id(), vec![UniqueResponse::Rejoined{player_id : player_id.clone()}]))
                 .collect();
+            let character_select_data = ResyncData::SelectingCharacters {
+                chairman_id: round.chairman_id(),
+                currently_picking_id: round.currently_selecting_id(),
+                selectable_characters: match round.player_get_selectable_characters(player_id) {
+                    Ok(characters) => {
+                        Some(characters)
+                    }
+                    Err(_) => {
+                        None
+                    }
+                },
+                open_characters: round.open_characters().to_vec(),
+                closed_character: match round.player_get_closed_character(player_id) {
+                    Ok(character) => Some(character),
+                    Err(_0 ) => None
+                },
+                turn_order: round.turn_order(),
+            };
             Ok(Response(
                 InternalResponse(internal),
                 DirectResponse::YouResynced {
@@ -602,6 +631,7 @@ pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameEr
                     liabilities : player.liabilities().to_vec(),
                     market : round.current_market().clone(),
                     player_info : round.player_info(player_id),
+                    phase : character_select_data,
                 }))
         }
 

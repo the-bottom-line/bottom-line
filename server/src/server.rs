@@ -112,6 +112,9 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                             }
                             Err(e) => DirectResponse::from(GameError::from(e)),
                         },
+                        // If the game is already running check and see if the player that is trying to connect had previously
+                        // disconnected, if they are allow them to rejoin, and notify the other players that someone
+                        // rejoined.
                         GameState::Round(round) => match round.player_by_name(&connect_username) {
                             Ok(player) => {
                                 debug_assert_eq!(player.name(), connect_username);

@@ -486,19 +486,32 @@ pub enum ResyncData {
     PlayingRound {
         /// Player currently playing
         current_player_id : PlayerId,
+        /// The character of this player.
+        player_character: Character,
         /// List of previous players and their characters
         had_turn : Vec<(PlayerId, Character)>,
+
+        /// The amount of cards this player draws.
+        draws_n_cards: u8,
+        /// The amount of cards this player has already drawn.
+        cards_drawn: u8,
+        /// The amount of cards this player gives back.
+        gives_back_n_cards: u8,
+        /// The amount of cards this player has already returned.
+        cards_returned: u8,
+
         /// The cards that have already been drawn by the player
-        /// Empty when card drawing phase has finished
         drawn_cards: Vec<usize>,
-        /// Variable to track if we're in a drawing phase because Option<> is not possible
-        /// True if we're expected to draw more cards
-        can_still_draw : bool,
         /// Variable to track if the player has used their ability yet
         used_ability : bool,
-        /// Struct to track how many assets the player can still play
-        playable_assets : u8,
-        /// Variable to track how many liabilities the player can still play
-        playable_liabilities : u8,
+
+        /// The amount of assets this player can play, where each color asset has a different 'unit
+        /// cost' attached to it.
+        playable_assets: PlayableAssets,
+        /// Amount of play credits remaining
+        play_credits_remaining : u8,
+
+        /// The amount of liabilities this player can play.
+        playable_liabilities: u8,
     },
 }

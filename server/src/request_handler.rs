@@ -575,11 +575,16 @@ pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameEr
                 .collect();
             let round_data = ResyncData::PlayingRound {
                 current_player_id: round.current_player().id(),
+                player_character: round.current_player().character(),
                 had_turn: round.played_characters(),
+                draws_n_cards: round.current_player().draws_n_cards(),
+                cards_drawn : round.current_player().total_cards_drawn(),
+                gives_back_n_cards: round.current_player().gives_back_n_cards(),
+                cards_returned : round.current_player().total_cards_given_back(),
                 drawn_cards: round.current_player().cards_drawn().to_vec(),
-                can_still_draw: false,
-                used_ability: false,
-                playable_assets: round.current_player().assets_to_play(),
+                used_ability: round.current_player().has_used_ability(),
+                playable_assets: round.current_player().playable_assets(),
+                play_credits_remaining: round.current_player().assets_to_play(),
                 playable_liabilities: round.current_player().liabilities_to_play(),
             };
             let response = DirectResponse::YouResynced {

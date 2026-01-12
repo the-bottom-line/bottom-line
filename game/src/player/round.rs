@@ -82,6 +82,21 @@ impl RoundPlayer {
         self.is_human = human;
     }
 
+    /// Returns true if the player has used their ability already
+    pub fn has_used_ability(&self) -> bool {
+        self.has_used_ability
+    }
+
+    /// Returns the amount of cards already drawn by the player
+    pub fn total_cards_drawn(&self) -> u8 {
+        self.total_cards_drawn
+    }
+
+    /// Returns the amount of cards already given back by the player
+    pub fn total_cards_given_back(&self) -> u8 {
+        self.total_cards_given_back
+    }
+
     /// Returns the list of drawn cards
     pub fn cards_drawn(&self) -> &[usize] {
         &self.cards_drawn

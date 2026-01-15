@@ -183,7 +183,13 @@ impl SelectingCharacters {
         self.players()
             .iter()
             .filter(|p| p.id() != id)
-            .map(Into::into)
+            .map(|p| {
+                let mut info : PlayerInfo = p.into();
+                if p.character() > self.current_player().character() {
+                    info.character = None;
+                }
+                info
+            })
             .collect()
     }
 

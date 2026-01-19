@@ -360,7 +360,7 @@ impl Round {
                 .get_disjoint_mut([usize::from(id), usize::from(target_id)])
             {
                 Ok([regulator, target]) => {
-                    regulator.regulator_swap_with_player(target)?;
+                    regulator.swap_with_player(target)?;
                     let hands = HandsAfterSwap {
                         regulator_new_hand: regulator.hand().to_vec(),
                         target_new_hand: target.hand().to_vec(),

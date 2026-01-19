@@ -234,10 +234,7 @@ impl RoundPlayer {
 
     /// Tries to swap the hands of this player, if they are the
     /// [`Regulator`](Character::Regulator), with the hands of the target player.
-    pub fn regulator_swap_with_player(
-        &mut self,
-        target: &mut RoundPlayer,
-    ) -> Result<(), SwapError> {
+    pub fn swap_with_player(&mut self, target: &mut RoundPlayer) -> Result<(), SwapError> {
         if self.character == Character::Regulator {
             if !self.has_used_ability {
                 self.has_used_ability = true;

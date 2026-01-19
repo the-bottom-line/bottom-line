@@ -585,12 +585,6 @@ impl Round {
         }
     }
 
-    /// Checks whether someone has bought equal to or more assets than [`ASSETS_FOR_END_OF_GAME`].
-    /// If so, this should be the final round.
-    fn is_last_round(&self) -> bool {
-        self.max_bought_assets() >= ASSETS_FOR_END_OF_GAME
-    }
-
     /// Sets a player as disconnected
     pub fn leave(&mut self, id: PlayerId) -> Result<(), GameError> {
         match self.players.player_mut(id) {

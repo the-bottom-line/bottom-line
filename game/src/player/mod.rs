@@ -420,6 +420,11 @@ impl Character {
         matches!(self, Self::CFO)
     }
 
+    /// Returns `true` if this character is allowed to fire other characters.
+    pub fn can_fire_characters(&self) -> bool {
+        matches!(self, Self::Shareholder)
+    }
+
     /// Returns `true` if this character can be fired
     pub fn can_be_fired(&self) -> bool {
         matches!(

@@ -139,7 +139,7 @@ impl RoundPlayer {
         &mut self,
         character: Character,
     ) -> Result<Character, FireCharacterError> {
-        if self.character == Character::Shareholder {
+        if self.character.can_fire_characters() {
             if !self.has_used_ability {
                 if character.can_be_fired() {
                     self.has_used_ability = true;

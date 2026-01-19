@@ -104,7 +104,7 @@ impl Lobby {
     ///
     /// lobby.join("player 1".to_owned())?;
     ///
-    /// let player = LobbyPlayer::new(PlayerId(0), "player 1".to_owned());
+    /// let player = LobbyPlayer::new(PlayerId(0), "player 1".to_owned(), true);
     /// assert_eq!(lobby.players(), &[player]);
     /// # Ok(())
     /// # }
@@ -124,7 +124,7 @@ impl Lobby {
     ///
     /// lobby.join("player 1".to_owned())?;
     ///
-    /// let player = LobbyPlayer::new(PlayerId(0), "player 1".to_owned());
+    /// let player = LobbyPlayer::new(PlayerId(0), "player 1".to_owned(), true);
     /// assert_eq!(lobby.players_mut(), &mut [player]);
     /// # Ok(())
     /// # }

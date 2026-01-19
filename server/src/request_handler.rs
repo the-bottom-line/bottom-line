@@ -781,14 +781,7 @@ pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameEr
             let internal = round
                 .players()
                 .iter()
-                .map(|p| {
-                    (
-                        p.id(),
-                        vec![UniqueResponse::Rejoined {
-                            player_id,
-                        }],
-                    )
-                })
+                .map(|p| (p.id(), vec![UniqueResponse::Rejoined { player_id }]))
                 .collect();
             // Create the resync data specific to the playing round
             let round_data = ResyncData::PlayingRound {
@@ -824,14 +817,7 @@ pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameEr
             let internal = round
                 .players()
                 .iter()
-                .map(|p| {
-                    (
-                        p.id(),
-                        vec![UniqueResponse::Rejoined {
-                            player_id,
-                        }],
-                    )
-                })
+                .map(|p| (p.id(), vec![UniqueResponse::Rejoined { player_id }]))
                 .collect();
             // Create the resync data specific to the selecting phase
             let character_select_data = ResyncData::SelectingCharacters {

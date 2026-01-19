@@ -418,7 +418,7 @@ impl Round {
     /// can be divested as well as the current cost to do so. This list excludes their own cards.
     pub fn get_divest_assets(&mut self, id: PlayerId) -> Result<Vec<DivestPlayer>, GameError> {
         let player = self.player_as_current_mut(id)?;
-        if player.character() == Character::Stakeholder {
+        if player.character().can_force_others_to_divest() {
             Ok(self
                 .players()
                 .iter()

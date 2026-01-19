@@ -425,6 +425,11 @@ impl Character {
         matches!(self, Self::Shareholder)
     }
 
+    /// Returns `true` if this character can force other players to divest an asset.
+    pub fn can_force_others_to_divest(&self) -> bool {
+        matches!(self, Self::Stakeholder)
+    }
+
     /// Returns `true` if this character can be fired
     pub fn can_be_fired(&self) -> bool {
         matches!(

@@ -138,10 +138,10 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                                         tracing::debug!("Player rejoined: {:?}", p.id());
                                         break;
                                     }
-                                    Err(e) => DirectResponse::from(GameError::from(e)),
+                                    Err(e) => DirectResponse::from(e),
                                 }
                             }
-                            Err(e) => DirectResponse::from(GameError::from(e)),
+                            Err(e) => DirectResponse::from(e),
                         },
                         GameState::SelectingCharacters(round) => {
                             match round.player_by_name(&connect_username) {
@@ -154,10 +154,10 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                                             tracing::debug!("Player rejoined: {:?}", p.id());
                                             break;
                                         }
-                                        Err(e) => DirectResponse::from(GameError::from(e)),
+                                        Err(e) => DirectResponse::from(e),
                                     }
                                 }
-                                Err(e) => DirectResponse::from(GameError::from(e)),
+                                Err(e) => DirectResponse::from(e),
                             }
                         }
                         _ => DirectResponse::from(ResponseError::GameAlreadyStarted),
@@ -353,7 +353,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             let p = game.player_by_name(&username);
             match p {
                 Ok(player) => {
-                    let id = player.id().clone();
+                    let id = player.id();
                     let _ = game.leave(id); // This can fail but we just continue silently if it does
                     tracing::debug!("Player left: {:?}", id);
                 }
@@ -368,7 +368,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             let p = game.player_by_name(&username);
             match p {
                 Ok(player) => {
-                    let id = player.id().clone();
+                    let id = player.id();
                     let _ = game.leave(id);
                     tracing::debug!("Player left: {:?}", id);
                 }
@@ -379,7 +379,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 }
             }
         }
-        _ => return,
+        _ => (),
     }
     // if let Ok(lobby) = room.game.lock().unwrap().lobby_mut() {
     //     // remove username on disconnect

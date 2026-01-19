@@ -785,7 +785,7 @@ pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameEr
                     (
                         p.id(),
                         vec![UniqueResponse::Rejoined {
-                            player_id: player_id.clone(),
+                            player_id,
                         }],
                     )
                 })
@@ -828,7 +828,7 @@ pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameEr
                     (
                         p.id(),
                         vec![UniqueResponse::Rejoined {
-                            player_id: player_id.clone(),
+                            player_id,
                         }],
                     )
                 })
@@ -837,17 +837,9 @@ pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameEr
             let character_select_data = ResyncData::SelectingCharacters {
                 chairman_id: round.chairman_id(),
                 currently_picking_id: round.currently_selecting_id(),
-                selectable_characters: match round.player_get_selectable_characters(player_id) {
-                    Ok(characters) => Some(characters),
-                    Err(_) => {
-                        None // If the current player cannot select any characters we set it to None
-                    }
-                },
+                selectable_characters: round.player_get_selectable_characters(player_id).ok(),
                 open_characters: round.open_characters().to_vec(),
-                closed_character: match round.player_get_closed_character(player_id) {
-                    Ok(character) => Some(character),
-                    Err(_) => None, // If the current player is not the first player we can just set it to None
-                },
+                closed_character: round.player_get_closed_character(player_id).ok(),
                 turn_order: round.turn_order(),
             };
             Ok(Response(

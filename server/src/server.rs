@@ -208,7 +208,7 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             tracing::debug!("Global Response: {:?}", internal);
             let _ = room.tx.send(internal);
         }
-        state @ GameState::Round(_) | state @ GameState::SelectingCharacters(_) => {
+        GameState::Round(_) | GameState::SelectingCharacters(_) => {
             rejoin_message = Some(DirectResponse::YouRejoined)
         }
         // TODO: handle joins after game starts
@@ -347,16 +347,19 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 });
             }
         }
+        // If we are outside of the lobby state then the game will already have started
+        // We need to modify the player object and let the other players in that room know
+        // that the player has disconnected. This also marks them as available for reconnecting.
         GameState::Round(game) => {
             let p = game.player_by_name(&username);
             match p {
                 Ok(player) => {
                     let id = player.id().clone();
-                    game.leave(id);
+                    let _ = game.leave(id); // This can fail but we just continue silently if it does
                     tracing::debug!("Player left: {:?}", id);
                 }
-                Err(err) => {
-                    //TODO: Error handling
+                Err(_) => {
+                    tracing::debug!("A disconnect happened but no connected player could be found.");
                 }
             }
         }
@@ -365,11 +368,11 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
             match p {
                 Ok(player) => {
                     let id = player.id().clone();
-                    game.leave(id);
+                    let _ = game.leave(id);
                     tracing::debug!("Player left: {:?}", id);
                 }
-                Err(err) => {
-                    //TODO:: Error handling
+                Err(_) => {
+                    tracing::debug!("A disconnect happened but no connected player could be found.");
                 }
             }
         }

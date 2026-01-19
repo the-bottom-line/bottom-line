@@ -185,22 +185,21 @@ impl SelectingCharacters {
             .filter(|p| p.id() != id)
             .map(|p| {
                 let mut info : PlayerInfo = p.into();
-                if p.character() > self.current_player().character() {
-                    info.character = None;
-                }
+                // Filter out the characters of players that have not had their turn yet
+                info.character = None;
                 info
             })
             .collect()
     }
 
     /// Sets a player as disconnected
-    pub fn leave(&mut self, id: PlayerId) -> bool {
+    pub fn leave(&mut self, id: PlayerId) -> Result<(), GameError> {
         match self.players.player_mut(id) {
             Ok(player) => {
                 player.set_is_human(false);
-                return true;
+                Ok(())
             }
-            Err(e) => return false
+            Err(e) => Err(e)
         }
     }
     /// Allows a player to rejoin

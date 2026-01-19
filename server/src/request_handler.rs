@@ -765,18 +765,25 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
     }
 }
 
+/// Facilitates a client resync by providing a packet containing the full gamestate
+/// Contains data specific to the current gamestate
 pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameError>{
     match state {
+        // We do not allow rejoining in lobby or result phase as of now
         GameState::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
         GameState::Results(_) => Err(GameError::NotAvailableInResultsState),
+        // Banker phase has to be implemented yet
         GameState::BankerTarget(_) => todo!(),
+        // During the playing round we need to notify the player of the actions that they can still take
         GameState::Round(round) => {
             let player = round.player(player_id)?;
+            // Let the others know which player is reconnecting
             let internal = round
                 .players()
                 .iter()
                 .map(|p| (p.id(), vec![UniqueResponse::Rejoined{player_id : player_id.clone()}]))
                 .collect();
+            // Create the resync data specific to the playing round
             let round_data = ResyncData::PlayingRound {
                 current_player_id: round.current_player().id(),
                 player_character: round.current_player().character(),
@@ -791,6 +798,7 @@ pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameEr
                 play_credits_remaining: round.current_player().assets_to_play(),
                 playable_liabilities: round.current_player().liabilities_to_play(),
             };
+            // Create the response
             let response = DirectResponse::YouResynced {
                 id : player.id(),
                 cash : player.cash(),
@@ -807,11 +815,13 @@ pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameEr
         }
         GameState::SelectingCharacters(round) => {
             let player = round.player(player_id)?;
+            // Let the other players know which player is reconnecting
             let internal = round
                 .players()
                 .iter()
                 .map(|p| (p.id(), vec![UniqueResponse::Rejoined{player_id : player_id.clone()}]))
                 .collect();
+            // Create the resync data specific to the selecting phase
             let character_select_data = ResyncData::SelectingCharacters {
                 chairman_id: round.chairman_id(),
                 currently_picking_id: round.currently_selecting_id(),
@@ -820,13 +830,13 @@ pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameEr
                         Some(characters)
                     }
                     Err(_) => {
-                        None
+                        None // If the current player cannot select any characters we set it to None
                     }
                 },
                 open_characters: round.open_characters().to_vec(),
                 closed_character: match round.player_get_closed_character(player_id) {
                     Ok(character) => Some(character),
-                    Err(_0 ) => None
+                    Err(_ ) => None // If the current player is not the first player we can just set it to None
                 },
                 turn_order: round.turn_order(),
             };

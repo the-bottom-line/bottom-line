@@ -125,6 +125,7 @@ pub enum FrontendRequest {
     },
     /// Tries to end the turn of this player.
     EndTurn,
+    /// Request a resync packet containing the current gamestate
     Resync,
     /// Tries to turn minus into zero or zero into plus for the player's market at the end of the
     /// game. Related to [`AssetPowerup::MinusIntoPlus`](game::player::AssetPowerup::MinusIntoPlus).

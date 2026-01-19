@@ -592,13 +592,13 @@ impl Round {
     }
 
     /// Sets a player as disconnected
-    pub fn leave(&mut self, id: PlayerId) -> bool {
+    pub fn leave(&mut self, id: PlayerId) -> Result<(), GameError> {
         match self.players.player_mut(id) {
             Ok(player) => {
                 player.set_is_human(false);
-                return true;
+                Ok(())
             }
-            Err(e) => return false
+            Err(e) => Err(e)
         }
     }
 

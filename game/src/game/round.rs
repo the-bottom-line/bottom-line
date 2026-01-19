@@ -321,7 +321,7 @@ impl Round {
         &mut self,
         id: PlayerId,
         card_idxs: Vec<usize>,
-    ) -> Result<Vec<usize>, GameError> {
+    ) -> Result<AssetLiabilityCount, GameError> {
         // cant use player_as_current_mut here because of multiple mutable borrows of self. hmm.
         let player = match self.players.player_mut(id) {
             Ok(player) if player.id() == self.current_player => player,
@@ -576,6 +576,35 @@ impl Round {
                     events.push(event);
                 }
             }
+        }
+    }
+}
+
+/// Used to return the amount of assets and liabilities that were returned to the deck when the
+/// [`Character::Regulator`] swaps with the deck.
+#[derive(Debug, Clone)]
+pub struct AssetLiabilityCount {
+    /// The amount of assets returned to the deck.
+    pub asset_count: usize,
+    /// The amount of liabilities returned to the deck.
+    pub liability_count: usize,
+}
+
+impl AssetLiabilityCount {
+    /// Instantiates a new `AssetLiabilityCount`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::game::{AssetLiabilityCount};
+    /// let count = AssetLiabilityCount::new(3, 5);
+    /// assert_eq!(count.asset_count, 3);
+    /// assert_eq!(count.liability_count, 5);
+    /// ```
+    pub const fn new(asset_count: usize, liability_count: usize) -> Self {
+        AssetLiabilityCount {
+            asset_count,
+            liability_count,
         }
     }
 }

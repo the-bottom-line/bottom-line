@@ -767,7 +767,7 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
 
 /// Facilitates a client resync by providing a packet containing the full gamestate
 /// Contains data specific to the current gamestate
-pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameError>{
+pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameError> {
     match state {
         // We do not allow rejoining in lobby or result phase as of now
         GameState::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
@@ -781,7 +781,14 @@ pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameEr
             let internal = round
                 .players()
                 .iter()
-                .map(|p| (p.id(), vec![UniqueResponse::Rejoined{player_id : player_id.clone()}]))
+                .map(|p| {
+                    (
+                        p.id(),
+                        vec![UniqueResponse::Rejoined {
+                            player_id: player_id.clone(),
+                        }],
+                    )
+                })
                 .collect();
             // Create the resync data specific to the playing round
             let round_data = ResyncData::PlayingRound {
@@ -789,9 +796,9 @@ pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameEr
                 player_character: round.current_player().character(),
                 had_turn: round.played_characters(),
                 draws_n_cards: round.current_player().draws_n_cards(),
-                cards_drawn : round.current_player().total_cards_drawn(),
+                cards_drawn: round.current_player().total_cards_drawn(),
                 gives_back_n_cards: round.current_player().gives_back_n_cards(),
-                cards_returned : round.current_player().total_cards_given_back(),
+                cards_returned: round.current_player().total_cards_given_back(),
                 drawn_cards: round.current_player().cards_drawn().to_vec(),
                 used_ability: round.current_player().has_used_ability(),
                 playable_assets: round.current_player().playable_assets(),
@@ -800,18 +807,16 @@ pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameEr
             };
             // Create the response
             let response = DirectResponse::YouResynced {
-                id : player.id(),
-                cash : player.cash(),
-                hand : player.hand().to_vec(),
-                assets : player.assets().to_vec(),
-                liabilities : player.liabilities().to_vec(),
-                market : round.current_market().clone(),
-                player_info : round.player_info(player_id),
-                phase : round_data
+                id: player.id(),
+                cash: player.cash(),
+                hand: player.hand().to_vec(),
+                assets: player.assets().to_vec(),
+                liabilities: player.liabilities().to_vec(),
+                market: round.current_market().clone(),
+                player_info: round.player_info(player_id),
+                phase: round_data,
             };
-            Ok(Response(
-                InternalResponse(internal),
-                response))
+            Ok(Response(InternalResponse(internal), response))
         }
         GameState::SelectingCharacters(round) => {
             let player = round.player(player_id)?;
@@ -819,16 +824,21 @@ pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameEr
             let internal = round
                 .players()
                 .iter()
-                .map(|p| (p.id(), vec![UniqueResponse::Rejoined{player_id : player_id.clone()}]))
+                .map(|p| {
+                    (
+                        p.id(),
+                        vec![UniqueResponse::Rejoined {
+                            player_id: player_id.clone(),
+                        }],
+                    )
+                })
                 .collect();
             // Create the resync data specific to the selecting phase
             let character_select_data = ResyncData::SelectingCharacters {
                 chairman_id: round.chairman_id(),
                 currently_picking_id: round.currently_selecting_id(),
                 selectable_characters: match round.player_get_selectable_characters(player_id) {
-                    Ok(characters) => {
-                        Some(characters)
-                    }
+                    Ok(characters) => Some(characters),
                     Err(_) => {
                         None // If the current player cannot select any characters we set it to None
                     }
@@ -836,24 +846,24 @@ pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameEr
                 open_characters: round.open_characters().to_vec(),
                 closed_character: match round.player_get_closed_character(player_id) {
                     Ok(character) => Some(character),
-                    Err(_ ) => None // If the current player is not the first player we can just set it to None
+                    Err(_) => None, // If the current player is not the first player we can just set it to None
                 },
                 turn_order: round.turn_order(),
             };
             Ok(Response(
                 InternalResponse(internal),
                 DirectResponse::YouResynced {
-                    id : player.id(),
-                    cash : player.cash(),
-                    hand : player.hand().to_vec(),
-                    assets : player.assets().to_vec(),
-                    liabilities : player.liabilities().to_vec(),
-                    market : round.current_market().clone(),
-                    player_info : round.player_info(player_id),
-                    phase : character_select_data,
-                }))
+                    id: player.id(),
+                    cash: player.cash(),
+                    hand: player.hand().to_vec(),
+                    assets: player.assets().to_vec(),
+                    liabilities: player.liabilities().to_vec(),
+                    market: round.current_market().clone(),
+                    player_info: round.player_info(player_id),
+                    phase: character_select_data,
+                },
+            ))
         }
-
     }
 }
 

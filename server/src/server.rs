@@ -1,7 +1,7 @@
 use game::{errors::GameError, game::GameState};
 use responses::*;
 
-use crate::{request_handler::{Response}, rooms::RoomState};
+use crate::{request_handler::Response, rooms::RoomState};
 
 use axum::{
     Router,
@@ -138,29 +138,28 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                                         tracing::debug!("Player rejoined: {:?}", p.id());
                                         break;
                                     }
-                                    Err(e) => {
-                                        DirectResponse::from(GameError::from(e))
-                                    }
-                                }
-                            }
-                            Err(e) => DirectResponse::from(GameError::from(e)),
-                        }
-                        GameState::SelectingCharacters(round) => match round.player_by_name(&connect_username) {
-                            Ok(player) => {
-                                debug_assert_eq!(player.name(), connect_username);
-                                match round.rejoin(player.id()) {
-                                    Ok(p) => {
-                                        username = p.name().to_owned();
-                                        channel_idx = p.id().into();
-                                        tracing::debug!("Player rejoined: {:?}", p.id());
-                                        break;
-                                    }
-                                    Err(e) => DirectResponse::from(GameError::from(e))
-
+                                    Err(e) => DirectResponse::from(GameError::from(e)),
                                 }
                             }
                             Err(e) => DirectResponse::from(GameError::from(e)),
                         },
+                        GameState::SelectingCharacters(round) => {
+                            match round.player_by_name(&connect_username) {
+                                Ok(player) => {
+                                    debug_assert_eq!(player.name(), connect_username);
+                                    match round.rejoin(player.id()) {
+                                        Ok(p) => {
+                                            username = p.name().to_owned();
+                                            channel_idx = p.id().into();
+                                            tracing::debug!("Player rejoined: {:?}", p.id());
+                                            break;
+                                        }
+                                        Err(e) => DirectResponse::from(GameError::from(e)),
+                                    }
+                                }
+                                Err(e) => DirectResponse::from(GameError::from(e)),
+                            }
+                        }
                         _ => DirectResponse::from(ResponseError::GameAlreadyStarted),
                     }
                 };
@@ -190,13 +189,13 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     let mut player_rx = room.player_tx[channel_idx].subscribe();
 
     let confirm = DirectResponse::YouJoinedGame {
-        username : username.clone(),
-        channel : channel.clone()
+        username: username.clone(),
+        channel: channel.clone(),
     };
     tracing::debug!("Targeted Response: {:?}", confirm);
     let _ = send_external(confirm, sender.clone()).await;
-    let mut rejoin_message : Option<DirectResponse> = None;
-     // announce join to everyone
+    let mut rejoin_message: Option<DirectResponse> = None;
+    // announce join to everyone
     // PANIC: a mutex can only poison if any other thread that has access to it crashes. Since this
     // cannot happen, unwrapping is safe.
     match &*room.game.lock().unwrap() {
@@ -359,7 +358,9 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     tracing::debug!("Player left: {:?}", id);
                 }
                 Err(_) => {
-                    tracing::debug!("A disconnect happened but no connected player could be found.");
+                    tracing::debug!(
+                        "A disconnect happened but no connected player could be found."
+                    );
                 }
             }
         }
@@ -372,11 +373,13 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                     tracing::debug!("Player left: {:?}", id);
                 }
                 Err(_) => {
-                    tracing::debug!("A disconnect happened but no connected player could be found.");
+                    tracing::debug!(
+                        "A disconnect happened but no connected player could be found."
+                    );
                 }
             }
         }
-        _ => return
+        _ => return,
     }
     // if let Ok(lobby) = room.game.lock().unwrap().lobby_mut() {
     //     // remove username on disconnect

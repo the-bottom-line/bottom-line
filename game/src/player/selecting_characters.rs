@@ -59,7 +59,7 @@ impl SelectingCharactersPlayer {
     }
 
     /// Sets the human state of this player
-    pub fn set_is_human(&mut self, human : bool) {
+    pub fn set_is_human(&mut self, human: bool) {
         self.is_human = human;
     }
 

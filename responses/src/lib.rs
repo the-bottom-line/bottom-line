@@ -330,9 +330,9 @@ pub enum DirectResponse {
     /// Confirmation that you joined the lobby.
     YouJoinedGame {
         /// Your connected username.
-        username : String,
+        username: String,
         /// The channel you're connected to.
-        channel : String
+        channel: String,
     },
     /// Inform the client that they are rejoining
     YouRejoined,
@@ -359,7 +359,7 @@ pub enum DirectResponse {
         /// The current market.
         market: Market,
         /// A response containing the current gamestate
-        phase : ResyncData,
+        phase: ResyncData,
     },
     /// Confirms that this player changed one of their market colors.
     YouMinusedIntoPlus {
@@ -749,11 +749,11 @@ pub enum ResyncData {
     /// When the player rejoining is currently playing the round this will be sent
     PlayingRound {
         /// Player currently playing
-        current_player_id : PlayerId,
+        current_player_id: PlayerId,
         /// The character of this player.
         player_character: Character,
         /// List of previous players and their characters
-        had_turn : Vec<(PlayerId, Character)>,
+        had_turn: Vec<(PlayerId, Character)>,
 
         /// The amount of cards this player draws.
         draws_n_cards: u8,
@@ -767,13 +767,13 @@ pub enum ResyncData {
         /// The cards that have already been drawn by the player
         drawn_cards: Vec<usize>,
         /// Variable to track if the player has used their ability yet
-        used_ability : bool,
+        used_ability: bool,
 
         /// The amount of assets this player can play, where each color asset has a different 'unit
         /// cost' attached to it.
         playable_assets: PlayableAssets,
         /// Amount of play credits remaining
-        play_credits_remaining : u8,
+        play_credits_remaining: u8,
 
         /// The amount of liabilities this player can play.
         playable_liabilities: u8,

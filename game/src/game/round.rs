@@ -112,7 +112,7 @@ impl Round {
             .iter()
             .filter(|p| p.id() != id)
             .map(|p| {
-                let mut info : PlayerInfo = p.into();
+                let mut info: PlayerInfo = p.into();
                 if p.character() > self.current_player().character() {
                     info.character = None;
                 }
@@ -598,7 +598,7 @@ impl Round {
                 player.set_is_human(false);
                 Ok(())
             }
-            Err(e) => Err(e)
+            Err(e) => Err(e),
         }
     }
 
@@ -606,7 +606,7 @@ impl Round {
     pub fn rejoin(&mut self, id: PlayerId) -> Result<&RoundPlayer, GameError> {
         let player = self.players.player_mut(id)?;
         if player.is_human() {
-            return Err(GameError::InvalidPlayerName(player.name().to_string()))
+            return Err(GameError::InvalidPlayerName(player.name().to_string()));
         }
         player.set_is_human(true);
         Ok(player)
@@ -620,7 +620,8 @@ impl Round {
             .players()
             .iter()
             .filter(|p| {
-                p.character() <= current_character && !self.fired_characters.contains(&p.character())
+                p.character() <= current_character
+                    && !self.fired_characters.contains(&p.character())
             }) // Iter of all already played characters that haven't been fired
             .map(|player| (player.id(), player.character()))
             .collect::<Vec<_>>()

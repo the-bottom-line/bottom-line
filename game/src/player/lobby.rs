@@ -7,7 +7,7 @@ use crate::player::*;
 pub struct LobbyPlayer {
     id: PlayerId,
     name: String,
-    is_human : bool,
+    is_human: bool,
 }
 
 impl LobbyPlayer {

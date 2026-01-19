@@ -23,7 +23,7 @@ pub struct ResultsPlayer {
     old_change_asset_color: Option<ChangeAssetColorData>,
     confirmed_asset_ability_idxs: Vec<usize>,
     was_first_to_six_assets: bool,
-    is_human : bool,
+    is_human: bool,
 }
 
 impl ResultsPlayer {

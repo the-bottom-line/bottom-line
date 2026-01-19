@@ -81,7 +81,7 @@ impl RoundPlayer {
     }
 
     /// Sets the human state of this player
-    pub fn set_is_human(&mut self, human : bool) {
+    pub fn set_is_human(&mut self, human: bool) {
         self.is_human = human;
     }
 
@@ -585,7 +585,7 @@ impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
                     has_used_ability: false,
                     has_gotten_bonus_cash: false,
                     was_first_to_six_assets: false,
-                    is_human: player.is_human
+                    is_human: player.is_human,
                 })
             }
             None => Err(GameError::PlayerMissingCharacter),
@@ -603,7 +603,7 @@ impl From<&RoundPlayer> for PlayerInfo {
             liabilities: player.liabilities.clone(),
             cash: player.cash,
             character: Some(player.character),
-            is_human : player.is_human,
+            is_human: player.is_human,
         }
     }
 }

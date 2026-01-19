@@ -184,7 +184,7 @@ impl SelectingCharacters {
             .iter()
             .filter(|p| p.id() != id)
             .map(|p| {
-                let mut info : PlayerInfo = p.into();
+                let mut info: PlayerInfo = p.into();
                 // Filter out the characters of players that have not had their turn yet
                 info.character = None;
                 info
@@ -199,14 +199,14 @@ impl SelectingCharacters {
                 player.set_is_human(false);
                 Ok(())
             }
-            Err(e) => Err(e)
+            Err(e) => Err(e),
         }
     }
     /// Allows a player to rejoin
     pub fn rejoin(&mut self, id: PlayerId) -> Result<&SelectingCharactersPlayer, GameError> {
         let player = self.players.player_mut(id)?;
         if player.is_human() {
-            return Err(GameError::InvalidPlayerName(player.name().to_string()))
+            return Err(GameError::InvalidPlayerName(player.name().to_string()));
         }
         player.set_is_human(true);
         Ok(player)

@@ -182,7 +182,7 @@ pub struct PlayerInfo {
     /// The character this player has chosen, if applicable.
     pub character: Option<Character>,
     /// This player is controlled by a human
-    pub is_human : bool,
+    pub is_human: bool,
 }
 
 impl PlayerInfo {

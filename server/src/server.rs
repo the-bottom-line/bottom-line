@@ -125,6 +125,41 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                             }
                             Err(e) => DirectResponse::from(GameError::from(e)),
                         },
+                        // If the game is already running check and see if the player that is trying to connect had previously
+                        // disconnected, if they are allow them to rejoin, and notify the other players that someone
+                        // rejoined.
+                        GameState::Round(round) => match round.player_by_name(&connect_username) {
+                            Ok(player) => {
+                                debug_assert_eq!(player.name(), connect_username);
+                                match round.rejoin(player.id()) {
+                                    Ok(p) => {
+                                        username = p.name().to_owned();
+                                        channel_idx = p.id().into();
+                                        tracing::debug!("Player rejoined: {:?}", p.id());
+                                        break;
+                                    }
+                                    Err(e) => DirectResponse::from(e),
+                                }
+                            }
+                            Err(e) => DirectResponse::from(e),
+                        },
+                        GameState::SelectingCharacters(round) => {
+                            match round.player_by_name(&connect_username) {
+                                Ok(player) => {
+                                    debug_assert_eq!(player.name(), connect_username);
+                                    match round.rejoin(player.id()) {
+                                        Ok(p) => {
+                                            username = p.name().to_owned();
+                                            channel_idx = p.id().into();
+                                            tracing::debug!("Player rejoined: {:?}", p.id());
+                                            break;
+                                        }
+                                        Err(e) => DirectResponse::from(e),
+                                    }
+                                }
+                                Err(e) => DirectResponse::from(e),
+                            }
+                        }
                         _ => DirectResponse::from(ResponseError::GameAlreadyStarted),
                     }
                 };
@@ -171,6 +206,13 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
 
     let mut player_rx = room.player_tx[channel_idx].subscribe();
 
+    let confirm = DirectResponse::YouJoinedGame {
+        username: username.clone(),
+        channel: channel.clone(),
+    };
+    tracing::debug!("Targeted Response: {:?}", confirm);
+    let _ = send_external(confirm, sender.clone()).await;
+    let mut rejoin_message: Option<DirectResponse> = None;
     // announce join to everyone
     // PANIC: a mutex can only poison if any other thread that has access to it crashes. Since this
     // cannot happen, unwrapping is safe.
@@ -180,12 +222,19 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
                 changed_player: username.clone(),
                 usernames: lobby.usernames().iter().map(ToString::to_string).collect(),
             };
-
             tracing::debug!("Global Response: {:?}", internal);
             let _ = room.tx.send(internal);
         }
+        GameState::Round(_) | GameState::SelectingCharacters(_) => {
+            rejoin_message = Some(DirectResponse::YouRejoined)
+        }
         // TODO: handle joins after game starts
         _ => return,
+    }
+
+    if let Some(message) = &rejoin_message {
+        tracing::debug!("Sending rejoin message: {:?}", message);
+        let _ = send_external(message, sender.clone()).await;
     }
 
     // task: forward broadcast messages to this client
@@ -302,18 +351,66 @@ async fn websocket(stream: WebSocket, state: Arc<AppState>) {
     // announce leave
     // PANIC: a mutex can only poison if any other thread that has access to it crashes. Since this
     // cannot happen, unwrapping is safe.
-    if let Ok(lobby) = room.game.lock().unwrap().lobby_mut() {
-        // remove username on disconnect
-        lobby.leave(&username);
+    match &mut *room.game.lock().unwrap() {
+        GameState::Lobby(lobby) => {
+            // remove username on disconnect
+            lobby.leave(&username);
 
-        // send updated list to everyone
-        for i in 0..lobby.len() {
-            let _ = room.player_tx[i].send(UniqueResponse::PlayersInLobby {
-                changed_player: username.clone(),
-                usernames: lobby.usernames().iter().map(ToString::to_string).collect(),
-            });
+            // send updated list to everyone
+            for i in 0..lobby.len() {
+                let _ = room.player_tx[i].send(UniqueResponse::PlayersInLobby {
+                    changed_player: username.clone(),
+                    usernames: lobby.usernames().iter().map(ToString::to_string).collect(),
+                });
+            }
         }
+        // If we are outside of the lobby state then the game will already have started
+        // We need to modify the player object and let the other players in that room know
+        // that the player has disconnected. This also marks them as available for reconnecting.
+        GameState::Round(game) => {
+            let p = game.player_by_name(&username);
+            match p {
+                Ok(player) => {
+                    let id = player.id();
+                    let _ = game.leave(id); // This can fail but we just continue silently if it does
+                    tracing::debug!("Player left: {:?}", id);
+                }
+                Err(_) => {
+                    tracing::debug!(
+                        "A disconnect happened but no connected player could be found."
+                    );
+                }
+            }
+        }
+        GameState::SelectingCharacters(game) => {
+            let p = game.player_by_name(&username);
+            match p {
+                Ok(player) => {
+                    let id = player.id();
+                    let _ = game.leave(id);
+                    tracing::debug!("Player left: {:?}", id);
+                }
+                Err(_) => {
+                    tracing::debug!(
+                        "A disconnect happened but no connected player could be found."
+                    );
+                }
+            }
+        }
+        _ => (),
     }
+    // if let Ok(lobby) = room.game.lock().unwrap().lobby_mut() {
+    //     // remove username on disconnect
+    //     lobby.leave(&username);
+
+    //     // send updated list to everyone
+    //     for i in 0..lobby.len() {
+    //         let _ = room.player_tx[i].send(UniqueResponse::PlayersInLobby {
+    //             changed_player: username.clone(),
+    //             usernames: lobby.usernames().iter().map(ToString::to_string).collect(),
+    //         });
+    //     }
+    // }
 }
 
 pub fn create_room(
@@ -511,12 +608,17 @@ mod tests {
 
         sleep(100).await;
 
+        for reader in readers.iter_mut() {
+            let response = receive(reader).await;
+            assert_matches!(response, DirectResponse::YouJoinedGame { .. })
+        }
+
         for (i, reader) in readers.iter_mut().enumerate() {
             // The first player gets 4 lists (one with one, one with two players and so on), the
             // second player gets one with two and so on
             for _ in i..4 {
                 let response = receive(reader).await;
-                assert!(matches!(response, UniqueResponse::PlayersInLobby { .. }))
+                assert!(matches!(response, UniqueResponse::PlayersInLobby { .. }));
             }
         }
 
@@ -609,6 +711,17 @@ mod tests {
         }
     }
 
+    pub async fn test_response_messages<S>(reader: &mut SplitStream<WebSocketStream<S>>)
+    where
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+    {
+        let response = receive(reader).await;
+        assert_matches!(response, DirectResponse::YouJoinedGame { .. });
+
+        let response = receive(reader).await;
+        assert!(matches!(response, UniqueResponse::PlayersInLobby { .. }));
+    }
+
     #[tokio::test]
     async fn room_timeout() {
         // Safe in single-threaded programs. No other threads are spun up by this point, so
@@ -634,8 +747,7 @@ mod tests {
         .await
         .unwrap();
 
-        let response = receive(&mut read1).await;
-        assert!(matches!(response, UniqueResponse::PlayersInLobby { .. }));
+        test_response_messages(&mut read1).await;
 
         sleep(6000).await;
 
@@ -655,8 +767,7 @@ mod tests {
                 .await
                 .unwrap();
 
-                let response = receive(&mut read1).await;
-                assert!(matches!(response, UniqueResponse::PlayersInLobby { .. }));
+                test_response_messages(&mut read1).await;
             });
         }
 
@@ -682,8 +793,7 @@ mod tests {
         .await
         .unwrap();
 
-        let response = receive(&mut read1).await;
-        assert!(matches!(response, UniqueResponse::PlayersInLobby { .. }));
+        test_response_messages(&mut read1).await;
 
         sleep(6000).await;
 

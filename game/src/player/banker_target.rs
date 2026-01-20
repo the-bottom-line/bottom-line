@@ -18,6 +18,7 @@ pub struct BankerTargetPlayer {
     pub(super) hand: Vec<Either<Asset, Liability>>,
     pub(super) liabilities_to_play: u8,
     pub(super) was_first_to_six_assets: bool,
+    pub(super) is_human: bool,
 }
 
 impl BankerTargetPlayer {
@@ -347,6 +348,7 @@ impl From<BankerTargetPlayer> for RoundPlayer {
             has_used_ability: false,
             has_gotten_bonus_cash: false,
             was_first_to_six_assets: false,
+            is_human: player.is_human,
         }
     }
 }

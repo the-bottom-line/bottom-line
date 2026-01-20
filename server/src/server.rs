@@ -711,6 +711,17 @@ mod tests {
         }
     }
 
+    pub async fn test_response_messages<S>(reader: &mut SplitStream<WebSocketStream<S>>)
+    where
+        S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+    {
+        let response = receive(reader).await;
+        assert_matches!(response, DirectResponse::YouJoinedGame { .. });
+
+        let response = receive(reader).await;
+        assert!(matches!(response, UniqueResponse::PlayersInLobby { .. }));
+    }
+
     #[tokio::test]
     async fn room_timeout() {
         // Safe in single-threaded programs. No other threads are spun up by this point, so
@@ -736,8 +747,7 @@ mod tests {
         .await
         .unwrap();
 
-        let response = receive(&mut read1).await;
-        assert!(matches!(response, UniqueResponse::PlayersInLobby { .. }));
+        test_response_messages(&mut read1).await;
 
         sleep(6000).await;
 
@@ -757,8 +767,7 @@ mod tests {
                 .await
                 .unwrap();
 
-                let response = receive(&mut read1).await;
-                assert!(matches!(response, UniqueResponse::PlayersInLobby { .. }));
+                test_response_messages(&mut read1).await;
             });
         }
 
@@ -784,8 +793,7 @@ mod tests {
         .await
         .unwrap();
 
-        let response = receive(&mut read1).await;
-        assert!(matches!(response, UniqueResponse::PlayersInLobby { .. }));
+        test_response_messages(&mut read1).await;
 
         sleep(6000).await;
 

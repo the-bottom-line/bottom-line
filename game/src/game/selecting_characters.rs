@@ -112,6 +112,8 @@ impl SelectingCharacters {
                         .min_by(|p1, p2| p1.character().cmp(&p2.character()))
                         .map(|p| p.id())
                         .unwrap();
+                    // PANIC: This is safe because a game has to have at least four players to
+                    // start, and they cannot be removed
 
                     let players = std::mem::take(&mut self.players);
                     let assets = std::mem::take(&mut self.assets);
@@ -121,7 +123,7 @@ impl SelectingCharacters {
                     let current_events = std::mem::take(&mut self.current_events);
                     let open_characters = self.characters.open_characters().to_vec();
                     let fired_characters: Vec<Character> = vec![];
-
+                    let banker_target = None;
                     let players = players
                         .0
                         .into_iter()
@@ -141,12 +143,11 @@ impl SelectingCharacters {
                         current_events,
                         open_characters,
                         fired_characters,
+                        banker_target,
+                        is_final_round: false,
                     };
 
-                    round
-                        .players
-                        .player_mut(current_player)?
-                        .start_turn(&round.current_market);
+                    round.players.player_mut(current_player)?.start_turn();
 
                     Ok(Some(GameState::Round(round)))
                 } else {
@@ -182,21 +183,30 @@ impl SelectingCharacters {
         self.players()
             .iter()
             .filter(|p| p.id() != id)
-            .map(Into::into)
+            .map(|p| {
+                let mut info: PlayerInfo = p.into();
+                // Filter out the characters of players that have not had their turn yet
+                info.character = None;
+                info
+            })
             .collect()
     }
 
     /// Sets a player as disconnected
-    pub fn leave(&mut self, id: PlayerId) -> Result<&SelectingCharactersPlayer, GameError> {
-        let player = self.players.player_mut(id)?;
-        player.set_is_human(false);
-        Ok(player)
+    pub fn leave(&mut self, id: PlayerId) -> Result<(), GameError> {
+        match self.players.player_mut(id) {
+            Ok(player) => {
+                player.set_is_human(false);
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
     }
     /// Allows a player to rejoin
     pub fn rejoin(&mut self, id: PlayerId) -> Result<&SelectingCharactersPlayer, GameError> {
         let player = self.players.player_mut(id)?;
         if player.is_human() {
-            return Err(GameError::InvalidPlayerName(player.name().to_string()))
+            return Err(GameError::InvalidPlayerName(player.name().to_string()));
         }
         player.set_is_human(true);
         Ok(player)

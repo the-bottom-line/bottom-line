@@ -104,7 +104,7 @@ impl Lobby {
     ///
     /// lobby.join("player 1".to_owned())?;
     ///
-    /// let player = LobbyPlayer::new(PlayerId(0), "player 1".to_owned());
+    /// let player = LobbyPlayer::new(PlayerId(0), "player 1".to_owned(), true);
     /// assert_eq!(lobby.players(), &[player]);
     /// # Ok(())
     /// # }
@@ -124,7 +124,7 @@ impl Lobby {
     ///
     /// lobby.join("player 1".to_owned())?;
     ///
-    /// let player = LobbyPlayer::new(PlayerId(0), "player 1".to_owned());
+    /// let player = LobbyPlayer::new(PlayerId(0), "player 1".to_owned(), true);
     /// assert_eq!(lobby.players_mut(), &mut [player]);
     /// # Ok(())
     /// # }
@@ -207,6 +207,7 @@ impl Lobby {
     pub fn leave(&mut self, username: &str) -> bool {
         match self.players().iter().position(|p| p.name() == username) {
             Some(pos) => {
+                // PANIC: we just verified this is a valid position so removing here cannot crash.
                 self.players.0.remove(pos);
                 self.players_mut()
                     .iter_mut()
@@ -272,7 +273,16 @@ impl Lobby {
         data_path: P,
     ) -> Result<GameState, GameError> {
         if self.can_start() {
-            let data = GameData::new(&data_path).expect(&format!("Path: {} for game data is invalid", data_path.as_ref().display()));
+            let data = match GameData::new(&data_path) {
+                Ok(data) => data,
+                Err(crate::cards::DataParseError::Io(_)) => {
+                    panic!(
+                        "Path '{}' for game data is invalid",
+                        data_path.as_ref().display()
+                    )
+                }
+                Err(e) => panic!("{e}"),
+            };
 
             #[cfg(feature = "shuffle")]
             let data = {
@@ -286,10 +296,13 @@ impl Lobby {
             let mut markets = data.market_deck;
 
             let players = self.init_players(&mut assets, &mut liabilities);
-            let current_market =
-                Lobby::initial_market(&mut markets).expect("No markets in deck for some reason");
+            let current_market = Lobby::initial_market(&mut markets).unwrap_or_default();
 
-            let chairman = players.players().first().unwrap().id();
+            let chairman = players
+                .players()
+                .first()
+                .ok_or(GameError::InvalidPlayerCount(players.len() as u8))?
+                .id();
             debug_assert_eq!(chairman, PlayerId(0));
 
             let characters = ObtainingCharacters::new(players.len(), chairman)?;
@@ -343,6 +356,7 @@ impl Lobby {
     /// Grab market card if available. If no market cards are in the deck, `None` is returned.
     fn initial_market(markets: &mut Deck<Either<Market, Event>>) -> Option<Market> {
         match markets.deck.iter().position(|c| c.is_left()) {
+            // PANIC: we verified that this is a valid position, so removing it cannot crash.
             Some(pos) => markets.deck.swap_remove(pos).left(),
             _ => None,
         }

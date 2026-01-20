@@ -1,10 +1,12 @@
 //! This is where the game logic, excluding the player-specific logic, is located.
 
+mod banker_target;
 mod lobby;
 mod results;
 mod round;
 mod selecting_characters;
 
+pub use banker_target::*;
 pub use lobby::*;
 pub use results::*;
 pub use round::*;
@@ -15,7 +17,12 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "ts")]
 use ts_rs::TS;
 
-use std::{collections::HashSet, path::Path, sync::Arc, vec};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+    sync::Arc,
+    vec,
+};
 
 use crate::{errors::*, player::*, utility::serde_asset_liability};
 
@@ -58,14 +65,37 @@ pub enum MarketCondition {
     Minus,
     /// The market for this color is neutral
     #[default]
+    #[serde(rename = "zero")]
     Zero,
+}
+
+impl MarketCondition {
+    /// Makes into a higher market condition:
+    /// `Plus` and `Zero` become `Plus`, `Minus` becomes `Zero.
+    pub fn make_higher(&mut self) -> Self {
+        *self = match self {
+            Self::Plus | Self::Zero => Self::Plus,
+            Self::Minus => Self::Zero,
+        };
+        *self
+    }
+
+    /// Makes into a lower market condition:
+    /// `Zero` and `Minus` become `Minus`, `Plus` becomes `Zero.
+    pub fn make_lower(&mut self) -> Self {
+        *self = match self {
+            Self::Minus | Self::Zero => Self::Minus,
+            Self::Plus => Self::Zero,
+        };
+        *self
+    }
 }
 
 /// The market card type
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(rename = "MarketCard"))]
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Market {
     /// The title of the market
     pub title: String,
@@ -88,10 +118,6 @@ pub struct Market {
     /// The market condition for red
     #[serde(rename = "Red", default)]
     pub red: MarketCondition,
-    /// A url which points to the front of this market card in the assets folder
-    pub image_front_url: String,
-    /// A url which points to the back of a market card in the assets folder
-    pub image_back_url: Arc<String>,
 }
 
 impl Market {
@@ -103,6 +129,21 @@ impl Market {
             Color::Purple => self.purple,
             Color::Yellow => self.yellow,
             Color::Blue => self.blue,
+        }
+    }
+}
+
+impl Default for Market {
+    fn default() -> Self {
+        Self {
+            title: "Stable Market".to_string(),
+            rfr: 1,
+            mrp: 1,
+            red: MarketCondition::default(),
+            green: MarketCondition::default(),
+            purple: MarketCondition::default(),
+            yellow: MarketCondition::default(),
+            blue: MarketCondition::default(),
         }
     }
 }
@@ -273,12 +314,15 @@ impl ObtainingCharacters {
                 .iter()
                 .position(|c| *c == Character::CEO)
                 .unwrap();
+            // PANIC: this is completely safe because `Character::CHARACTERS always contains all
+            // characters, which of course includes the CEO.
 
             // Get CEO out of the first `open_character_count` positions
             if (0..open_character_count).contains(&ceo_pos) {
                 let ceo_insert =
                     rand::random_range(open_character_count..(available_characters.len() - 1));
-                debug_assert_eq!(available_characters.deck.remove(ceo_pos), Character::CEO);
+                // PANIC: We know `ceo_pos` to be a valid position, so removing it cannot crash.
+                assert_eq!(available_characters.deck.remove(ceo_pos), Character::CEO);
                 available_characters.deck.insert(ceo_insert, Character::CEO);
             }
             // CEO is now out of bottom positions of the deck (start of list) but we want it out
@@ -333,6 +377,7 @@ impl ObtainingCharacters {
             Ok(PickableCharacters { mut characters, .. }) => {
                 match characters.iter().position(|&c| c == character) {
                     Some(i) => {
+                        // PANIC: we know `i` to be a valid position, so removing it cannot crash.
                         characters.remove(i);
                         self.draw_idx += 1;
                         self.available_characters.deck = characters;
@@ -361,7 +406,7 @@ impl ObtainingCharacters {
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MarketChange {
-    /// A list of events encountered in search for a market card
+    /// A list of evenOts encountered in search for a market card
     pub events: Vec<Event>,
     /// The new market card
     pub new_market: Market,
@@ -375,6 +420,45 @@ pub struct PlayerPlayedCard {
     /// The card that was played
     #[serde(with = "serde_asset_liability::value")]
     pub used_card: Either<Asset, Liability>,
+    /// Whether or not playing this asset means it is now the final round (6th asset)
+    pub is_final_round: bool,
+}
+
+/// Structure that represents an asset that is set to be sold to pay off their obligation to the
+/// banker. It contains the index of the asset as well as the market value of the asset.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SoldAssetToPayBanker {
+    /// The index of the asset that can be sold to the banker.
+    pub asset_idx: usize,
+    /// The market value of the asset that can be sold to the banker.
+    pub market_value: u8,
+}
+
+/// Struct that represents a liability that a player has selected to be issued to pay off their
+/// obligation to the banker. It contains the index of the liability in the hand of the player, as
+/// well as the liability itself.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct IssuedLiabilityToPayBanker {
+    /// The index of the liability in the hand of the player.
+    pub card_idx: usize,
+    /// The liability to be issued to pay off the banker.
+    pub liability: Liability,
+}
+
+/// A collection of selected assets that will be sold and a list of liabilities that will be issued
+/// in order to comply with the banker's obligation.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SelectedAssetsAndLiabilities {
+    /// A list of assets to be sold to pay off the banker.
+    pub sold_assets: Vec<SoldAssetToPayBanker>,
+    /// A list of liabilities to be issued to pay off the banker.
+    pub issued_liabilities: Vec<IssuedLiabilityToPayBanker>,
 }
 
 /// Data used when a turn ends
@@ -517,11 +601,40 @@ impl<P> Players<P> {
     ) -> Result<[&mut P; N], std::slice::GetDisjointMutError> {
         self.0.get_disjoint_mut(indices)
     }
+
+    /// Returns an iterator over the slice.
+    /// The iterator yields all players from start to end.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::game::Players;
+    /// let players = Players::new(vec![1, 2, 4]);
+    /// let mut iterator = players.iter();
+    ///
+    /// assert_eq!(iterator.next(), Some(&1));
+    /// assert_eq!(iterator.next(), Some(&2));
+    /// assert_eq!(iterator.next(), Some(&4));
+    /// assert_eq!(iterator.next(), None);
+    /// ```
+    pub fn iter(&self) -> impl Iterator<Item = &P> {
+        self.0.iter()
+    }
 }
 
 impl<P> Default for Players<P> {
     fn default() -> Self {
         Self(Default::default())
+    }
+}
+
+impl<P> IntoIterator for Players<P> {
+    type Item = P;
+
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
@@ -541,6 +654,8 @@ pub enum GameState {
     /// Round state of the game. In this state each player plays their turn, which includes drawing
     /// cards, playing assets and liabilities and using their character ability
     Round(Round),
+    /// Banker target state of the game. In this state a player can do all their actions to pay the baker
+    BankerTarget(BankerTargetRound),
     /// Results state of the game. In this state players can see how they did compared to everyone
     /// else
     Results(Results),
@@ -658,6 +773,38 @@ impl GameState {
         }
     }
 
+    /// Tries to get a `&`[`Round`] state. Returns an error if the game is not in a round state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::{GameState, Lobby}};
+    /// let game = GameState::Lobby(Lobby::default());
+    /// assert_eq!(game.bankertarget(), Err(GameError::NotBankerTargetState));
+    /// ```
+    pub fn bankertarget(&self) -> Result<&BankerTargetRound, GameError> {
+        match self {
+            Self::BankerTarget(r) => Ok(r),
+            _ => Err(GameError::NotBankerTargetState),
+        }
+    }
+
+    /// Tries to get a `&mut`[`Round`] state. Returns an error if the game is not in a round state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::{errors::GameError, game::{GameState, Lobby}};
+    /// let mut game = GameState::Lobby(Lobby::default());
+    /// assert_eq!(game.round_mut(), Err(GameError::NotRoundState));
+    /// ```
+    pub fn bankertarget_mut(&mut self) -> Result<&mut BankerTargetRound, GameError> {
+        match self {
+            Self::BankerTarget(r) => Ok(r),
+            _ => Err(GameError::NotBankerTargetState),
+        }
+    }
+
     /// Tries to get a `&`[`Results`] state. Returns an error if the game is not in a results state.
     ///
     /// # Examples
@@ -727,7 +874,6 @@ impl GameState {
     /// [`Results`]
     pub fn end_player_turn(&mut self, id: PlayerId) -> Result<TurnEnded, GameError> {
         let round = self.round_mut()?;
-
         match round.end_player_turn(id)? {
             Either::Left(te) => Ok(te),
             Either::Right(state) => {
@@ -752,6 +898,20 @@ mod tests {
     use super::*;
     use claim::*;
     use itertools::Itertools;
+
+    #[test]
+    fn market_condition_make_higher() {
+        assert_eq!(MarketCondition::Minus.make_higher(), MarketCondition::Zero);
+        assert_eq!(MarketCondition::Zero.make_higher(), MarketCondition::Plus);
+        assert_eq!(MarketCondition::Plus.make_higher(), MarketCondition::Plus);
+    }
+
+    #[test]
+    fn market_condition_make_lower() {
+        assert_eq!(MarketCondition::Minus.make_lower(), MarketCondition::Minus);
+        assert_eq!(MarketCondition::Zero.make_lower(), MarketCondition::Minus);
+        assert_eq!(MarketCondition::Plus.make_lower(), MarketCondition::Zero);
+    }
 
     #[test]
     fn all_unique_ids() {

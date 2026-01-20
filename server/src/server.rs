@@ -608,12 +608,17 @@ mod tests {
 
         sleep(100).await;
 
+        for reader in readers.iter_mut() {
+            let response = receive(reader).await;
+            assert_matches!(response, DirectResponse::YouJoinedGame { .. })
+        }
+
         for (i, reader) in readers.iter_mut().enumerate() {
             // The first player gets 4 lists (one with one, one with two players and so on), the
             // second player gets one with two and so on
             for _ in i..4 {
                 let response = receive(reader).await;
-                assert!(matches!(response, UniqueResponse::PlayersInLobby { .. }))
+                assert!(matches!(response, UniqueResponse::PlayersInLobby { .. }));
             }
         }
 

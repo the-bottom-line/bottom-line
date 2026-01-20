@@ -583,7 +583,10 @@ pub fn swap_with_deck(
     let round = state.round_mut()?;
 
     match round.player_swap_with_deck(player_id, card_idxs) {
-        Ok(_c) => {
+        Ok(AssetLiabilityCount {
+            asset_count,
+            liability_count,
+        }) => {
             let internal = round
                 .players()
                 .iter()
@@ -592,8 +595,8 @@ pub fn swap_with_deck(
                     (
                         p.id(),
                         vec![UniqueResponse::SwappedWithDeck {
-                            asset_count: _c[0],
-                            liability_count: _c[1],
+                            asset_count,
+                            liability_count,
                         }],
                     )
                 })
@@ -601,7 +604,7 @@ pub fn swap_with_deck(
             Ok(Response(
                 InternalResponse(internal),
                 DirectResponse::YouSwapDeck {
-                    cards_to_draw: _c[0] + _c[1],
+                    cards_to_draw: asset_count + liability_count,
                 },
             ))
         }

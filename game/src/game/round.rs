@@ -189,9 +189,8 @@ impl Round {
                     // Keep the borrow checker happy
                     let player = self.player_as_current_mut(id)?;
                     player.enable_first_to_six_assets_bonus();
+                    self.is_final_round = true;
                 }
-
-                self.is_final_round = self.check_is_final_round();
 
                 let market = match self.should_refresh_market(old_max_bought_assets) {
                     true => Some(self.refresh_market()),
@@ -327,7 +326,7 @@ impl Round {
         &mut self,
         id: PlayerId,
         card_idxs: Vec<usize>,
-    ) -> Result<Vec<usize>, GameError> {
+    ) -> Result<AssetLiabilityCount, GameError> {
         // cant use player_as_current_mut here because of multiple mutable borrows of self. hmm.
         let player = match self.players.player_mut(id) {
             Ok(player) if player.id() == self.current_player => player,
@@ -366,7 +365,7 @@ impl Round {
                 .get_disjoint_mut([usize::from(id), usize::from(target_id)])
             {
                 Ok([regulator, target]) => {
-                    regulator.regulator_swap_with_player(target)?;
+                    regulator.swap_with_player(target)?;
                     let hands = HandsAfterSwap {
                         regulator_new_hand: regulator.hand().to_vec(),
                         target_new_hand: target.hand().to_vec(),
@@ -424,7 +423,7 @@ impl Round {
     /// can be divested as well as the current cost to do so. This list excludes their own cards.
     pub fn get_divest_assets(&mut self, id: PlayerId) -> Result<Vec<DivestPlayer>, GameError> {
         let player = self.player_as_current_mut(id)?;
-        if player.character() == Character::Stakeholder {
+        if player.character().can_force_others_to_divest() {
             Ok(self
                 .players()
                 .iter()
@@ -619,6 +618,35 @@ impl Round {
             }) // Iter of all already played characters that haven't been fired
             .map(|player| (player.id(), player.character()))
             .collect::<Vec<_>>()
+    }
+}
+
+/// Used to return the amount of assets and liabilities that were returned to the deck when the
+/// [`Character::Regulator`] swaps with the deck.
+#[derive(Debug, Clone)]
+pub struct AssetLiabilityCount {
+    /// The amount of assets returned to the deck.
+    pub asset_count: usize,
+    /// The amount of liabilities returned to the deck.
+    pub liability_count: usize,
+}
+
+impl AssetLiabilityCount {
+    /// Instantiates a new `AssetLiabilityCount`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::game::{AssetLiabilityCount};
+    /// let count = AssetLiabilityCount::new(3, 5);
+    /// assert_eq!(count.asset_count, 3);
+    /// assert_eq!(count.liability_count, 5);
+    /// ```
+    pub const fn new(asset_count: usize, liability_count: usize) -> Self {
+        AssetLiabilityCount {
+            asset_count,
+            liability_count,
+        }
     }
 }
 

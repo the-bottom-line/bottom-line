@@ -180,7 +180,7 @@ impl RoundPlayer {
         &mut self,
         character: Character,
     ) -> Result<Character, FireCharacterError> {
-        if self.character == Character::Shareholder {
+        if self.character.can_fire_characters() {
             if !self.has_used_ability {
                 if character.can_be_fired() {
                     self.has_used_ability = true;
@@ -219,17 +219,18 @@ impl RoundPlayer {
     }
 
     /// Swaps a list of card indexes `card_idxs` with the deck. Each asset that is swapped is put
-    /// back into the deck and replaced by drawing a new asset, and each liability that is swapped
-    /// is put back into the liability deck and replaced by drawing a new liability. If succesful,
-    /// returns the total number of cards swapped with the deck.
+    /// back into the deck and each liability that is swapped is put back into the liability deck.
+    /// If succesful, returns the total number of assets (left) and liabilties (right) that were
+    /// removed from the player's hand. After this action, the player is able to draw the total
+    /// number of returned cards.
     pub fn swap_with_deck(
         &mut self,
         mut card_idxs: Vec<usize>,
         asset_deck: &mut Deck<Asset>,
         liability_deck: &mut Deck<Liability>,
-    ) -> Result<Vec<usize>, SwapError> {
+    ) -> Result<AssetLiabilityCount, SwapError> {
         if card_idxs.is_empty() {
-            return Ok(vec![0, 0]);
+            return Ok(AssetLiabilityCount::new(0, 0)); // Zero assets, zero liabilities returned.
         }
 
         if self.character == Character::Regulator {
@@ -260,7 +261,7 @@ impl RoundPlayer {
                     }
                     self.has_used_ability = true;
                     self.bonus_draw_cards += removed_card_len as u8;
-                    Ok(vec![asset_count, liability_count])
+                    Ok(AssetLiabilityCount::new(asset_count, liability_count))
                 } else {
                     Err(SwapError::InvalidCardIdxs)
                 }
@@ -274,10 +275,7 @@ impl RoundPlayer {
 
     /// Tries to swap the hands of this player, if they are the
     /// [`Regulator`](Character::Regulator), with the hands of the target player.
-    pub fn regulator_swap_with_player(
-        &mut self,
-        target: &mut RoundPlayer,
-    ) -> Result<(), SwapError> {
+    pub fn swap_with_player(&mut self, target: &mut RoundPlayer) -> Result<(), SwapError> {
         if self.character == Character::Regulator {
             if !self.has_used_ability {
                 self.has_used_ability = true;

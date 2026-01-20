@@ -183,9 +183,8 @@ impl Round {
                     // Keep the borrow checker happy
                     let player = self.player_as_current_mut(id)?;
                     player.enable_first_to_six_assets_bonus();
+                    self.is_final_round = true;
                 }
-
-                self.is_final_round = self.check_is_final_round();
 
                 let market = match self.should_refresh_market(old_max_bought_assets) {
                     true => Some(self.refresh_market()),

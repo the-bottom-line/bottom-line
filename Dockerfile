@@ -2,6 +2,7 @@
 FROM rust:latest AS chef
 RUN rustup target add x86_64-unknown-linux-musl
 RUN cargo install cargo-chef
+LABEL org.opencontainers.image.source="https://github.com/the-bottom-line/bottom-line"
 WORKDIR /app
 
 # Stage 2: Planning, let chef plan dependencies

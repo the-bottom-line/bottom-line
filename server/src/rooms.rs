@@ -2,7 +2,10 @@ use game::{errors::GameError, game::GameState};
 use responses::*;
 use tokio::sync::broadcast;
 
-use std::sync::Mutex;
+use std::{
+    sync::{Arc, Mutex},
+    time::Instant,
+};
 
 use crate::request_handler::*;
 
@@ -14,6 +17,10 @@ pub struct RoomState {
     pub player_tx: [broadcast::Sender<UniqueResponse>; 7],
     /// Per-room gamestate
     pub game: Mutex<GameState>,
+    /// Timestamp of last activity used for cleanup.
+    pub last_activity: Arc<Mutex<Instant>>,
+    /// A task that periodically checks if the room has been inactive and should be closed.
+    pub cleanup_handle: Mutex<Option<tokio::task::JoinHandle<()>>>,
 }
 
 impl RoomState {
@@ -30,6 +37,8 @@ impl RoomState {
                 broadcast::channel(64).0,
             ],
             game: Mutex::new(GameState::new()),
+            last_activity: Arc::new(Mutex::new(Instant::now())),
+            cleanup_handle: Mutex::new(None),
         }
     }
 
@@ -38,6 +47,8 @@ impl RoomState {
         msg: FrontendRequest,
         player_name: &str,
     ) -> Result<Response, GameError> {
+        self.touch();
+
         // PANIC: a mutex can only poison if any other thread that has access to it crashes. Since
         // this cannot happen, unwrapping is safe.
         let state = &mut *self.game.lock().unwrap();
@@ -76,6 +87,10 @@ impl RoomState {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
                 use_ability(state, player_id)
             }
+            FrontendRequest::GetBonusCash => {
+                let player_id = state.round()?.player_by_name(player_name)?.id();
+                get_bonus_cash(state, player_id)
+            }
             FrontendRequest::FireCharacter { character } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
                 fire_character(state, player_id, character)
@@ -83,6 +98,22 @@ impl RoomState {
             FrontendRequest::TerminateCreditCharacter { character } => {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
                 terminate_credit_character(state, player_id, character)
+            }
+            FrontendRequest::SelectAssetToDivest { asset_id } => {
+                let player_id = state.bankertarget()?.player_by_name(player_name)?.id();
+                select_divest_asset(state, player_id, asset_id)
+            }
+            FrontendRequest::UnselectAssetToDivest { asset_id } => {
+                let player_id = state.bankertarget()?.player_by_name(player_name)?.id();
+                unselect_divest_asset(state, player_id, asset_id)
+            }
+            FrontendRequest::SelectLiabilityToIssue { liability_id } => {
+                let player_id = state.bankertarget()?.player_by_name(player_name)?.id();
+                select_issue_liability(state, player_id, liability_id)
+            }
+            FrontendRequest::UnselectLiabilityToIssue { liability_id } => {
+                let player_id = state.bankertarget()?.player_by_name(player_name)?.id();
+                unselect_issue_liability(state, player_id, liability_id)
             }
             FrontendRequest::PayBanker { cash } => {
                 let player_id = state.bankertarget()?.player_by_name(player_name)?.id();
@@ -107,6 +138,17 @@ impl RoomState {
                 let player_id = state.round()?.player_by_name(player_name)?.id();
                 end_turn(state, player_id)
             }
+            FrontendRequest::Resync => match state {
+                GameState::Round(round) => {
+                    let player_id = round.player_by_name(player_name)?.id();
+                    resync(state, player_id)
+                }
+                GameState::SelectingCharacters(round) => {
+                    let player_id = round.player_by_name(player_name)?.id();
+                    resync(state, player_id)
+                }
+                _ => Err(GameError::NotRoundState),
+            },
             FrontendRequest::MinusIntoPlus { color } => {
                 let player_id = state.results()?.player_by_name(player_name)?.id();
                 minus_into_plus(state, player_id, color)
@@ -124,6 +166,11 @@ impl RoomState {
                 confirm_asset_ability(state, player_id, asset_idx)
             }
         }
+    }
+
+    /// Updates the timestamp the last action was taken in.
+    pub fn touch(&self) {
+        *self.last_activity.lock().unwrap() = Instant::now();
     }
 }
 

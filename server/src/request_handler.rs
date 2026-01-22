@@ -1,5 +1,5 @@
 use either::Either;
-use game::{errors::GameError, game::*, player::*};
+use game::{errors::*, game::*, player::*};
 use responses::*;
 
 use std::{collections::HashMap, path::PathBuf};
@@ -134,6 +134,31 @@ pub fn use_ability(state: &mut GameState, player_id: PlayerId) -> Result<Respons
     }
 }
 
+pub fn get_bonus_cash(state: &mut GameState, player_id: PlayerId) -> Result<Response, GameError> {
+    let round = state.round_mut()?;
+    let bonus_cash = round.player_get_bonus_cash_character(player_id)?;
+
+    let internal = round
+        .players()
+        .iter()
+        .filter(|p| p.id() != player_id)
+        .map(|p| {
+            (
+                p.id(),
+                vec![UniqueResponse::PlayerGotBonusCash {
+                    player_id,
+                    cash: bonus_cash,
+                }],
+            )
+        })
+        .collect();
+
+    Ok(Response(
+        InternalResponse(internal),
+        DirectResponse::YouBonusCash { cash: bonus_cash },
+    ))
+}
+
 pub fn draw_card(
     state: &mut GameState,
     card_type: CardType,
@@ -221,6 +246,7 @@ pub fn play_card(
                         p.id(),
                         vec![UniqueResponse::BoughtAsset {
                             player_id,
+                            card_idx,
                             asset: asset.clone(),
                             market_change: played_card.market.clone(),
                         }],
@@ -232,6 +258,7 @@ pub fn play_card(
                 InternalResponse(internal),
                 DirectResponse::YouBoughtAsset {
                     asset,
+                    card_idx,
                     market_change: played_card.market,
                 },
             ))
@@ -246,6 +273,7 @@ pub fn play_card(
                         p.id(),
                         vec![UniqueResponse::IssuedLiability {
                             player_id,
+                            card_idx,
                             liability: liability.clone(),
                         }],
                     )
@@ -254,7 +282,10 @@ pub fn play_card(
 
             Ok(Response(
                 InternalResponse(internal),
-                DirectResponse::YouIssuedLiability { liability },
+                DirectResponse::YouIssuedLiability {
+                    liability,
+                    card_idx,
+                },
             ))
         }
     }
@@ -295,7 +326,7 @@ fn turn_starts(round: &Round) -> UniqueResponse {
 
     UniqueResponse::TurnStarts {
         player_turn: current_player.id(),
-        player_turn_cash: current_player.turn_cash(round.current_market()),
+        player_turn_cash: current_player.turn_cash(),
         player_character: current_player.character(),
         draws_n_cards: current_player.draws_n_cards(),
         gives_back_n_cards: current_player.gives_back_n_cards(),
@@ -424,16 +455,90 @@ pub fn terminate_credit_character(
     }
 }
 
+pub fn select_divest_asset(
+    state: &mut GameState,
+    player_id: PlayerId,
+    asset_id: usize,
+) -> Result<Response, GameError> {
+    let btround = state.bankertarget_mut()?;
+    match btround.player_select_divest_asset(player_id, asset_id) {
+        Ok(selected) => Ok(create_selected_cards_response(btround, selected, player_id)),
+        Err(e) => Err(e),
+    }
+}
+
+pub fn unselect_divest_asset(
+    state: &mut GameState,
+    player_id: PlayerId,
+    asset_id: usize,
+) -> Result<Response, GameError> {
+    let btround = state.bankertarget_mut()?;
+    match btround.player_unselect_divest_asset(player_id, asset_id) {
+        Ok(selected) => Ok(create_selected_cards_response(btround, selected, player_id)),
+        Err(e) => Err(e),
+    }
+}
+
+pub fn select_issue_liability(
+    state: &mut GameState,
+    player_id: PlayerId,
+    liability_id: usize,
+) -> Result<Response, GameError> {
+    let btround = state.bankertarget_mut()?;
+    match btround.player_select_issue_liability(player_id, liability_id) {
+        Ok(selected) => Ok(create_selected_cards_response(btround, selected, player_id)),
+        Err(e) => Err(e),
+    }
+}
+
+pub fn unselect_issue_liability(
+    state: &mut GameState,
+    player_id: PlayerId,
+    liability_id: usize,
+) -> Result<Response, GameError> {
+    let btround = state.bankertarget_mut()?;
+    match btround.player_unselect_issue_liability(player_id, liability_id) {
+        Ok(selected) => Ok(create_selected_cards_response(btround, selected, player_id)),
+        Err(e) => Err(e),
+    }
+}
+
+fn create_selected_cards_response(
+    btround: &mut BankerTargetRound,
+    selected: SelectedAssetsAndLiabilities,
+    player_id: PlayerId,
+) -> Response {
+    let internal = btround
+        .players()
+        .iter()
+        .filter(|p| p.id() != player_id)
+        .map(|p| {
+            (
+                p.id(),
+                vec![UniqueResponse::SelectedCardsBankerTarget {
+                    assets: selected.sold_assets.clone(),
+                    liability_count: selected.issued_liabilities.len(),
+                }],
+            )
+        })
+        .collect();
+    Response(
+        InternalResponse(internal),
+        DirectResponse::YouSelectCardBankerTarget {
+            assets: selected.sold_assets,
+            liabilities: selected.issued_liabilities,
+        },
+    )
+}
+
 pub fn pay_banker(
     state: &mut GameState,
     player_id: PlayerId,
     cash: u8,
 ) -> Result<Response, GameError> {
     let btround = state.bankertarget_mut()?;
-
     match btround.player_pay_banker(player_id, cash) {
         Ok(pbp) => {
-
             let internal = btround
                 .players()
                 .iter()
@@ -441,19 +546,28 @@ pub fn pay_banker(
                 .map(|p| {
                     (
                         p.id(),
-                        vec![UniqueResponse::PlayerPayedBanker {
+                        vec![UniqueResponse::PlayerPaidBanker {
                             banker_id: pbp.banker_id,
                             player_id: pbp.target_id,
-                            cash: pbp.cash,
+                            new_banker_cash: pbp.new_banker_cash,
+                            new_target_cash: pbp.new_target_cash,
+                            paid_amount: pbp.paid_amount,
+                            sold_assets: pbp.selected_cards.sold_assets.clone(),
+                            issued_liabilities: pbp.selected_cards.issued_liabilities.clone(),
                         }],
                     )
                 })
                 .collect();
+            *state = GameState::Round(btround.into());
             Ok(Response(
                 InternalResponse(internal),
                 DirectResponse::YouPaidBanker {
-                    cash: cash,
                     banker_id: pbp.banker_id,
+                    new_banker_cash: pbp.new_banker_cash,
+                    your_new_cash: pbp.new_target_cash,
+                    paid_amount: pbp.paid_amount,
+                    sold_assets: pbp.selected_cards.sold_assets,
+                    issued_liabilities: pbp.selected_cards.issued_liabilities,
                 },
             ))
         }
@@ -469,7 +583,10 @@ pub fn swap_with_deck(
     let round = state.round_mut()?;
 
     match round.player_swap_with_deck(player_id, card_idxs) {
-        Ok(_c) => {
+        Ok(AssetLiabilityCount {
+            asset_count,
+            liability_count,
+        }) => {
             let internal = round
                 .players()
                 .iter()
@@ -477,9 +594,9 @@ pub fn swap_with_deck(
                 .map(|p| {
                     (
                         p.id(),
-                        vec![UniqueResponse::SwapedWithDeck {
-                            asset_count: _c[0],
-                            liability_count: _c[1],
+                        vec![UniqueResponse::SwappedWithDeck {
+                            asset_count,
+                            liability_count,
                         }],
                     )
                 })
@@ -487,7 +604,7 @@ pub fn swap_with_deck(
             Ok(Response(
                 InternalResponse(internal),
                 DirectResponse::YouSwapDeck {
-                    cards_to_draw: _c[0] + _c[1],
+                    cards_to_draw: asset_count + liability_count,
                 },
             ))
         }
@@ -511,7 +628,7 @@ pub fn swap_with_player(
         .map(|p| {
             (
                 p.id(),
-                vec![UniqueResponse::SwapedWithPlayer {
+                vec![UniqueResponse::SwappedWithPlayer {
                     regulator_id: player_id,
                     target_id: target_player_id,
                 }],
@@ -519,7 +636,7 @@ pub fn swap_with_player(
         })
         .chain(std::iter::once((
             target_player_id,
-            vec![UniqueResponse::RegulatorSwapedYourCards {
+            vec![UniqueResponse::RegulatorSwappedYourCards {
                 new_cards: hands.target_new_hand,
             }],
         )))
@@ -529,39 +646,44 @@ pub fn swap_with_player(
         InternalResponse(internal),
         DirectResponse::YouSwapPlayer {
             new_cards: hands.regulator_new_hand,
+            target_player_id,
         },
     ))
 }
 
 pub fn divest_asset(
     state: &mut GameState,
-    player_id: PlayerId,
-    target_player_id: PlayerId,
+    stakeholder_id: PlayerId,
+    target_id: PlayerId,
     asset_idx: usize,
 ) -> Result<Response, GameError> {
     let round = state.round_mut()?;
 
-    match round.player_divest_asset(player_id, target_player_id, asset_idx) {
-        Ok(_c) => {
+    match round.player_divest_asset(stakeholder_id, target_id, asset_idx) {
+        Ok(gold_cost) => {
             let internal = round
                 .players()
                 .iter()
-                .filter(|p| p.id() != player_id)
+                .filter(|p| p.id() != stakeholder_id)
                 .map(|p| {
                     (
                         p.id(),
                         vec![UniqueResponse::AssetDivested {
-                            player_id,
-                            target_id: target_player_id,
-                            card_idx: asset_idx,
-                            paid_gold: _c,
+                            player_id: stakeholder_id,
+                            target_id,
+                            asset_idx,
+                            paid_gold: gold_cost,
                         }],
                     )
                 })
                 .collect();
             Ok(Response(
                 InternalResponse(internal),
-                DirectResponse::YouDivestedAnAsset { gold_cost: _c },
+                DirectResponse::YouDivestedAnAsset {
+                    target_id,
+                    asset_idx,
+                    gold_cost,
+                },
             ))
         }
         Err(e) => Err(e),
@@ -600,11 +722,22 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
             ))
         }
         GameState::Round(round) => {
-            let internal = round
+            let mut internal: HashMap<PlayerId, Vec<UniqueResponse>> = round
                 .players()
                 .iter()
                 .map(|p| (p.id(), vec![turn_starts(round)]))
                 .collect();
+
+            if round.banker_target() == Some(round.current_player().character()) {
+                *state = GameState::BankerTarget(round.into());
+                for value in internal.values_mut() {
+                    value.push(UniqueResponse::PlayerTargetedByBanker {
+                        player_turn: state.bankertarget()?.current_player().id(),
+                        cash_to_be_paid: state.bankertarget()?.gold_to_be_paid(),
+                        is_possible_to_pay_banker: state.bankertarget()?.can_pay_banker(),
+                    });
+                }
+            }
 
             Ok(Response(
                 InternalResponse(internal),
@@ -630,6 +763,86 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
             Ok(Response(
                 InternalResponse(internal),
                 DirectResponse::YouEndedTurn,
+            ))
+        }
+    }
+}
+
+/// Facilitates a client resync by providing a packet containing the full gamestate
+/// Contains data specific to the current gamestate
+pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameError> {
+    match state {
+        // We do not allow rejoining in lobby or result phase as of now
+        GameState::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
+        GameState::Results(_) => Err(GameError::NotAvailableInResultsState),
+        // Banker phase has to be implemented yet
+        GameState::BankerTarget(_) => todo!(),
+        // During the playing round we need to notify the player of the actions that they can still take
+        GameState::Round(round) => {
+            let player = round.player(player_id)?;
+            // Let the others know which player is reconnecting
+            let internal = round
+                .players()
+                .iter()
+                .map(|p| (p.id(), vec![UniqueResponse::Rejoined { player_id }]))
+                .collect();
+            // Create the resync data specific to the playing round
+            let round_data = ResyncData::PlayingRound {
+                current_player_id: round.current_player().id(),
+                player_character: round.current_player().character(),
+                had_turn: round.played_characters(),
+                draws_n_cards: round.current_player().draws_n_cards(),
+                cards_drawn: round.current_player().total_cards_drawn(),
+                gives_back_n_cards: round.current_player().gives_back_n_cards(),
+                cards_returned: round.current_player().total_cards_given_back(),
+                drawn_cards: round.current_player().cards_drawn().to_vec(),
+                used_ability: round.current_player().has_used_ability(),
+                playable_assets: round.current_player().playable_assets(),
+                play_credits_remaining: round.current_player().assets_to_play(),
+                playable_liabilities: round.current_player().liabilities_to_play(),
+            };
+            // Create the response
+            let response = DirectResponse::YouResynced {
+                id: player.id(),
+                cash: player.cash(),
+                hand: player.hand().to_vec(),
+                assets: player.assets().to_vec(),
+                liabilities: player.liabilities().to_vec(),
+                market: round.current_market().clone(),
+                player_info: round.player_info(player_id),
+                phase: round_data,
+            };
+            Ok(Response(InternalResponse(internal), response))
+        }
+        GameState::SelectingCharacters(round) => {
+            let player = round.player(player_id)?;
+            // Let the other players know which player is reconnecting
+            let internal = round
+                .players()
+                .iter()
+                .map(|p| (p.id(), vec![UniqueResponse::Rejoined { player_id }]))
+                .collect();
+            // Create the resync data specific to the selecting phase
+            let character_select_data = ResyncData::SelectingCharacters {
+                chairman_id: round.chairman_id(),
+                currently_picking_id: round.currently_selecting_id(),
+                selectable_characters: round.player_get_selectable_characters(player_id).ok(),
+                open_characters: round.open_characters().to_vec(),
+                closed_character: round.player_get_closed_character(player_id).ok(),
+                turn_order: round.turn_order(),
+            };
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouResynced {
+                    id: player.id(),
+                    cash: player.cash(),
+                    hand: player.hand().to_vec(),
+                    assets: player.assets().to_vec(),
+                    liabilities: player.liabilities().to_vec(),
+                    market: round.current_market().clone(),
+                    player_info: round.player_info(player_id),
+                    phase: character_select_data,
+                },
             ))
         }
     }

@@ -47,6 +47,11 @@ pub enum GameError {
     #[error(transparent)]
     PayBanker(#[from] PayBankerError),
 
+    /// Errors related to the action of selecting and unselecting assets and liabilities
+    /// when targeted by the banker ability
+    #[error(transparent)]
+    BankerTargetSelect(#[from] BankerTargetSelectError),
+
     /// Errors related to the action of terminating a characters credit line
     #[error(transparent)]
     TerminateCreditCharacter(#[from] TerminateCreditCharacterError),
@@ -58,6 +63,10 @@ pub enum GameError {
     /// Errors related to the action of forcing another player to divest an asset
     #[error(transparent)]
     DivestAsset(#[from] DivestAssetError),
+
+    /// Errors related to getting bonus gold
+    #[error(transparent)]
+    GetBonusCash(#[from] GetBonusCashError),
 
     /// Errors related to the asset abilities
     #[error(transparent)]
@@ -106,7 +115,7 @@ pub enum GameError {
 
     /// Error indicating that this action is only allowed in the banker target state
     #[error("Action only allowed in Banker target state")]
-    NotbankerTargetState,
+    NotBankerTargetState,
 
     /// Error indicating that this action is only allowed in the results state
     #[error("Action only allowed in Results state")]
@@ -207,6 +216,20 @@ pub enum GiveBackCardError {
     Unnecessary,
 }
 
+/// Errors related to getting bonus gold
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
+pub enum GetBonusCashError {
+    /// The given character cannot be fired.
+    #[error("Character does not have a bonus color")]
+    InvalidCharacter,
+
+    /// Player has already gotten bonus cash this turn.
+    #[error("Player has already gotten bonus cash this turn")]
+    AlreadyGottenBonusCashThisTurn,
+}
+
 /// Errors related to firing a character.
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
@@ -225,7 +248,6 @@ pub enum FireCharacterError {
     AlreadyFiredThisTurn,
 }
 
-
 /// Errors related to paying the banker on the targets turn
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
@@ -234,12 +256,19 @@ pub enum PayBankerError {
     /// The player does not have enough cash to pay the banker
     #[error("You don't have enough cash to pay the banker")]
     NotEnoughCash,
+
     /// No banker found to pay in this round
     #[error("Their is no banker in this round")]
     NoBankerPlayer,
+
     /// Not the right amount to be paid to the banker
-    #[error("Their is no banker in this round")]
-    NotRightCashAmount,
+    #[error("Player tried to pay the banker {got} cash when {expected} was expected")]
+    NotRightCashAmount {
+        /// Amount of cash expected to be paid.
+        expected: u8,
+        /// Amount of cash that the player tried to pay
+        got: u8,
+    },
 }
 
 /// Errors related to terminating a character's credit line.
@@ -258,6 +287,51 @@ pub enum TerminateCreditCharacterError {
     /// Player has already fired a character this turn.
     #[error("Player has already fired a character this turn")]
     AlreadyFiredThisTurn,
+}
+
+/// Errors related to selecting assets or liabilities when paying off the banker.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Debug, PartialEq, Error, Serialize, Deserialize)]
+pub enum BankerTargetSelectError {
+    /// The selected asset has no value in the current market and therefore cannot be used to pay
+    /// off the banker.
+    #[error("Asset is not worth anything in the current market")]
+    AssetValueToLow,
+
+    /// The asset was already added to the list of selected assets and cannot be selected again.
+    #[error("Asset is already in selected asset list")]
+    AssetAlreadySelected,
+
+    /// The asset was expected to be in the selected asset list but was not found there.
+    #[error("Asset is not in selected asset list")]
+    AssetNotSelected,
+
+    /// The provided asset ID does not exist in the player's asset list.
+    #[error("Asset with index {0} not in player's asset list")]
+    InvalidAssetId(u8),
+
+    /// The provided liability ID does not exist in the player's hand.
+    #[error("Liability with index {0} not found in player's hand")]
+    InvalidLiabilityId(u8),
+
+    /// The liability was expected to be in the selected liability list but was not found there.
+    #[error("Liability not in selected liability list")]
+    LiabilityNotSelected,
+
+    /// The liability was already added to the selected liability list and cannot be selected again.
+    #[error("Liability is already in selected liability list")]
+    LiabilityAlreadySelected,
+
+    /// The current player is not the CFO and therefore is not allowed to issue liabilities when
+    /// targeted by the banker.
+    #[error("Only the CFO can issue a liability when targeted by the banker")]
+    NotCFO,
+
+    /// The CFO can issue a maximum of three liabilities to pay off the banker, they cannot issue
+    /// another liability.
+    #[error("Can only select up to 3 liabilities when targeted by the banker as the CFO")]
+    AlreadySelected3Liabilities,
 }
 
 /// Errors related to swapping hands/cards.

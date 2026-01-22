@@ -17,7 +17,12 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "ts")]
 use ts_rs::TS;
 
-use std::{collections::HashSet, path::Path, sync::Arc, vec};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+    sync::Arc,
+    vec,
+};
 
 use crate::{errors::*, player::*, utility::serde_asset_liability};
 
@@ -90,7 +95,7 @@ impl MarketCondition {
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(rename = "MarketCard"))]
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Market {
     /// The title of the market
     pub title: String,
@@ -124,6 +129,21 @@ impl Market {
             Color::Purple => self.purple,
             Color::Yellow => self.yellow,
             Color::Blue => self.blue,
+        }
+    }
+}
+
+impl Default for Market {
+    fn default() -> Self {
+        Self {
+            title: "Stable Market".to_string(),
+            rfr: 1,
+            mrp: 1,
+            red: MarketCondition::default(),
+            green: MarketCondition::default(),
+            purple: MarketCondition::default(),
+            yellow: MarketCondition::default(),
+            blue: MarketCondition::default(),
         }
     }
 }
@@ -386,7 +406,7 @@ impl ObtainingCharacters {
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MarketChange {
-    /// A list of events encountered in search for a market card
+    /// A list of evenOts encountered in search for a market card
     pub events: Vec<Event>,
     /// The new market card
     pub new_market: Market,
@@ -400,6 +420,45 @@ pub struct PlayerPlayedCard {
     /// The card that was played
     #[serde(with = "serde_asset_liability::value")]
     pub used_card: Either<Asset, Liability>,
+    /// Whether or not playing this asset means it is now the final round (6th asset)
+    pub is_final_round: bool,
+}
+
+/// Structure that represents an asset that is set to be sold to pay off their obligation to the
+/// banker. It contains the index of the asset as well as the market value of the asset.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SoldAssetToPayBanker {
+    /// The index of the asset that can be sold to the banker.
+    pub asset_idx: usize,
+    /// The market value of the asset that can be sold to the banker.
+    pub market_value: u8,
+}
+
+/// Struct that represents a liability that a player has selected to be issued to pay off their
+/// obligation to the banker. It contains the index of the liability in the hand of the player, as
+/// well as the liability itself.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct IssuedLiabilityToPayBanker {
+    /// The index of the liability in the hand of the player.
+    pub card_idx: usize,
+    /// The liability to be issued to pay off the banker.
+    pub liability: Liability,
+}
+
+/// A collection of selected assets that will be sold and a list of liabilities that will be issued
+/// in order to comply with the banker's obligation.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SelectedAssetsAndLiabilities {
+    /// A list of assets to be sold to pay off the banker.
+    pub sold_assets: Vec<SoldAssetToPayBanker>,
+    /// A list of liabilities to be issued to pay off the banker.
+    pub issued_liabilities: Vec<IssuedLiabilityToPayBanker>,
 }
 
 /// Data used when a turn ends
@@ -721,12 +780,12 @@ impl GameState {
     /// ```
     /// # use game::{errors::GameError, game::{GameState, Lobby}};
     /// let game = GameState::Lobby(Lobby::default());
-    /// assert_eq!(game.round(), Err(GameError::NotBankerTargetState));
+    /// assert_eq!(game.bankertarget(), Err(GameError::NotBankerTargetState));
     /// ```
     pub fn bankertarget(&self) -> Result<&BankerTargetRound, GameError> {
         match self {
             Self::BankerTarget(r) => Ok(r),
-            _ => Err(GameError::NotbankerTargetState),
+            _ => Err(GameError::NotBankerTargetState),
         }
     }
 
@@ -742,7 +801,7 @@ impl GameState {
     pub fn bankertarget_mut(&mut self) -> Result<&mut BankerTargetRound, GameError> {
         match self {
             Self::BankerTarget(r) => Ok(r),
-            _ => Err(GameError::NotbankerTargetState),
+            _ => Err(GameError::NotBankerTargetState),
         }
     }
 
@@ -815,7 +874,6 @@ impl GameState {
     /// [`Results`]
     pub fn end_player_turn(&mut self, id: PlayerId) -> Result<TurnEnded, GameError> {
         let round = self.round_mut()?;
-
         match round.end_player_turn(id)? {
             Either::Left(te) => Ok(te),
             Either::Right(state) => {

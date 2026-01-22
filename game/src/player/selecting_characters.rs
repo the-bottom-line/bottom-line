@@ -14,6 +14,7 @@ pub struct SelectingCharactersPlayer {
     pub(super) liabilities: Vec<Liability>,
     pub(super) character: Option<Character>,
     pub(super) hand: Vec<Either<Asset, Liability>>,
+    pub(super) is_human: bool,
 }
 
 impl SelectingCharactersPlayer {
@@ -52,6 +53,16 @@ impl SelectingCharactersPlayer {
         &self.hand
     }
 
+    /// Gets the human state of this player
+    pub fn is_human(&self) -> bool {
+        self.is_human
+    }
+
+    /// Sets the human state of this player
+    pub fn set_is_human(&mut self, human: bool) {
+        self.is_human = human;
+    }
+
     /// Constructs a new player id and a name, a certain hand and starting cash.
     pub(crate) fn new(
         name: String,
@@ -59,6 +70,7 @@ impl SelectingCharactersPlayer {
         assets: [Asset; 2],
         liabilities: [Liability; 2],
         cash: u8,
+        is_human: bool,
     ) -> Self {
         let hand = assets
             .into_iter()
@@ -74,6 +86,7 @@ impl SelectingCharactersPlayer {
             liabilities: vec![],
             character: None,
             hand,
+            is_human,
         }
     }
 
@@ -103,6 +116,7 @@ impl From<RoundPlayer> for SelectingCharactersPlayer {
             liabilities: player.liabilities,
             character: None,
             hand: player.hand,
+            is_human: player.is_human,
         }
     }
 }
@@ -117,6 +131,7 @@ impl From<&SelectingCharactersPlayer> for PlayerInfo {
             liabilities: player.liabilities.clone(),
             cash: player.cash,
             character: player.character,
+            is_human: player.is_human,
         }
     }
 }

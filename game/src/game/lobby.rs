@@ -104,7 +104,7 @@ impl Lobby {
     ///
     /// lobby.join("player 1".to_owned())?;
     ///
-    /// let player = LobbyPlayer::new(PlayerId(0), "player 1".to_owned());
+    /// let player = LobbyPlayer::new(PlayerId(0), "player 1".to_owned(), true);
     /// assert_eq!(lobby.players(), &[player]);
     /// # Ok(())
     /// # }
@@ -124,7 +124,7 @@ impl Lobby {
     ///
     /// lobby.join("player 1".to_owned())?;
     ///
-    /// let player = LobbyPlayer::new(PlayerId(0), "player 1".to_owned());
+    /// let player = LobbyPlayer::new(PlayerId(0), "player 1".to_owned(), true);
     /// assert_eq!(lobby.players_mut(), &mut [player]);
     /// # Ok(())
     /// # }
@@ -175,7 +175,7 @@ impl Lobby {
             None => {
                 let id = PlayerId(self.players.len() as u8);
                 let name = username.clone();
-                let player = LobbyPlayer::new(id, name);
+                let player = LobbyPlayer::new(id, name, true);
 
                 self.players.0.push(player);
                 Ok(&self.players.0[self.players.len() - 1])
@@ -345,6 +345,7 @@ impl Lobby {
                     assets,
                     liabilities,
                     STARTING_GOLD,
+                    p.is_human(),
                 )
             })
             .collect();

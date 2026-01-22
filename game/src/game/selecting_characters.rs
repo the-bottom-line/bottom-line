@@ -144,12 +144,10 @@ impl SelectingCharacters {
                         open_characters,
                         fired_characters,
                         banker_target,
+                        is_final_round: false,
                     };
 
-                    round
-                        .players
-                        .player_mut(current_player)?
-                        .start_turn(&round.current_market);
+                    round.players.player_mut(current_player)?.start_turn();
 
                     Ok(Some(GameState::Round(round)))
                 } else {
@@ -185,7 +183,32 @@ impl SelectingCharacters {
         self.players()
             .iter()
             .filter(|p| p.id() != id)
-            .map(Into::into)
+            .map(|p| {
+                let mut info: PlayerInfo = p.into();
+                // Filter out the characters of players that have not had their turn yet
+                info.character = None;
+                info
+            })
             .collect()
+    }
+
+    /// Sets a player as disconnected
+    pub fn leave(&mut self, id: PlayerId) -> Result<(), GameError> {
+        match self.players.player_mut(id) {
+            Ok(player) => {
+                player.set_is_human(false);
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
+    }
+    /// Allows a player to rejoin
+    pub fn rejoin(&mut self, id: PlayerId) -> Result<&SelectingCharactersPlayer, GameError> {
+        let player = self.players.player_mut(id)?;
+        if player.is_human() {
+            return Err(GameError::InvalidPlayerName(player.name().to_string()));
+        }
+        player.set_is_human(true);
+        Ok(player)
     }
 }

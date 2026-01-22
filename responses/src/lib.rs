@@ -3,12 +3,7 @@
 #![warn(missing_docs)]
 
 use either::Either;
-use game::{
-    errors::GameError,
-    game::{Market, MarketChange, PlayerScore},
-    player::*,
-    utility::serde_asset_liability,
-};
+use game::{errors::GameError, game::*, player::*, utility::serde_asset_liability};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -72,6 +67,8 @@ pub enum FrontendRequest {
     },
     /// Tries to use the ability for this player.
     UseAbility,
+    /// Get characters bonus gold only once per turn,
+    GetBonusCash,
     /// Tries to fire a particular character by this player.
     FireCharacter {
         /// The character that is to be fired.
@@ -81,6 +78,27 @@ pub enum FrontendRequest {
     TerminateCreditCharacter {
         /// The character who's credit line will be terminated.
         character: Character,
+    },
+    /// Tries to select an asset to sell to pay off the banker
+    SelectAssetToDivest {
+        /// The index of the asset the player wants to select to pay off the banker.
+        asset_id: usize,
+    },
+    /// Tries to unselect an asset they were set to sell to pay off the banker.
+    UnselectAssetToDivest {
+        /// The index of the asset the player wants to unselect.
+        asset_id: usize,
+    },
+    /// Tries to select a liability from the player's hand to issue to pay off the banker
+    SelectLiabilityToIssue {
+        /// The index of the liability in the player's hand to select to issue to pay off the
+        /// banker.
+        liability_id: usize,
+    },
+    /// Tries to unselect a liability they were set to issue to pay off the banker.
+    UnselectLiabilityToIssue {
+        /// The index of the liability in the player's hand the player wants to unselect.
+        liability_id: usize,
     },
     /// Tries to send cash to the banker when player is targeted
     PayBanker {
@@ -107,6 +125,8 @@ pub enum FrontendRequest {
     },
     /// Tries to end the turn of this player.
     EndTurn,
+    /// Request a resync packet containing the current gamestate
+    Resync,
     /// Tries to turn minus into zero or zero into plus for the player's market at the end of the
     /// game. Related to [`AssetPowerup::MinusIntoPlus`](game::player::AssetPowerup::MinusIntoPlus).
     MinusIntoPlus {
@@ -144,7 +164,12 @@ pub enum FrontendRequest {
 #[serde(tag = "action", content = "data")]
 pub enum DirectResponse {
     /// An error returned when the action was not succesful.
-    Error(ResponseError),
+    Error {
+        /// The error message.
+        message: String,
+        /// The error type.
+        source: ResponseError,
+    },
     /// Confirmation that this player started the game.
     YouStartedGame,
     /// Confirmation that this player selected a character.
@@ -164,9 +189,25 @@ pub enum DirectResponse {
     },
     /// Confirmation that you paid some gold to the banker.
     YouPaidBanker {
-        /// The amount of gold paid
-        cash: u8,
+        /// The id of the player who is the banker.
         banker_id: PlayerId,
+        /// The new cash balance of the banker.
+        new_banker_cash: u8,
+        /// The new cash balance of the player that was targeted by the banker.
+        your_new_cash: u8,
+        /// The amount of gold paid.
+        paid_amount: u8,
+        /// A list of assets to be sold to pay off the banker.
+        sold_assets: Vec<SoldAssetToPayBanker>,
+        /// A list of liabilities to be issued to pay off the banker.
+        issued_liabilities: Vec<IssuedLiabilityToPayBanker>,
+    },
+    /// Confirmation that you selected someone as target as the banker.
+    YouSelectCardBankerTarget {
+        /// A list of assets to be sold to pay off the banker.
+        assets: Vec<SoldAssetToPayBanker>,
+        /// A list of liabilities to be issued to pay off the banker.
+        liabilities: Vec<IssuedLiabilityToPayBanker>,
     },
     /// Confirmation that this player was succesful in getting regulator options
     YouRegulatorOptions {
@@ -191,6 +232,8 @@ pub enum DirectResponse {
         )]
         #[serde(with = "serde_asset_liability::vec")]
         new_cards: Vec<Either<Asset, Liability>>,
+        /// The id of the player you swapped cards with
+        target_player_id: PlayerId,
     },
     /// Confirmation that this player is now forcing another player to divest.
     YouAreDivesting {
@@ -228,10 +271,17 @@ pub enum DirectResponse {
         /// A string containing information about what this player is allowed to do.
         perk: String,
     },
+    /// Confirmation you received your bonus cash and how much.
+    YouBonusCash {
+        /// The amount of cash received
+        cash: u8,
+    },
     /// Confirmation that this player bought an asset.
     YouBoughtAsset {
         /// The asset this player bought.
         asset: Asset,
+        /// The index of the asset in the player's hand this player bought.
+        card_idx: usize,
         /// If the market changed, a list of events and a new market is returned.
         market_change: Option<MarketChange>,
     },
@@ -239,6 +289,8 @@ pub enum DirectResponse {
     YouIssuedLiability {
         /// The liability the player issued.
         liability: Liability,
+        /// The index of the liability in the player's hand this player issued.
+        card_idx: usize,
     },
     /// Confirmation that this player
     YouAreFiringSomeone {
@@ -251,6 +303,10 @@ pub enum DirectResponse {
     },
     /// Confirmation that this player divested an asset of another player.
     YouDivestedAnAsset {
+        /// The id of the player who is forced to divest one of their assets.
+        target_id: PlayerId,
+        /// The index of the asset they are forced to divest.
+        asset_idx: usize,
         /// The amount of gold it cost to divest this asset.
         gold_cost: u8,
     },
@@ -270,6 +326,41 @@ pub enum DirectResponse {
     },
     /// Confirmation that this player ended their turn.
     YouEndedTurn,
+
+    /// Confirmation that you joined the lobby.
+    YouJoinedGame {
+        /// Your connected username.
+        username: String,
+        /// The channel you're connected to.
+        channel: String,
+    },
+    /// Inform the client that they are rejoining
+    YouRejoined,
+
+    /// Deliver data to the client to sync them back to the game state
+    YouResynced {
+        /// This player's personal id.
+        id: PlayerId,
+        /// The amount of cash this player has.
+        cash: u8,
+        /// The player's hand.
+        #[cfg_attr(
+            feature = "ts",
+            ts(as = "Vec<serde_asset_liability::EitherAssetLiability>")
+        )]
+        #[serde(with = "serde_asset_liability::vec")]
+        hand: Vec<Either<Asset, Liability>>,
+        /// The assets already played by the player
+        assets: Vec<Asset>,
+        /// The liabilities already played by the player
+        liabilities: Vec<Liability>,
+        /// Public info about every other player.
+        player_info: Vec<PlayerInfo>,
+        /// The current market.
+        market: Market,
+        /// A response containing the current gamestate
+        phase: ResyncData,
+    },
     /// Confirms that this player changed one of their market colors.
     YouMinusedIntoPlus {
         /// The market color that was changed,
@@ -308,9 +399,21 @@ pub enum DirectResponse {
     },
 }
 
+impl From<ResponseError> for DirectResponse {
+    fn from(error: ResponseError) -> Self {
+        DirectResponse::Error {
+            message: error.to_string(),
+            source: error,
+        }
+    }
+}
+
 impl From<GameError> for DirectResponse {
     fn from(error: GameError) -> Self {
-        DirectResponse::Error(error.into())
+        DirectResponse::Error {
+            message: error.to_string(),
+            source: error.into(),
+        }
     }
 }
 
@@ -389,12 +492,22 @@ pub enum UniqueResponse {
         /// A list of characters which were called but were not available.
         skipped_characters: Vec<Character>,
     },
+    /// Sent when a player is targed by the banker on their turn
     PlayerTargetedByBanker {
-        /// Id of the player whose turn it is
+        /// Id of the player whose turn it is.
         player_turn: PlayerId,
-        /// Amount of Cash to be paid to Banker
-        cash_to_be_paid: u8
-
+        /// Amount of cash to be paid to banker.
+        cash_to_be_paid: u8,
+        /// Amount of cash to be paid to banker.
+        is_possible_to_pay_banker: bool,
+    },
+    /// Sent when a player selects or unselects an asset to sell or liability to issue when paying
+    /// off the banker.
+    SelectedCardsBankerTarget {
+        /// A list of assets to be sold to pay off the banker.
+        assets: Vec<SoldAssetToPayBanker>,
+        /// The number of liabilities the player is set to issue to pay off the banker.
+        liability_count: usize,
     },
     /// Sent when someone drew a card.
     DrewCard {
@@ -416,6 +529,8 @@ pub enum UniqueResponse {
         player_id: PlayerId,
         /// The asset this player bought.
         asset: Asset,
+        /// The index of the asset in the player's hand that the player bought.
+        card_idx: usize,
         /// If buying the asset changed the market, sends a list of events as well as the new
         /// market.
         market_change: Option<MarketChange>,
@@ -426,6 +541,8 @@ pub enum UniqueResponse {
         player_id: PlayerId,
         /// The liability this player issued.
         liability: Liability,
+        /// The index of the liability in the player's hand that the player issued.
+        card_idx: usize,
     },
     /// Sent when a player
     RedeemedLiability {
@@ -433,6 +550,13 @@ pub enum UniqueResponse {
         player_id: PlayerId,
         /// The index of the liability this player redeemed.
         liability_idx: usize,
+    },
+    /// Player got their characters bonus gold.
+    PlayerGotBonusCash {
+        /// PlayerId of the player who got the bonus gold.
+        player_id: PlayerId,
+        /// Amount of gold the player receiced.
+        cash: u8,
     },
     /// Sent when the shareholder is in the process of firing someone.
     ShareholderIsFiring {},
@@ -443,20 +567,32 @@ pub enum UniqueResponse {
         /// The character which was fired.
         character: Character,
     },
-    /// sent when a characters credit line has been terminated
+    /// Sent when a characters credit line has been terminated
     TerminatedCreditCharacter {
         /// The id of the player who teminated the credit line someone.
         player_id: PlayerId,
         /// The character who's credit line was terminated.
         character: Character,
     },
-    PlayerPayedBanker {
+    /// Sent when a player decided on a list of assets and liabilities to pay off the banker.
+    PlayerPaidBanker {
+        /// The id of the player who is the banker this round.
         banker_id: PlayerId,
+        /// The id of the player who is the banker.
         player_id: PlayerId,
-        cash: u8,
+        /// The new cash balance of the banker.
+        new_banker_cash: u8,
+        /// The new cash balance of the player that was targeted by the banker.
+        new_target_cash: u8,
+        /// The amount of gold paid.
+        paid_amount: u8,
+        /// A list of assets to be sold to pay off the banker.
+        sold_assets: Vec<SoldAssetToPayBanker>,
+        /// A list of liabilities to be issued to pay off the banker.
+        issued_liabilities: Vec<IssuedLiabilityToPayBanker>,
     },
     /// Sent when the regulator swapped their hand with this player.
-    RegulatorSwapedYourCards {
+    RegulatorSwappedYourCards {
         /// This player's new hand.
         #[cfg_attr(
             feature = "ts",
@@ -466,14 +602,14 @@ pub enum UniqueResponse {
         new_cards: Vec<Either<Asset, Liability>>,
     },
     /// Sent when the regulator swapped their hand with another player.
-    SwapedWithPlayer {
+    SwappedWithPlayer {
         /// The id of the regulator.
         regulator_id: PlayerId,
         /// The id of the player the regulator swapped their hands with.
         target_id: PlayerId,
     },
     /// Sent when the regulator swapped a number of cards with the deck.
-    SwapedWithDeck {
+    SwappedWithDeck {
         /// The amount of assets the regulator drew from the deck.
         asset_count: usize,
         /// The amount of liabilities the regulator drew from the deck.
@@ -486,7 +622,7 @@ pub enum UniqueResponse {
         /// The id of the player who is forced to divest one of their assets.
         target_id: PlayerId,
         /// The index of the asset they are forced to divest.
-        card_idx: usize,
+        asset_idx: usize,
         /// The amount of gold the stakeholder paid to divest this asset.
         paid_gold: u8,
     },
@@ -499,6 +635,11 @@ pub enum UniqueResponse {
     GameEnded {
         /// A list of player scores.
         scores: Vec<PlayerScore>,
+    },
+    /// Sent when rejoin request is acknowledged
+    Rejoined {
+        /// Id of the rejoining player
+        player_id: PlayerId,
     },
     /// Confirms that a player changed one of their market colors.
     MinusedIntoPlus {
@@ -542,6 +683,27 @@ pub enum UniqueResponse {
         /// The asset the player confirmed their choice for.
         asset_idx: usize,
     },
+    /// Used internally to gracefully let everyone know a room closed for any reason.
+    #[serde(skip)]
+    RoomClosed {
+        /// The channel that was closed.
+        channel: String,
+        /// The reason for which it was closed.
+        reason: RoomCloseReason,
+    },
+}
+
+/// Reasons for which a room might have been closed.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = game::SHARED_TS_DIR))]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub enum RoomCloseReason {
+    /// Used when the room was closed because it was inactive.
+    Inactive,
+    /// Used when the room was closed because the game which it hosted has ended.
+    GameEnded,
+    /// Used when it encountered a fatal error
+    FatalError,
 }
 
 /// The general error type that can be sent back in a response.
@@ -561,4 +723,59 @@ pub enum ResponseError {
     /// An error sent when the data the player sent in invalid.
     #[error("Data is not valid for this state")]
     InvalidData,
+}
+
+/// Custom data used for resyncing a client
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = game::SHARED_TS_DIR))]
+#[derive(Debug, Serialize, Deserialize)]
+pub enum ResyncData {
+    /// When the game is in the SelectingCharacters phase this data is used to sync back up
+    SelectingCharacters {
+        /// The id of the chairman, or the person who selects a character first.
+        chairman_id: PlayerId,
+        /// The id of the player currently selecting a character
+        currently_picking_id: PlayerId,
+        /// If it's this player's turn, a list of characters that can be selected.
+        selectable_characters: Option<Vec<Character>>,
+        /// A list of characters that cannot be selected by anyone.
+        open_characters: Vec<Character>,
+        /// A character that only the chairman can see, but not select.
+        closed_character: Option<Character>,
+        /// The order each player selects a character in.
+        turn_order: Vec<PlayerId>,
+    },
+
+    /// When the player rejoining is currently playing the round this will be sent
+    PlayingRound {
+        /// Player currently playing
+        current_player_id: PlayerId,
+        /// The character of this player.
+        player_character: Character,
+        /// List of previous players and their characters
+        had_turn: Vec<(PlayerId, Character)>,
+
+        /// The amount of cards this player draws.
+        draws_n_cards: u8,
+        /// The amount of cards this player has already drawn.
+        cards_drawn: u8,
+        /// The amount of cards this player gives back.
+        gives_back_n_cards: u8,
+        /// The amount of cards this player has already returned.
+        cards_returned: u8,
+
+        /// The cards that have already been drawn by the player
+        drawn_cards: Vec<usize>,
+        /// Variable to track if the player has used their ability yet
+        used_ability: bool,
+
+        /// The amount of assets this player can play, where each color asset has a different 'unit
+        /// cost' attached to it.
+        playable_assets: PlayableAssets,
+        /// Amount of play credits remaining
+        play_credits_remaining: u8,
+
+        /// The amount of liabilities this player can play.
+        playable_liabilities: u8,
+    },
 }

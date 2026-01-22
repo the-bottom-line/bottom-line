@@ -21,6 +21,7 @@ pub struct Round {
     pub(super) open_characters: Vec<Character>,
     pub(super) fired_characters: Vec<Character>,
     pub(super) banker_target: Option<Character>,
+    pub(super) is_final_round: bool,
 }
 
 impl Round {
@@ -100,19 +101,34 @@ impl Round {
     pub fn open_characters(&self) -> &[Character] {
         &self.open_characters
     }
+    ///Gets the character who is currently targeted by the banker if one is available
+    pub fn banker_target(&self) -> Option<Character> {
+        self.banker_target
+    }
 
     /// Gets the [`PlayerInfo`] for each player, excluding the player that has the same id as `id`.
     pub fn player_info(&self, id: PlayerId) -> Vec<PlayerInfo> {
         self.players()
             .iter()
             .filter(|p| p.id() != id)
-            .map(Into::into)
+            .map(|p| {
+                let mut info: PlayerInfo = p.into();
+                if p.character() > self.current_player().character() {
+                    info.character = None;
+                }
+                info
+            })
             .collect()
     }
 
     /// Gets the current market
     pub fn current_market(&self) -> &Market {
         &self.current_market
+    }
+
+    /// Gets whether or not this is the final round
+    pub fn is_final_round(&self) -> bool {
+        self.is_final_round
     }
 
     /// Internally used function that checks whether a player with such an `id` exists, and whether
@@ -169,17 +185,36 @@ impl Round {
 
         match player.play_card(card_idx)? {
             Either::Left(asset) => {
+                if !self.is_final_round() && self.check_is_final_round() {
+                    // Keep the borrow checker happy
+                    let player = self.player_as_current_mut(id)?;
+                    player.enable_first_to_six_assets_bonus();
+                    self.is_final_round = true;
+                }
+
                 let market = match self.should_refresh_market(old_max_bought_assets) {
                     true => Some(self.refresh_market()),
                     false => None,
                 };
-                let used_card = Either::Left(asset.clone());
-                Ok(PlayerPlayedCard { market, used_card })
+                let used_card = Either::Left(asset);
+                let is_final_round = self.is_final_round;
+
+                Ok(PlayerPlayedCard {
+                    market,
+                    used_card,
+                    is_final_round,
+                })
             }
             Either::Right(liability) => {
                 let market = None;
                 let used_card = Either::Right(liability);
-                Ok(PlayerPlayedCard { market, used_card })
+                let is_final_round = self.is_final_round;
+
+                Ok(PlayerPlayedCard {
+                    market,
+                    used_card,
+                    is_final_round,
+                })
             }
         }
     }
@@ -245,6 +280,16 @@ impl Round {
             }
         }
     }
+    /// Gets players bonus cash based on their characters color. If successfull returns gold.
+    pub fn player_get_bonus_cash_character(
+        &mut self,
+        player_id: PlayerId,
+    ) -> Result<u8, GameError> {
+        let market = &self.current_market.clone();
+        let player = self.player_as_current_mut(player_id)?;
+        let cash = player.get_bonus_cash_character(market)?;
+        Ok(cash)
+    }
 
     /// This allows player with id `id` to fire a player who has character `character` if they are
     /// the shareholder. If this is successful, the player who got fired will not play their turn
@@ -281,7 +326,7 @@ impl Round {
         &mut self,
         id: PlayerId,
         card_idxs: Vec<usize>,
-    ) -> Result<Vec<usize>, GameError> {
+    ) -> Result<AssetLiabilityCount, GameError> {
         // cant use player_as_current_mut here because of multiple mutable borrows of self. hmm.
         let player = match self.players.player_mut(id) {
             Ok(player) if player.id() == self.current_player => player,
@@ -320,7 +365,7 @@ impl Round {
                 .get_disjoint_mut([usize::from(id), usize::from(target_id)])
             {
                 Ok([regulator, target]) => {
-                    regulator.regulator_swap_with_player(target)?;
+                    regulator.swap_with_player(target)?;
                     let hands = HandsAfterSwap {
                         regulator_new_hand: regulator.hand().to_vec(),
                         target_new_hand: target.hand().to_vec(),
@@ -378,7 +423,7 @@ impl Round {
     /// can be divested as well as the current cost to do so. This list excludes their own cards.
     pub fn get_divest_assets(&mut self, id: PlayerId) -> Result<Vec<DivestPlayer>, GameError> {
         let player = self.player_as_current_mut(id)?;
-        if player.character() == Character::Stakeholder {
+        if player.character().can_force_others_to_divest() {
             Ok(self
                 .players()
                 .iter()
@@ -389,10 +434,11 @@ impl Round {
                     assets: p
                         .assets()
                         .iter()
-                        .map(|a| DivestAsset {
-                            asset: a.clone(),
+                        .enumerate()
+                        .map(|(i, a)| DivestAsset {
+                            asset_idx: i,
                             divest_cost: a.divest_cost(&self.current_market),
-                            is_divestable: a.color != Color::Red && a.color != Color::Green,
+                            is_divestable: a.color.is_divestable(),
                         })
                         .collect(),
                 })
@@ -434,7 +480,7 @@ impl Round {
             if let Some(id) = self.next_player().map(|p| p.id()) {
                 let player = self.players.player_mut(id)?;
 
-                player.start_turn(&self.current_market);
+                player.start_turn();
 
                 self.current_player = player.id();
 
@@ -444,7 +490,7 @@ impl Round {
                 };
 
                 Ok(Either::Left(turn_ended))
-            } else if !self.is_last_round() {
+            } else if !self.is_final_round() {
                 let maybe_ceo = self.player_from_character(Character::CEO);
                 let chairman_id = match maybe_ceo.map(|p| p.id()) {
                     Some(id) => id,
@@ -474,7 +520,6 @@ impl Round {
 
                 Ok(Either::Right(state))
             } else {
-                let final_market = std::mem::take(&mut self.current_market);
                 let final_events = std::mem::take(&mut self.current_events);
                 let players = std::mem::take(&mut self.players);
 
@@ -487,7 +532,6 @@ impl Round {
 
                 let state = GameState::Results(Results {
                     players,
-                    final_market,
                     final_events,
                 });
 
@@ -496,6 +540,12 @@ impl Round {
         } else {
             Err(GameError::PlayerShouldGiveBackCard)
         }
+    }
+
+    /// Checks whether someone has bought equal to or more assets than [`ASSETS_FOR_END_OF_GAME`].
+    /// If so, this should be the final round.
+    fn check_is_final_round(&self) -> bool {
+        self.max_bought_assets() >= ASSETS_FOR_END_OF_GAME
     }
 
     /// Returns the highest amount of assets of any player.
@@ -534,10 +584,69 @@ impl Round {
         }
     }
 
-    /// Checks whether someone has bought equal to or more assets than [`ASSETS_FOR_END_OF_GAME`].
-    /// If so, this should be the final round.
-    fn is_last_round(&self) -> bool {
-        self.max_bought_assets() >= ASSETS_FOR_END_OF_GAME
+    /// Sets a player as disconnected
+    pub fn leave(&mut self, id: PlayerId) -> Result<(), GameError> {
+        match self.players.player_mut(id) {
+            Ok(player) => {
+                player.set_is_human(false);
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Allows a player to rejoin
+    pub fn rejoin(&mut self, id: PlayerId) -> Result<&RoundPlayer, GameError> {
+        let player = self.players.player_mut(id)?;
+        if player.is_human() {
+            return Err(GameError::InvalidPlayerName(player.name().to_string()));
+        }
+        player.set_is_human(true);
+        Ok(player)
+    }
+
+    /// Returns a list of all players that have already taken their turn this round
+    /// and their characters
+    pub fn played_characters(&self) -> Vec<(PlayerId, Character)> {
+        let current_character = self.current_player().character();
+        self.players
+            .players()
+            .iter()
+            .filter(|p| {
+                p.character() <= current_character
+                    && !self.fired_characters.contains(&p.character())
+            }) // Iter of all already played characters that haven't been fired
+            .map(|player| (player.id(), player.character()))
+            .collect::<Vec<_>>()
+    }
+}
+
+/// Used to return the amount of assets and liabilities that were returned to the deck when the
+/// [`Character::Regulator`] swaps with the deck.
+#[derive(Debug, Clone)]
+pub struct AssetLiabilityCount {
+    /// The amount of assets returned to the deck.
+    pub asset_count: usize,
+    /// The amount of liabilities returned to the deck.
+    pub liability_count: usize,
+}
+
+impl AssetLiabilityCount {
+    /// Instantiates a new `AssetLiabilityCount`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use game::game::{AssetLiabilityCount};
+    /// let count = AssetLiabilityCount::new(3, 5);
+    /// assert_eq!(count.asset_count, 3);
+    /// assert_eq!(count.liability_count, 5);
+    /// ```
+    pub const fn new(asset_count: usize, liability_count: usize) -> Self {
+        AssetLiabilityCount {
+            asset_count,
+            liability_count,
+        }
     }
 }
 
@@ -548,4 +657,23 @@ pub struct HandsAfterSwap {
     pub regulator_new_hand: Vec<Either<Asset, Liability>>,
     /// The new hand for the regulator's target
     pub target_new_hand: Vec<Either<Asset, Liability>>,
+}
+
+impl From<&mut BankerTargetRound> for Round {
+    fn from(btround: &mut BankerTargetRound) -> Self {
+        Self {
+            current_player: btround.current_player,
+            players: Players(btround.players.iter().map(Into::into).collect()),
+            assets: btround.assets.clone(),
+            liabilities: btround.liabilities.clone(),
+            markets: btround.markets.clone(),
+            chairman: btround.chairman,
+            current_market: btround.current_market.clone(),
+            current_events: btround.current_events.clone(),
+            open_characters: btround.open_characters.clone(),
+            fired_characters: btround.fired_characters.clone(),
+            is_final_round: btround.is_final_round,
+            banker_target: None,
+        }
+    }
 }

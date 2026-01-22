@@ -17,8 +17,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-      with:
-        ref: push_container
     - name: Login container registry
       uses: docker/login-action@v1
       with:

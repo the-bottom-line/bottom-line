@@ -125,6 +125,8 @@ pub enum FrontendRequest {
     },
     /// Tries to end the turn of this player.
     EndTurn,
+    /// Request a resync packet containing the current gamestate
+    Resync,
     /// Tries to turn minus into zero or zero into plus for the player's market at the end of the
     /// game. Related to [`AssetPowerup::MinusIntoPlus`](game::player::AssetPowerup::MinusIntoPlus).
     MinusIntoPlus {
@@ -324,6 +326,41 @@ pub enum DirectResponse {
     },
     /// Confirmation that this player ended their turn.
     YouEndedTurn,
+
+    /// Confirmation that you joined the lobby.
+    YouJoinedGame {
+        /// Your connected username.
+        username: String,
+        /// The channel you're connected to.
+        channel: String,
+    },
+    /// Inform the client that they are rejoining
+    YouRejoined,
+
+    /// Deliver data to the client to sync them back to the game state
+    YouResynced {
+        /// This player's personal id.
+        id: PlayerId,
+        /// The amount of cash this player has.
+        cash: u8,
+        /// The player's hand.
+        #[cfg_attr(
+            feature = "ts",
+            ts(as = "Vec<serde_asset_liability::EitherAssetLiability>")
+        )]
+        #[serde(with = "serde_asset_liability::vec")]
+        hand: Vec<Either<Asset, Liability>>,
+        /// The assets already played by the player
+        assets: Vec<Asset>,
+        /// The liabilities already played by the player
+        liabilities: Vec<Liability>,
+        /// Public info about every other player.
+        player_info: Vec<PlayerInfo>,
+        /// The current market.
+        market: Market,
+        /// A response containing the current gamestate
+        phase: ResyncData,
+    },
     /// Confirms that this player changed one of their market colors.
     YouMinusedIntoPlus {
         /// The market color that was changed,
@@ -599,6 +636,11 @@ pub enum UniqueResponse {
         /// A list of player scores.
         scores: Vec<PlayerScore>,
     },
+    /// Sent when rejoin request is acknowledged
+    Rejoined {
+        /// Id of the rejoining player
+        player_id: PlayerId,
+    },
     /// Confirms that a player changed one of their market colors.
     MinusedIntoPlus {
         /// The id of the player which changed one of their market colors.
@@ -641,6 +683,27 @@ pub enum UniqueResponse {
         /// The asset the player confirmed their choice for.
         asset_idx: usize,
     },
+    /// Used internally to gracefully let everyone know a room closed for any reason.
+    #[serde(skip)]
+    RoomClosed {
+        /// The channel that was closed.
+        channel: String,
+        /// The reason for which it was closed.
+        reason: RoomCloseReason,
+    },
+}
+
+/// Reasons for which a room might have been closed.
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = game::SHARED_TS_DIR))]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub enum RoomCloseReason {
+    /// Used when the room was closed because it was inactive.
+    Inactive,
+    /// Used when the room was closed because the game which it hosted has ended.
+    GameEnded,
+    /// Used when it encountered a fatal error
+    FatalError,
 }
 
 /// The general error type that can be sent back in a response.
@@ -660,4 +723,59 @@ pub enum ResponseError {
     /// An error sent when the data the player sent in invalid.
     #[error("Data is not valid for this state")]
     InvalidData,
+}
+
+/// Custom data used for resyncing a client
+#[cfg_attr(feature = "ts", derive(TS))]
+#[cfg_attr(feature = "ts", ts(export_to = game::SHARED_TS_DIR))]
+#[derive(Debug, Serialize, Deserialize)]
+pub enum ResyncData {
+    /// When the game is in the SelectingCharacters phase this data is used to sync back up
+    SelectingCharacters {
+        /// The id of the chairman, or the person who selects a character first.
+        chairman_id: PlayerId,
+        /// The id of the player currently selecting a character
+        currently_picking_id: PlayerId,
+        /// If it's this player's turn, a list of characters that can be selected.
+        selectable_characters: Option<Vec<Character>>,
+        /// A list of characters that cannot be selected by anyone.
+        open_characters: Vec<Character>,
+        /// A character that only the chairman can see, but not select.
+        closed_character: Option<Character>,
+        /// The order each player selects a character in.
+        turn_order: Vec<PlayerId>,
+    },
+
+    /// When the player rejoining is currently playing the round this will be sent
+    PlayingRound {
+        /// Player currently playing
+        current_player_id: PlayerId,
+        /// The character of this player.
+        player_character: Character,
+        /// List of previous players and their characters
+        had_turn: Vec<(PlayerId, Character)>,
+
+        /// The amount of cards this player draws.
+        draws_n_cards: u8,
+        /// The amount of cards this player has already drawn.
+        cards_drawn: u8,
+        /// The amount of cards this player gives back.
+        gives_back_n_cards: u8,
+        /// The amount of cards this player has already returned.
+        cards_returned: u8,
+
+        /// The cards that have already been drawn by the player
+        drawn_cards: Vec<usize>,
+        /// Variable to track if the player has used their ability yet
+        used_ability: bool,
+
+        /// The amount of assets this player can play, where each color asset has a different 'unit
+        /// cost' attached to it.
+        playable_assets: PlayableAssets,
+        /// Amount of play credits remaining
+        play_credits_remaining: u8,
+
+        /// The amount of liabilities this player can play.
+        playable_liabilities: u8,
+    },
 }

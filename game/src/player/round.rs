@@ -26,6 +26,7 @@ pub struct RoundPlayer {
     pub(super) has_used_ability: bool,
     pub(super) has_gotten_bonus_cash: bool,
     pub(super) was_first_to_six_assets: bool,
+    pub(super) is_human: bool,
 }
 
 impl RoundPlayer {
@@ -74,6 +75,36 @@ impl RoundPlayer {
         self.was_first_to_six_assets = true;
     }
 
+    /// Gets the human state of this player
+    pub fn is_human(&self) -> bool {
+        self.is_human
+    }
+
+    /// Sets the human state of this player
+    pub fn set_is_human(&mut self, human: bool) {
+        self.is_human = human;
+    }
+
+    /// Returns true if the player has used their ability already
+    pub fn has_used_ability(&self) -> bool {
+        self.has_used_ability
+    }
+
+    /// Returns the amount of cards already drawn by the player
+    pub fn total_cards_drawn(&self) -> u8 {
+        self.total_cards_drawn
+    }
+
+    /// Returns the amount of cards already given back by the player
+    pub fn total_cards_given_back(&self) -> u8 {
+        self.total_cards_given_back
+    }
+
+    /// Returns the list of drawn cards
+    pub fn cards_drawn(&self) -> &[usize] {
+        &self.cards_drawn
+    }
+
     /// Adds a new `card_idx` to the list of cards drawn this round.
     fn update_cards_drawn(&mut self, card_idx: usize) {
         self.cards_drawn = self
@@ -98,6 +129,16 @@ impl RoundPlayer {
     /// Checks whether or not this player can still issue a liability.
     pub fn can_play_liability(&self) -> bool {
         self.liabilities_to_play > 0
+    }
+
+    /// Returns the budget for assets this player can still play.
+    pub fn assets_to_play(&self) -> u8 {
+        self.assets_to_play
+    }
+
+    /// Returns the number of liabilities this player can still issue.
+    pub fn liabilities_to_play(&self) -> u8 {
+        self.liabilities_to_play
     }
 
     /// Redeems a liability for a player by paying for it in cash. If succesful, returns the
@@ -139,7 +180,7 @@ impl RoundPlayer {
         &mut self,
         character: Character,
     ) -> Result<Character, FireCharacterError> {
-        if self.character == Character::Shareholder {
+        if self.character.can_fire_characters() {
             if !self.has_used_ability {
                 if character.can_be_fired() {
                     self.has_used_ability = true;
@@ -178,17 +219,18 @@ impl RoundPlayer {
     }
 
     /// Swaps a list of card indexes `card_idxs` with the deck. Each asset that is swapped is put
-    /// back into the deck and replaced by drawing a new asset, and each liability that is swapped
-    /// is put back into the liability deck and replaced by drawing a new liability. If succesful,
-    /// returns the total number of cards swapped with the deck.
+    /// back into the deck and each liability that is swapped is put back into the liability deck.
+    /// If succesful, returns the total number of assets (left) and liabilties (right) that were
+    /// removed from the player's hand. After this action, the player is able to draw the total
+    /// number of returned cards.
     pub fn swap_with_deck(
         &mut self,
         mut card_idxs: Vec<usize>,
         asset_deck: &mut Deck<Asset>,
         liability_deck: &mut Deck<Liability>,
-    ) -> Result<Vec<usize>, SwapError> {
+    ) -> Result<AssetLiabilityCount, SwapError> {
         if card_idxs.is_empty() {
-            return Ok(vec![0, 0]);
+            return Ok(AssetLiabilityCount::new(0, 0)); // Zero assets, zero liabilities returned.
         }
 
         if self.character == Character::Regulator {
@@ -219,7 +261,7 @@ impl RoundPlayer {
                     }
                     self.has_used_ability = true;
                     self.bonus_draw_cards += removed_card_len as u8;
-                    Ok(vec![asset_count, liability_count])
+                    Ok(AssetLiabilityCount::new(asset_count, liability_count))
                 } else {
                     Err(SwapError::InvalidCardIdxs)
                 }
@@ -233,10 +275,7 @@ impl RoundPlayer {
 
     /// Tries to swap the hands of this player, if they are the
     /// [`Regulator`](Character::Regulator), with the hands of the target player.
-    pub fn regulator_swap_with_player(
-        &mut self,
-        target: &mut RoundPlayer,
-    ) -> Result<(), SwapError> {
+    pub fn swap_with_player(&mut self, target: &mut RoundPlayer) -> Result<(), SwapError> {
         if self.character == Character::Regulator {
             if !self.has_used_ability {
                 self.has_used_ability = true;
@@ -544,6 +583,7 @@ impl TryFrom<SelectingCharactersPlayer> for RoundPlayer {
                     has_used_ability: false,
                     has_gotten_bonus_cash: false,
                     was_first_to_six_assets: false,
+                    is_human: player.is_human,
                 })
             }
             None => Err(GameError::PlayerMissingCharacter),
@@ -561,6 +601,7 @@ impl From<&RoundPlayer> for PlayerInfo {
             liabilities: player.liabilities.clone(),
             cash: player.cash,
             character: Some(player.character),
+            is_human: player.is_human,
         }
     }
 }
@@ -577,6 +618,7 @@ impl From<&RoundPlayer> for BankerTargetPlayer {
             hand: player.hand.clone(),
             liabilities_to_play: player.liabilities_to_play,
             was_first_to_six_assets: player.was_first_to_six_assets,
+            is_human: player.is_human(),
         }
     }
 }
@@ -602,6 +644,7 @@ impl From<&BankerTargetPlayer> for RoundPlayer {
             has_used_ability: false,
             has_gotten_bonus_cash: false,
             was_first_to_six_assets: player.was_first_to_six_assets,
+            is_human: true,
         }
     }
 }
@@ -652,6 +695,7 @@ pub(super) mod tests {
             cash,
             character,
             hand: Default::default(),
+            is_human: Default::default(),
         }
     }
 
@@ -1237,6 +1281,7 @@ pub(super) mod tests {
                         Either::Right(liability(LIABILITY_VALUE)),
                         Either::Right(liability(LIABILITY_VALUE)),
                     ],
+                    is_human: Default::default(),
                 };
                 let mut player = RoundPlayer::try_from(selecting_player).unwrap();
 

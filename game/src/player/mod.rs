@@ -181,6 +181,8 @@ pub struct PlayerInfo {
     pub cash: u8,
     /// The character this player has chosen, if applicable.
     pub character: Option<Character>,
+    /// This player is controlled by a human
+    pub is_human: bool,
 }
 
 impl PlayerInfo {
@@ -204,6 +206,7 @@ impl Default for PlayerInfo {
             liabilities: Default::default(),
             cash: Default::default(),
             character: Default::default(),
+            is_human: Default::default(),
         }
     }
 }
@@ -418,6 +421,16 @@ impl Character {
     /// Returns `true` if this character is allowed to redeem liabilities
     pub fn can_redeem_liabilities(&self) -> bool {
         matches!(self, Self::CFO)
+    }
+
+    /// Returns `true` if this character is allowed to fire other characters.
+    pub fn can_fire_characters(&self) -> bool {
+        matches!(self, Self::Shareholder)
+    }
+
+    /// Returns `true` if this character can force other players to divest an asset.
+    pub fn can_force_others_to_divest(&self) -> bool {
+        matches!(self, Self::Stakeholder)
     }
 
     /// Returns `true` if this character can be fired

@@ -583,7 +583,10 @@ pub fn swap_with_deck(
     let round = state.round_mut()?;
 
     match round.player_swap_with_deck(player_id, card_idxs) {
-        Ok(_c) => {
+        Ok(AssetLiabilityCount {
+            asset_count,
+            liability_count,
+        }) => {
             let internal = round
                 .players()
                 .iter()
@@ -592,8 +595,8 @@ pub fn swap_with_deck(
                     (
                         p.id(),
                         vec![UniqueResponse::SwappedWithDeck {
-                            asset_count: _c[0],
-                            liability_count: _c[1],
+                            asset_count,
+                            liability_count,
                         }],
                     )
                 })
@@ -601,7 +604,7 @@ pub fn swap_with_deck(
             Ok(Response(
                 InternalResponse(internal),
                 DirectResponse::YouSwapDeck {
-                    cards_to_draw: _c[0] + _c[1],
+                    cards_to_draw: asset_count + liability_count,
                 },
             ))
         }
@@ -760,6 +763,86 @@ pub fn end_turn(state: &mut GameState, player_id: PlayerId) -> Result<Response, 
             Ok(Response(
                 InternalResponse(internal),
                 DirectResponse::YouEndedTurn,
+            ))
+        }
+    }
+}
+
+/// Facilitates a client resync by providing a packet containing the full gamestate
+/// Contains data specific to the current gamestate
+pub fn resync(state: &GameState, player_id: PlayerId) -> Result<Response, GameError> {
+    match state {
+        // We do not allow rejoining in lobby or result phase as of now
+        GameState::Lobby(_) => Err(GameError::NotAvailableInLobbyState),
+        GameState::Results(_) => Err(GameError::NotAvailableInResultsState),
+        // Banker phase has to be implemented yet
+        GameState::BankerTarget(_) => todo!(),
+        // During the playing round we need to notify the player of the actions that they can still take
+        GameState::Round(round) => {
+            let player = round.player(player_id)?;
+            // Let the others know which player is reconnecting
+            let internal = round
+                .players()
+                .iter()
+                .map(|p| (p.id(), vec![UniqueResponse::Rejoined { player_id }]))
+                .collect();
+            // Create the resync data specific to the playing round
+            let round_data = ResyncData::PlayingRound {
+                current_player_id: round.current_player().id(),
+                player_character: round.current_player().character(),
+                had_turn: round.played_characters(),
+                draws_n_cards: round.current_player().draws_n_cards(),
+                cards_drawn: round.current_player().total_cards_drawn(),
+                gives_back_n_cards: round.current_player().gives_back_n_cards(),
+                cards_returned: round.current_player().total_cards_given_back(),
+                drawn_cards: round.current_player().cards_drawn().to_vec(),
+                used_ability: round.current_player().has_used_ability(),
+                playable_assets: round.current_player().playable_assets(),
+                play_credits_remaining: round.current_player().assets_to_play(),
+                playable_liabilities: round.current_player().liabilities_to_play(),
+            };
+            // Create the response
+            let response = DirectResponse::YouResynced {
+                id: player.id(),
+                cash: player.cash(),
+                hand: player.hand().to_vec(),
+                assets: player.assets().to_vec(),
+                liabilities: player.liabilities().to_vec(),
+                market: round.current_market().clone(),
+                player_info: round.player_info(player_id),
+                phase: round_data,
+            };
+            Ok(Response(InternalResponse(internal), response))
+        }
+        GameState::SelectingCharacters(round) => {
+            let player = round.player(player_id)?;
+            // Let the other players know which player is reconnecting
+            let internal = round
+                .players()
+                .iter()
+                .map(|p| (p.id(), vec![UniqueResponse::Rejoined { player_id }]))
+                .collect();
+            // Create the resync data specific to the selecting phase
+            let character_select_data = ResyncData::SelectingCharacters {
+                chairman_id: round.chairman_id(),
+                currently_picking_id: round.currently_selecting_id(),
+                selectable_characters: round.player_get_selectable_characters(player_id).ok(),
+                open_characters: round.open_characters().to_vec(),
+                closed_character: round.player_get_closed_character(player_id).ok(),
+                turn_order: round.turn_order(),
+            };
+            Ok(Response(
+                InternalResponse(internal),
+                DirectResponse::YouResynced {
+                    id: player.id(),
+                    cash: player.cash(),
+                    hand: player.hand().to_vec(),
+                    assets: player.assets().to_vec(),
+                    liabilities: player.liabilities().to_vec(),
+                    market: round.current_market().clone(),
+                    player_info: round.player_info(player_id),
+                    phase: character_select_data,
+                },
             ))
         }
     }

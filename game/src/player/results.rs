@@ -246,6 +246,10 @@ impl ResultsPlayer {
     /// Asset abilities are toggleable by default. This function confirms the current configuration,
     /// after which a player cannot toggle this particular index anymore.
     pub fn confirm_asset_ability(&mut self, asset_idx: usize) -> Result<(), GameError> {
+        if self.confirmed_asset_ability_idxs.contains(&asset_idx) {
+            return Err(AssetAbilityError::AlreadyConfirmedAssetIndex(asset_idx as u8).into());
+        }
+
         if let Some(asset) = self.assets.get(asset_idx) {
             match asset.ability {
                 Some(AssetPowerup::MinusIntoPlus) => {
@@ -260,10 +264,6 @@ impl ResultsPlayer {
                 None => {
                     return Err(AssetAbilityError::InvalidAbilityIndex(asset_idx).into());
                 }
-            }
-
-            if self.confirmed_asset_ability_idxs.contains(&asset_idx) {
-                return Err(AssetAbilityError::AlreadyConfirmedAssetIndex(asset_idx as u8).into());
             }
 
             self.confirmed_asset_ability_idxs.push(asset_idx);

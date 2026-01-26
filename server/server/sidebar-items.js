@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["create_room","setupsocket"],"struct":["AppState"]};
+window.SIDEBAR_ITEMS = {"fn":["create_room","send_external","setupsocket","spawn_cleanup_task","websocket","websocket_handler"],"struct":["AppState"]};

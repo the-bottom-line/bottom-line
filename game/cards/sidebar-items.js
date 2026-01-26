@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["DataParseError"],"struct":["GameData"]};
+window.SIDEBAR_ITEMS = {"enum":["DataParseError","MarketEventDetails"],"struct":["AssetCard","DeckList","EventCard","GameData","LiabilityCard","LoadedCards","LoadedCardsMetadata","MarketEventCard","MarketStatusCard"]};

@@ -414,7 +414,7 @@ impl From<&ResultsPlayer> for PlayerInfo {
     }
 }
 
-/// The representation of the result of toggling with [`SilverIntoGold`].
+/// The representation of the result of toggling with [`AssetPowerup::SilverIntoGold`].
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ToggleSilverIntoGold {
     /// The data for the new asset.
@@ -449,7 +449,7 @@ impl ToggleSilverIntoGold {
     }
 }
 
-/// A type that represents the changes made with the [`SilverIntoGold`] asset ability. It contains
+/// A type that represents the changes made with the [`AssetPowerup::SilverIntoGold`] asset ability. It contains
 /// the index of the asset that was changed, as well as its original silver value.
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]
@@ -484,7 +484,7 @@ impl SilverIntoGoldData {
     }
 }
 
-/// The representation of the result of toggling with [`ChangeAssetColor`].
+/// The representation of the result of toggling with [`AssetPowerup::CountAsAnyColor`].
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ToggleChangeAssetColor {
     /// The data for the new asset.
@@ -519,7 +519,7 @@ impl ToggleChangeAssetColor {
     }
 }
 
-/// A type that represents the changes made with the [`ChangeAssetColor`] asset ability. It contains
+/// A type that represents the changes made with the [`AssetPowerup::CountAsAnyColor`] asset ability. It contains
 /// the index of the asset that was changed, as well as its original color.
 #[cfg_attr(feature = "ts", derive(TS))]
 #[cfg_attr(feature = "ts", ts(export_to = crate::SHARED_TS_DIR))]

@@ -69,7 +69,7 @@ impl Results {
         Ok(market.to_owned())
     }
 
-    /// Toggles the [`SilverIntoGold`] asset ability for a particular player.
+    /// Toggles the [`AssetPowerup::SilverIntoGold`] asset ability for a particular player.
     pub fn toggle_silver_into_gold(
         &mut self,
         id: PlayerId,
@@ -81,7 +81,7 @@ impl Results {
         Ok(data)
     }
 
-    /// Toggles the [`ChangeAssetColor`] asset ability for a particular player.
+    /// Toggles the [`AssetPowerup::CountAsAnyColor`] asset ability for a particular player.
     pub fn toggle_change_asset_color(
         &mut self,
         id: PlayerId,

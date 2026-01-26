@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["cards","errors","game","player","utility"],"static":["SHARED_TS_DIR"]};

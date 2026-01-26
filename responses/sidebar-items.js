@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Connect","DirectResponse","FrontendRequest","ResponseError","ResyncData","RoomCloseReason","UniqueResponse"]};

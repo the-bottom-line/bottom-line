@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AssetAbilityError","BankerTargetSelectError","DivestAssetError","DrawCardError","FireCharacterError","GameError","GetBonusCashError","GiveBackCardError","LobbyError","PayBankerError","PlayCardError","RedeemLiabilityError","SelectingCharactersError","SwapError","TerminateCreditCharacterError"]};

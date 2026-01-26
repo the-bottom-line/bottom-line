@@ -1,2 +1,2 @@
-window.ALL_CRATES = ["server"];
-//{"start":21,"fragment_lengths":[8]}
+window.ALL_CRATES = ["game","responses","server"];
+//{"start":21,"fragment_lengths":[6,12,9]}

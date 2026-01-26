@@ -1,2 +1,2 @@
-createSrcSidebar('[["server",["",[],["lib.rs","request_handler.rs","rooms.rs","server.rs"]]]]');
-//{"start":19,"fragment_lengths":[73]}
+createSrcSidebar('[["game",["",[["game",[],["banker_target.rs","lobby.rs","mod.rs","results.rs","round.rs","selecting_characters.rs"]],["player",[],["banker_target.rs","lobby.rs","mod.rs","results.rs","round.rs","selecting_characters.rs"]]],["cards.rs","errors.rs","lib.rs","utility.rs"]]],["responses",["",[],["lib.rs"]]],["server",["",[],["lib.rs","request_handler.rs","rooms.rs","server.rs"]]]]');
+//{"start":19,"fragment_lengths":[270,33,74]}

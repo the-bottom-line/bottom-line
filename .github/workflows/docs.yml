@@ -16,7 +16,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Build docs
-        run: cargo doc --all --no-deps
+        run: cargo doc --all --no-deps --document-private-items
         
       - name: Add landing page
         run: |
